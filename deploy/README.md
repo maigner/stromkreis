@@ -29,3 +29,17 @@ https://stromkreis.net {
 ```
 
 `PUBLIC_ORIGIN=https://stromkreis.net` in der Server-`.env` muss dazu passen (SvelteKit-CSRF-Prüfung). Nach Caddyfile-Änderungen: `docker exec caddy-reverse-proxy caddy reload --config /etc/caddy/Caddyfile`.
+
+## Mandanten und Betreiber verwalten
+
+Provider-CLI am Server (im laufenden Plattform-Container):
+
+```sh
+cd /home/martin/Container/stromkreis
+docker compose exec platform node scripts/admin.js tenant:list
+docker compose exec platform node scripts/admin.js tenant:create <slug> <name> <breite> <laenge>
+docker compose exec platform node scripts/admin.js operator:create <tenant-slug> <name> <email>
+docker compose exec platform node scripts/admin.js invite <tenant-slug> <email>
+```
+
+`operator:create` und `invite` drucken einen Einmal-Login-Link (7 Tage gültig), der manuell an die Person übergeben wird.

@@ -28,6 +28,8 @@ Open-Meteo  ──────────────▶    │                
 - Mandantenfähige Weboberfläche: Community-Dashboard, Mitgliedersicht, Prognoseseite
 - IBM-API: Ladefenster-Endpunkte, Statusmeldungen der Gateways
 - Auth per Magic-Link (passwortlos), Autorisierung nach Rolle (Mitglied, Vorstand, Betreiber) und Mandant; jeder Mandant hat mindestens einen Betreiber-Login (wird beim Onboarding sichergestellt)
+- Login-Mechanik: Einmal-Token (`login_token`, 7 Tage gültig, nur Hash gespeichert) wird gegen eine Session (`session`, 30 Tage, HttpOnly-Cookie) eingetauscht. Bis SMTP angebunden ist, erzeugt der Plattform-Betreiber die Links per Admin-CLI und übergibt sie manuell; der E-Mail-Versand nutzt später denselben Token-Fluss
+- Provider-Setup (Mandanten und Betreiber anlegen, Login-Links): `platform/scripts/admin.js`, läuft im Plattform-Container gegen `DATABASE_URL`
 - Zeitzone durchgehend Europe/Vienna; Vorsicht bei Datumslogik
 
 ### pipeline/ (Python)

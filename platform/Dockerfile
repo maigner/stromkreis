@@ -11,6 +11,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/build ./build
+COPY scripts ./scripts
 EXPOSE 3000
 USER node
 CMD ["node", "build"]
