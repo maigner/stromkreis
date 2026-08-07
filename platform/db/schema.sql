@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict PUvuiCCYBGaci3woYSNf1mhZQItryeodF8VoZAar1sczvJ5KDp6k8VlKsQ8QLFQ
+\restrict fS6dIefC6JjXP9yFd8JQub9AIu5cs9lQZqWFRJYctrk6KmzzCXIW0F9hAxhSzRM
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -80,7 +80,8 @@ CREATE TABLE public.member (
     role text DEFAULT 'member'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT member_role_check CHECK ((role = ANY (ARRAY['member'::text, 'board'::text])))
+    CONSTRAINT member_operator_has_email CHECK (((role <> 'operator'::text) OR (email IS NOT NULL))),
+    CONSTRAINT member_role_check CHECK ((role = ANY (ARRAY['member'::text, 'board'::text, 'operator'::text])))
 );
 
 
@@ -279,7 +280,8 @@ ALTER TABLE ONLY public.member
 -- PostgreSQL database dump complete
 --
 
-\unrestrict PUvuiCCYBGaci3woYSNf1mhZQItryeodF8VoZAar1sczvJ5KDp6k8VlKsQ8QLFQ
+\unrestrict fS6dIefC6JjXP9yFd8JQub9AIu5cs9lQZqWFRJYctrk6KmzzCXIW0F9hAxhSzRM
 
 INSERT INTO public.schema_migrations VALUES ('20260807120000');
 INSERT INTO public.schema_migrations VALUES ('20260807120100');
+INSERT INTO public.schema_migrations VALUES ('20260807130000');

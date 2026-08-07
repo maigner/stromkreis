@@ -27,7 +27,7 @@ Open-Meteo  ──────────────▶    │                
 
 - Mandantenfähige Weboberfläche: Community-Dashboard, Mitgliedersicht, Prognoseseite
 - IBM-API: Ladefenster-Endpunkte, Statusmeldungen der Gateways
-- Auth per Magic-Link (passwortlos), Autorisierung nach Rolle (Mitglied, Vorstand) und Mandant
+- Auth per Magic-Link (passwortlos), Autorisierung nach Rolle (Mitglied, Vorstand, Betreiber) und Mandant; jeder Mandant hat mindestens einen Betreiber-Login (wird beim Onboarding sichergestellt)
 - Zeitzone durchgehend Europe/Vienna; Vorsicht bei Datumslogik
 
 ### pipeline/ (Python)
@@ -53,7 +53,7 @@ Werkzeug (August 2026): **dbmate**. Migrationen sind reines SQL unter `platform/
 ## Wichtige Datenmodell-Eckpunkte
 
 - `tenant`: EEG mit Name, Standort (für Wetter), Branding-Minimum
-- `measurement_point`, `member`: einfaches Verzeichnis je Mandant, admin-gepflegt oder CSV-Import
+- `measurement_point`, `member`: einfaches Verzeichnis je Mandant, vom Betreiber gepflegt oder per CSV importiert. Rollen: `member` (Mitglied), `board` (Vorstand), `operator` (Betreiber, verwaltet den Mandanten, braucht eine E-Mail für den Magic-Link-Login)
 - 15-Minuten-Reihen aus EEG-Faktura; `Anteil gemeinschaftliche Erzeugung` = gesamte Gemeinschaftserzeugung, `Eigendeckung` = tatsächlich verbrauchter Anteil (Semantik aus ISCHLSTROM übernehmen)
 - `forecast_run` / `forecast`: versionierte Prognoseläufe
 - `battery_site`: Anlage mit Wechselrichterprofil, Gateway-Token, Ladefenster-Konfiguration
