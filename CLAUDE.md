@@ -13,7 +13,7 @@ The reference implementation and porting source is the ISCHLSTROM monorepo at `~
 - `platform/` — SvelteKit 5 + Tailwind 4 app (JS with jsdoc, adapter-node): multi-tenant web UI + IBM API. Commands (from `platform/`): `npm run dev`, `npm run build`, `npm run check`, `npm run preview`.
 - `pipeline/` — Python data pipeline: EEG-Faktura import, Open-Meteo weather import, forecast runs. One scheduled pipeline looping over tenants.
 - `gateway/` — per-inverter-profile packages installed at members' homes (hardware list, setup guide, control logic). Gateways poll the platform outbound via HTTPS with per-site tokens; no inbound access to home networks.
-- `docs/` — vision, architecture, roadmap (German).
+- `docs/` — vision, architecture, roadmap, current working status (`status.md`) (German).
 - `deploy/` — test deployment: compose stack (Postgres + platform + dbmate migrate) on the homelab host `server` at `/home/martin/Container/stromkreis`, deployed via `deploy/deploy.sh` (rsync source, build on server; no git involved). Platform listens on 127.0.0.1:4000 behind the server's Caddy, publicly reachable at https://stromkreis.net; secrets live only in the server-side `.env`.
 
 ## Conventions
