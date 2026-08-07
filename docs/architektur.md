@@ -48,6 +48,8 @@ Open-Meteo  ──────────────▶    │                
 
 Anders als im ISCHLSTROM-Monorepo (Django migriert, SvelteKit liest per Raw-SQL) gibt es in Stromkreis **eine** Schema-Autorität. Entscheidung bei Projektstart: Migrationen leben bei der Plattform; die Pipeline konsumiert das Schema als dokumentierten Vertrag.
 
+Werkzeug (August 2026): **dbmate**. Migrationen sind reines SQL unter `platform/db/migrations/`; das generierte `platform/db/schema.sql` ist eingecheckt und ist der Vertrag, den die Pipeline liest. Referenzen zwischen Fachtabellen nutzen zusammengesetzte Fremdschlüssel über `(tenant_id, id)`, damit mandantenübergreifende Verweise schon auf Datenbankebene scheitern.
+
 ## Wichtige Datenmodell-Eckpunkte
 
 - `tenant`: EEG mit Name, Standort (für Wetter), Branding-Minimum
@@ -59,7 +61,7 @@ Anders als im ISCHLSTROM-Monorepo (Django migriert, SvelteKit liest per Raw-SQL)
 
 ## Verhältnis zu ISCHLSTROM
 
-Das Repo `Energiegemeinschaft` bleibt bestehen (Website, Finanzen, Onboarding). ISCHLSTROM wird Tenant Nr. 1 von Stromkreis und ersetzt schrittweise die eigenen Energie- und IBM-Teile durch die Plattform. Portierungsquellen:
+Das Repo `Energiegemeinschaft` bleibt bestehen (Website, Finanzen, Onboarding). ISCHLSTROM bleibt vorerst auf eigener Infrastruktur; ein späterer Umzug auf die Plattform ist eine Option, keine Voraussetzung. Erster Mandant ist der Dummy **Salzkammerstrom** (Testdaten), an dem Import, Prognose und Dashboards durchgängig entwickelt und geprüft werden. ISCHLSTROM bleibt Referenzimplementierung und Portierungsquelle:
 
 - `notebooks/energyData/`, `notebooks/eegfaktura/` → pipeline (Import)
 - `notebooks/forecast/eeg_forecast.py` → pipeline (Prognose)

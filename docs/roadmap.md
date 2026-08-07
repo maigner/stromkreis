@@ -13,7 +13,7 @@
 - Wetterimport und Prognoselauf je Mandant (portiert aus `eeg_forecast.py`)
 - Dashboards und Prognoseseite
 - Magic-Link-Login, Rollen Mitglied/Vorstand, Mitglieder- und Zählpunktverzeichnis (Admin-Pflege, CSV-Import)
-- **Erfolgskriterium:** Die Energie-Seiten von ISCHLSTROM laufen aus der Plattform.
+- **Erfolgskriterium:** Der Dummy-Mandant Salzkammerstrom durchläuft die gesamte Kette (Import, Prognose, Dashboards) und bildet die ISCHLSTROM-Energieseiten funktional nach.
 
 ## Phase 2: IBM als Produkt (2 bis 3 Monate, überlappend)
 

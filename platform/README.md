@@ -1,42 +1,28 @@
-# sv
+# Stromkreis Platform
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SvelteKit 5 + Tailwind 4 (JS mit jsdoc, adapter-node): mandantenfähige Weboberfläche und IBM-API.
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+## Entwicklung
 
 ```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.17.0 create --template minimal --types jsdoc --install npm platform
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+`npm run build` erzeugt den Produktions-Build, `npm run preview` zeigt ihn lokal, `npm run check` prüft mit svelte-check.
 
-To create a production version of your app:
+## Datenbank
+
+Die Schema-Autorität liegt hier bei der Plattform. Migrationen sind reines SQL ([dbmate](https://github.com/amacneil/dbmate)) unter `db/migrations/`; das generierte `db/schema.sql` ist eingecheckt und dient der Pipeline als dokumentierter Vertrag.
 
 ```sh
-npm run build
+cp .env.example .env        # DATABASE_URL anpassen
+npm run db:migrate          # Migrationen anwenden (legt die DB bei Bedarf an)
+npm run db:status           # Stand anzeigen
+npm run db:rollback         # letzte Migration zurücknehmen
+npm run db:new -- name      # neue Migration anlegen
 ```
 
-You can preview the production build with `npm run preview`.
+Hinweis: Zum automatischen Aktualisieren von `db/schema.sql` braucht dbmate lokal `pg_dump` (Paket `postgresql-client`). Ohne Client-Tools laufen die Migrationen trotzdem, nur der Dump wird nicht erneuert.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Konvention: Jede Fachtabelle trägt `tenant_id not null references tenant (id)`. Referenzen zwischen Fachtabellen verwenden zusammengesetzte Fremdschlüssel über `(tenant_id, id)`, damit mandantenübergreifende Verweise schon auf Datenbankebene unmöglich sind (siehe `measurement_point.member_id`).
