@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stromkreis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in .env}
+      POSTGRES_DB: stromkreis
+      TZ: Europe/Vienna
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stromkreis -d stromkreis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Einmalig je Deploy: docker compose run --rm migrate
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
+    volumes:
+      - ./src/platform/db:/db:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["--no-dump-schema", "up"]
+
+  platform:
+    build: ./src/platform
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
+      ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4000}
+      TZ: Europe/Vienna
+    ports:
+      - "127.0.0.1:4000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
