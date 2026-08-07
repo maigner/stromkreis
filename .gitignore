@@ -1,0 +1,20 @@
+# secrets & local config
+.env
+.env.*
+!.env.example
+.pg_service.conf
+.pgpass
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# data dumps
+*.dmp
+*.csv
+!**/fixtures/**/*.csv
+
+# editors / os
+.DS_Store
