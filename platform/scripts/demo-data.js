@@ -101,46 +101,87 @@ const METER_CODES = [
 	{ kind: 'overshoot', description: 'Gesamt/Überschusserzeugung, Gemeinschaftsüberschuss' }
 ];
 
+// Standorte im Salzkammergut: echte Ortskoordinaten, erfundene Adressen
 const SITES = [
 	{
-		name: 'Anlage Pfandl', profile: 'fronius-symo', member: 1, capacityKwh: 11, minutesAgo: 2,
-		soc: 76, battery_w: -1450, pv_kwp: 18
+		name: 'Anlage Bad Ischl', profile: 'fronius-symo', member: 1, capacityKwh: 11, minutesAgo: 2,
+		soc: 76, battery_w: -1450, pv_kwp: 18, lat: 47.7106, lon: 13.6244,
+		address: 'Kaltenbachstraße 14, 4820 Bad Ischl'
 	},
 	{
-		name: 'Anlage Kaltenbach', profile: 'sigenergy', member: 6, capacityKwh: 16, minutesAgo: 1,
-		soc: 64, battery_w: -2100, pv_kwp: 30
+		name: 'Anlage Bad Goisern', profile: 'sigenergy', member: 6, capacityKwh: 16, minutesAgo: 1,
+		soc: 64, battery_w: -2100, pv_kwp: 30, lat: 47.6435, lon: 13.619,
+		address: 'Untere Marktstraße 8, 4822 Bad Goisern'
 	},
 	{
-		name: 'Anlage Reiterndorf', profile: 'victron', member: 4, capacityKwh: 7.7, minutesAgo: 187,
-		soc: 41, battery_w: 380, pv_kwp: 0
+		name: 'Anlage Ebensee', profile: 'victron', member: 4, capacityKwh: 7.7, minutesAgo: 187,
+		soc: 41, battery_w: 380, pv_kwp: 0, lat: 47.8076, lon: 13.7772,
+		address: 'Traunkai 5, 4802 Ebensee'
 	},
 	{
-		name: 'Anlage Lauffen', profile: 'deye', member: 0, capacityKwh: 10, minutesAgo: 4,
-		soc: 58, battery_w: -900, pv_kwp: 8
+		name: 'Anlage Gmunden', profile: 'deye', member: 0, capacityKwh: 10, minutesAgo: 4,
+		soc: 58, battery_w: -900, pv_kwp: 8, lat: 47.9184, lon: 13.7995,
+		address: 'Seeuferstraße 21, 4810 Gmunden'
 	},
 	{
-		name: 'Anlage Perneck', profile: 'fronius-symo', member: 2, capacityKwh: 8.8, minutesAgo: 3,
-		soc: 82, battery_w: -600, pv_kwp: 10
+		name: 'Anlage Altmünster', profile: 'fronius-symo', member: 2, capacityKwh: 8.8, minutesAgo: 3,
+		soc: 82, battery_w: -600, pv_kwp: 10, lat: 47.9022, lon: 13.7634,
+		address: 'Maisdorfer Weg 3, 4813 Altmünster'
 	},
 	{
-		name: 'Anlage Jainzen', profile: 'sigenergy', member: 3, capacityKwh: 12.5, minutesAgo: 6,
-		soc: 47, battery_w: -1800, pv_kwp: 14
+		name: 'Anlage Traunkirchen', profile: 'sigenergy', member: 3, capacityKwh: 12.5, minutesAgo: 6,
+		soc: 47, battery_w: -1800, pv_kwp: 14, lat: 47.8449, lon: 13.7873,
+		address: 'Klosterweg 2, 4801 Traunkirchen'
 	},
 	{
-		name: 'Anlage Haiden', profile: 'victron', member: 5, capacityKwh: 5.1, minutesAgo: 2,
-		soc: 91, battery_w: 0, pv_kwp: 6
+		name: 'Anlage St. Wolfgang', profile: 'victron', member: 5, capacityKwh: 5.1, minutesAgo: 2,
+		soc: 91, battery_w: 0, pv_kwp: 6, lat: 47.7405, lon: 13.4464,
+		address: 'Pilgerweg 17, 5360 St. Wolfgang'
 	},
 	{
-		name: 'Anlage Rettenbach', profile: 'deye', member: 7, capacityKwh: 15, minutesAgo: 8,
-		soc: 22, battery_w: -2600, pv_kwp: 20
+		name: 'Anlage Strobl', profile: 'deye', member: 7, capacityKwh: 15, minutesAgo: 8,
+		soc: 22, battery_w: -2600, pv_kwp: 20, lat: 47.7172, lon: 13.4863,
+		address: 'Bürglsteinstraße 9, 5350 Strobl'
 	},
 	{
-		name: 'Anlage Ahorn', profile: 'fronius-symo', member: 8, capacityKwh: 9.6, minutesAgo: 5,
-		soc: 69, battery_w: 250, pv_kwp: 7
+		name: 'Anlage Mondsee', profile: 'fronius-symo', member: 8, capacityKwh: 9.6, minutesAgo: 5,
+		soc: 69, battery_w: 250, pv_kwp: 7, lat: 47.856, lon: 13.348,
+		address: 'Herzog-Odilo-Straße 30, 5310 Mondsee'
 	},
 	{
-		name: 'Anlage Lindau', profile: 'sigenergy', member: 9, capacityKwh: 24, minutesAgo: 1,
-		soc: 55, battery_w: -3400, pv_kwp: 12
+		name: 'Anlage Obertraun', profile: 'sigenergy', member: 9, capacityKwh: 24, minutesAgo: 1,
+		soc: 55, battery_w: -3400, pv_kwp: 12, lat: 47.559, lon: 13.689,
+		address: 'Höhlenweg 4, 4831 Obertraun'
+	},
+	{
+		name: 'Anlage Hallstatt', profile: 'fronius-symo', member: 0, capacityKwh: 6.5, minutesAgo: 3,
+		soc: 73, battery_w: -750, pv_kwp: 5, lat: 47.5622, lon: 13.6493,
+		address: 'Salzbergstraße 6, 4830 Hallstatt'
+	},
+	{
+		name: 'Anlage Gosau', profile: 'deye', member: 2, capacityKwh: 12, minutesAgo: 42,
+		soc: 38, battery_w: 620, pv_kwp: 9, lat: 47.585, lon: 13.536,
+		address: 'Gosauseestraße 11, 4824 Gosau'
+	},
+	{
+		name: 'Anlage St. Gilgen', profile: 'sigenergy', member: 4, capacityKwh: 14, minutesAgo: 2,
+		soc: 67, battery_w: -1600, pv_kwp: 16, lat: 47.7666, lon: 13.3653,
+		address: 'Mozartplatz 3, 5340 St. Gilgen'
+	},
+	{
+		name: 'Anlage Fuschl am See', profile: 'victron', member: 6, capacityKwh: 9.2, minutesAgo: 6,
+		soc: 84, battery_w: -400, pv_kwp: 8, lat: 47.7997, lon: 13.3038,
+		address: 'Seepromenade 8, 5330 Fuschl am See'
+	},
+	{
+		name: 'Anlage Unterach', profile: 'fronius-symo', member: 8, capacityKwh: 11, minutesAgo: 4,
+		soc: 61, battery_w: -1100, pv_kwp: 12, lat: 47.808, lon: 13.488,
+		address: 'Atterseestraße 19, 4866 Unterach am Attersee'
+	},
+	{
+		name: 'Anlage Steinbach', profile: 'deye', member: 5, capacityKwh: 8, minutesAgo: 7,
+		soc: 79, battery_w: -500, pv_kwp: 7, lat: 47.828, lon: 13.532,
+		address: 'Forstamtstraße 2, 4853 Steinbach am Attersee'
 	}
 ];
 
@@ -314,9 +355,9 @@ async function seed(slug) {
 				openhabian_version: '1.9.1'
 			};
 			await sql`
-				insert into battery_site (tenant_id, member_id, name, inverter_profile, token_hash, last_seen_at, status)
+				insert into battery_site (tenant_id, member_id, name, inverter_profile, token_hash, last_seen_at, status, latitude, longitude, address)
 				values (${tenant.id}, ${members[s.member].id}, ${s.name}, ${s.profile}, ${hash},
-					${new Date(now - s.minutesAgo * 60000)}, ${status})
+					${new Date(now - s.minutesAgo * 60000)}, ${status}, ${s.lat}, ${s.lon}, ${s.address})
 			`;
 			console.log(`Anlage '${s.name}' (${s.profile}), Gateway-Token: ${token}`);
 		}

@@ -1,5 +1,10 @@
 <script>
+	import SiteMap from './SiteMap.svelte';
+
 	let { data } = $props();
+
+	/** @type {'anlagen' | 'standorte' | 'energie'} */
+	let tab = $state('anlagen');
 
 	const roleLabels = { member: 'Mitglied', board: 'Vorstand', operator: 'Betreiber' };
 	/** @type {Record<string, string>} */
@@ -81,9 +86,37 @@
 			</form>
 		</header>
 
+		<nav class="flex gap-6 border-b border-neutral-200 dark:border-neutral-800" aria-label="Bereiche">
+			<button
+				class="-mb-px border-b-2 pb-2 text-sm font-medium {tab === 'anlagen'
+					? 'border-amber-500 text-neutral-900 dark:text-neutral-100'
+					: 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}"
+				onclick={() => (tab = 'anlagen')}
+			>
+				Anlagen
+			</button>
+			<button
+				class="-mb-px border-b-2 pb-2 text-sm font-medium {tab === 'standorte'
+					? 'border-amber-500 text-neutral-900 dark:text-neutral-100'
+					: 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}"
+				onclick={() => (tab = 'standorte')}
+			>
+				Standorte
+			</button>
+			<button
+				class="-mb-px border-b-2 pb-2 text-sm font-medium {tab === 'energie'
+					? 'border-amber-500 text-neutral-900 dark:text-neutral-100'
+					: 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}"
+				onclick={() => (tab = 'energie')}
+			>
+				Energie
+			</button>
+		</nav>
+
+		{#if tab === 'anlagen'}
 		<section>
-			<h2 class="text-lg font-semibold">Anlagen</h2>
-			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+			<h2 class="sr-only">Anlagen</h2>
+			<p class="text-sm text-neutral-600 dark:text-neutral-400">
 				openHABian-Gateways der Mitglieder, Status per HTTPS-Push
 			</p>
 
@@ -105,6 +138,9 @@
 							<p class="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">
 								{site.member_name ?? 'Ohne Mitglied'} · {profileLabels[site.inverter_profile] ?? site.inverter_profile}
 							</p>
+							{#if site.address}
+								<p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{site.address}</p>
+							{/if}
 							<p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
 								openHABian {site.status.openhabian_version ?? '?'} · openHAB {site.status.openhab_version ?? '?'} · {seenLabel(site)}
 							</p>
@@ -149,7 +185,31 @@
 				</div>
 			{/if}
 		</section>
-
+		{:else if tab === 'standorte'}
+		<section class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+			<div class="flex flex-wrap items-baseline justify-between gap-2">
+				<h2 class="text-lg font-semibold">Standorte</h2>
+				<div class="flex gap-4 text-xs text-neutral-600 dark:text-neutral-400">
+					<span class="flex items-center gap-1.5">
+						<span class="inline-block h-2.5 w-2.5 rounded-full bg-green-600"></span>
+						Online
+					</span>
+					<span class="flex items-center gap-1.5">
+						<span class="inline-block h-2.5 w-2.5 rounded-full bg-red-600"></span>
+						Offline
+					</span>
+				</div>
+			</div>
+			<p class="mt-1 mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+				Alle Anlagen der Gemeinschaft auf der Karte
+			</p>
+			{#if data.sites.some((s) => s.latitude != null && s.longitude != null)}
+				<SiteMap sites={data.sites} center={data.center} />
+			{:else}
+				<p class="text-sm text-neutral-500 dark:text-neutral-400">Noch keine Anlagen mit Standort.</p>
+			{/if}
+		</section>
+		{:else}
 		{#if gestern}
 			<section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
 				<div class="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -258,5 +318,6 @@
 				</svg>
 			{/if}
 		</section>
+		{/if}
 	</main>
 </div>

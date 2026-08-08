@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0xdqZlqjcdMay3JJafKudQm75vhdcwRg0hgU97uMi0P29H76aqFio8zgOxZu0PZ
+\restrict taPUZACi2C2H90oiAnboRlSgkEdRx0dW0Xhsm0uSlbqiKW3SLrSZaaDnMpkrtos
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -53,7 +53,10 @@ CREATE TABLE public.battery_site (
     last_seen_at timestamp with time zone,
     status jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    latitude double precision,
+    longitude double precision,
+    address text
 );
 
 
@@ -704,7 +707,7 @@ ALTER TABLE ONLY public.weather
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0xdqZlqjcdMay3JJafKudQm75vhdcwRg0hgU97uMi0P29H76aqFio8zgOxZu0PZ
+\unrestrict taPUZACi2C2H90oiAnboRlSgkEdRx0dW0Xhsm0uSlbqiKW3SLrSZaaDnMpkrtos
 
 INSERT INTO public.schema_migrations VALUES ('20260807120000');
 INSERT INTO public.schema_migrations VALUES ('20260807120100');
@@ -712,3 +715,5 @@ INSERT INTO public.schema_migrations VALUES ('20260807130000');
 INSERT INTO public.schema_migrations VALUES ('20260807140000');
 INSERT INTO public.schema_migrations VALUES ('20260808120000');
 INSERT INTO public.schema_migrations VALUES ('20260808150000');
+INSERT INTO public.schema_migrations VALUES ('20260808170000');
+INSERT INTO public.schema_migrations VALUES ('20260808180000');

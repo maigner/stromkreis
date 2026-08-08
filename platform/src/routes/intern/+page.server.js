@@ -35,7 +35,7 @@ export async function load({ locals }) {
 	}
 
 	const sites = await sql`
-		select b.id, b.name, b.inverter_profile, b.status,
+		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address,
 			coalesce(b.last_seen_at > now() - interval '10 minutes', false) as online,
 			extract(epoch from now() - b.last_seen_at)::int as seen_seconds_ago,
 			mem.name as member_name
@@ -45,8 +45,13 @@ export async function load({ locals }) {
 		order by b.name
 	`;
 
+	const [tenantLocation] = await sql`
+		select latitude, longitude from tenant where id = ${tenantId}
+	`;
+
 	return {
 		days: [...byDay.values()],
-		sites: sites.map((s) => ({ ...s }))
+		sites: sites.map((s) => ({ ...s })),
+		center: /** @type {[number, number]} */ ([tenantLocation.longitude, tenantLocation.latitude])
 	};
 }
