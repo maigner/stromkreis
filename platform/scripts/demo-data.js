@@ -113,6 +113,34 @@ const SITES = [
 	{
 		name: 'Anlage Reiterndorf', profile: 'victron', member: 4, capacityKwh: 7.7, minutesAgo: 187,
 		soc: 41, battery_w: 380, pv_kwp: 0
+	},
+	{
+		name: 'Anlage Lauffen', profile: 'deye', member: 0, capacityKwh: 10, minutesAgo: 4,
+		soc: 58, battery_w: -900, pv_kwp: 8
+	},
+	{
+		name: 'Anlage Perneck', profile: 'fronius-symo', member: 2, capacityKwh: 8.8, minutesAgo: 3,
+		soc: 82, battery_w: -600, pv_kwp: 10
+	},
+	{
+		name: 'Anlage Jainzen', profile: 'sigenergy', member: 3, capacityKwh: 12.5, minutesAgo: 6,
+		soc: 47, battery_w: -1800, pv_kwp: 14
+	},
+	{
+		name: 'Anlage Haiden', profile: 'victron', member: 5, capacityKwh: 5.1, minutesAgo: 2,
+		soc: 91, battery_w: 0, pv_kwp: 6
+	},
+	{
+		name: 'Anlage Rettenbach', profile: 'deye', member: 7, capacityKwh: 15, minutesAgo: 8,
+		soc: 22, battery_w: -2600, pv_kwp: 20
+	},
+	{
+		name: 'Anlage Ahorn', profile: 'fronius-symo', member: 8, capacityKwh: 9.6, minutesAgo: 5,
+		soc: 69, battery_w: 250, pv_kwp: 7
+	},
+	{
+		name: 'Anlage Lindau', profile: 'sigenergy', member: 9, capacityKwh: 24, minutesAgo: 1,
+		soc: 55, battery_w: -3400, pv_kwp: 12
 	}
 ];
 
