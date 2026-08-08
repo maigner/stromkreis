@@ -9,11 +9,12 @@
 ## Phase 1: Mandantenfähiger Datenkern (3 bis 4 Monate)
 
 - Schema mit `tenant_id` durchgängig; Migrationsautorität bei der Plattform
-- EEG-Faktura-Importer als erste und einzige Datenquelle
+- Demo-Datengenerator für den Demo-Mandanten Salzkammerstrom (erfundene, plausible 15-Minuten-Reihen)
+- EEG-Faktura-Importer als Datenquelle für echte Mandanten, erprobt am Test-Mandanten ISCHLSTROM
 - Wetterimport und Prognoselauf je Mandant (portiert aus `eeg_forecast.py`)
 - Dashboards und Prognoseseite
 - Magic-Link-Login, Rollen Mitglied/Vorstand, Mitglieder- und Zählpunktverzeichnis (Admin-Pflege, CSV-Import)
-- **Erfolgskriterium:** Der Dummy-Mandant Salzkammerstrom durchläuft die gesamte Kette (Import, Prognose, Dashboards) und bildet die ISCHLSTROM-Energieseiten funktional nach.
+- **Erfolgskriterium:** Der Demo-Mandant Salzkammerstrom durchläuft mit generierten Daten die gesamte Kette (Prognose, Dashboards); der EEG-Faktura-Import ist am echten Test-Mandanten ISCHLSTROM nachgewiesen und bildet die ISCHLSTROM-Energieseiten funktional nach.
 
 ## Phase 2: IBM als Produkt (2 bis 3 Monate, überlappend)
 

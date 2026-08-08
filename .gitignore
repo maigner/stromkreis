@@ -16,5 +16,8 @@ __pycache__/
 *.csv
 !**/fixtures/**/*.csv
 
+# drafts (nicht veröffentlichen, z.B. Anfrage-Entwürfe)
+docs/drafts/
+
 # editors / os
 .DS_Store

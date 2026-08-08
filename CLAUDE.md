@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Stromkreis** is a non-profit, open-source (AGPL-3.0) multi-tenant platform for Austrian energy communities (EEGs), to be hosted at **stromkreis.net**. Scope: EEG-Faktura energy-data import + dashboards/forecast, and generalized intelligent battery management (IBM). Explicitly out of scope: billing, finance, member onboarding. See `docs/vision.md`, `docs/architektur.md`, `docs/roadmap.md`.
 
-The reference implementation and porting source is the ISCHLSTROM monorepo at `~/Workspace/Energiegemeinschaft`. ISCHLSTROM stays on its own infrastructure for now (a later move to the platform is an option, not a prerequisite); the first tenant is the dummy EEG **Salzkammerstrom** (test data only).
+The reference implementation and porting source is the ISCHLSTROM monorepo at `~/Workspace/Energiegemeinschaft`. The dummy EEG **Salzkammerstrom** is the demo tenant: made-up, generated data, no EEG-Faktura access. **ISCHLSTROM** is the first real testing tenant (real EEG-Faktura import); its own infrastructure (website, finance) keeps running in parallel, a full move to the platform stays a later option.
 
 ## Structure
 

@@ -1,13 +1,14 @@
-# Stand: 7. August 2026
+# Stand: 8. August 2026
 
-Arbeitsstand nach dem ersten Entwicklungstag, zum Weiterarbeiten (z.B. am MacBook).
+Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
 
 ## Entscheidungen
 
-- **Erster Mandant ist der Dummy "Salzkammerstrom"** (Standort Bad Ischl, per Migration angelegt). ISCHLSTROM bleibt vorerst auf eigener Infrastruktur; ein Umzug ist eine spätere Option.
+- **Salzkammerstrom ist Demo-Mandant, ISCHLSTROM erster echter Test-Mandant (8.8.).** Der Dummy Salzkammerstrom (Standort Bad Ischl, per Migration angelegt) bekommt erfundene, generierte Daten und dient zum Entwickeln und Vorführen; er braucht keinen EEG-Faktura-Zugang. ISCHLSTROM wird als Mandant angelegt, sobald der Importer steht, und testet die echte Kette mit echten EEG-Faktura-Daten (Zugangsdaten nur in der Server-`.env`). Die eigene ISCHLSTROM-Infrastruktur läuft parallel weiter; ein vollständiger Umzug bleibt eine spätere Option.
 - **Migrationswerkzeug: dbmate.** Reines SQL unter `platform/db/migrations/`, das generierte `platform/db/schema.sql` ist eingecheckt und der Vertrag für die Pipeline. Referenzen zwischen Fachtabellen als zusammengesetzte Fremdschlüssel über `(tenant_id, id)`, damit mandantenübergreifende Verweise auf DB-Ebene scheitern.
 - **Rollen:** `member` (Mitglied), `board` (Vorstand), `operator` (Betreiber). Jeder Mandant hat mindestens einen Betreiber-Login; das sichert der Onboarding-Ablauf, kein DB-Constraint. Betreiber brauchen eine E-Mail (Check-Constraint).
 - **Login ohne SMTP:** Einmal-Login-Links (7 Tage, nur SHA-256-Hash gespeichert) werden per Admin-CLI erzeugt und manuell übergeben; sie werden gegen eine Session (30 Tage, HttpOnly-Cookie) eingetauscht. Der spätere E-Mail-Magic-Link nutzt denselben Token-Fluss, es fehlt nur der Versand.
+- **Betreiber-Login mit EEGFaktura-Konto: später, nicht jetzt (8.8.).** Wunschziel ist "Anmelden mit EEGFaktura" per OIDC gegen deren Keycloak (login.eegfaktura.at, Realm `EEGFaktura`). Geprüft: deren bestehender Client `at.ourproject.vfeeg.app` erlaubt weder Password Grant noch fremde Redirect-URIs; SSO braucht daher einen vom VFEEG-Team registrierten eigenen Client. Ein Anfrage-Entwurf liegt unter `docs/drafts/eegfaktura-sso-anfrage.md` (gitignored, noch nicht versendet). Bis dahin bleibt der Magic-Link-Fluss der Betreiber-Login; die Entwicklung hängt an nichts davon ab. OIDC mündet später in denselben Session-Fluss (Identität per E-Mail/`sub` auf eine `member`-Zeile mappen, dann `createSession`).
 
 ## Was läuft (produktiv erreichbar)
 
@@ -44,5 +45,6 @@ Sicherheit: Port 22 ist am Router offen; sshd erlaubt nur Public-Key-Login (`/et
 1. **Heim-IP statisch oder dynamisch?** Ungeklärt. Bei dynamischer IP braucht stromkreis.net einen DynDNS-Mechanismus, sonst fallen Website und SSH-Zugang beim IP-Wechsel aus.
 2. **SMTP-Anbieter** für Magic-Link-Versand ist nicht entschieden; bis dahin Links per Admin-CLI.
 3. **Admin-CLI ist ungeschützt** gegenüber jedem mit Server-Shell; vor Onboarding externer EEGs überdenken.
-4. **Nächster Roadmap-Schritt (Phase 1):** Schema für 15-Minuten-Reihen und Wetterdaten, dann EEG-Faktura-Importer in `pipeline/` (Portierungsquellen siehe `architektur.md`).
-5. Der gesamte Stand ist **noch nicht committet** (git macht Martin manuell).
+4. **Nächster Roadmap-Schritt (Phase 1):** Schema für 15-Minuten-Reihen und Wetterdaten, Demo-Datengenerator für Salzkammerstrom, dann EEG-Faktura-Importer in `pipeline/` gegen echte ISCHLSTROM-Daten (Portierungsquellen siehe `architektur.md`).
+5. **EEGFaktura-SSO-Anfrage** an das VFEEG-Team versenden, sobald Martin den Entwurf freigibt (`docs/drafts/eegfaktura-sso-anfrage.md`); dabei auch klären, ob die Energystore-API statt Basic Auth einen Token-Zugriff bietet.
+6. Git macht Martin weiterhin manuell; die Änderungen vom 8.8. (dieser Stand, `.gitignore`, `CLAUDE.md`, `architektur.md`, `roadmap.md`) sind noch nicht committet.

@@ -29,6 +29,7 @@ Open-Meteo  ──────────────▶    │                
 - IBM-API: Ladefenster-Endpunkte, Statusmeldungen der Gateways
 - Auth per Magic-Link (passwortlos), Autorisierung nach Rolle (Mitglied, Vorstand, Betreiber) und Mandant; jeder Mandant hat mindestens einen Betreiber-Login (wird beim Onboarding sichergestellt)
 - Login-Mechanik: Einmal-Token (`login_token`, 7 Tage gültig, nur Hash gespeichert) wird gegen eine Session (`session`, 30 Tage, HttpOnly-Cookie) eingetauscht. Bis SMTP angebunden ist, erzeugt der Plattform-Betreiber die Links per Admin-CLI und übergibt sie manuell; der E-Mail-Versand nutzt später denselben Token-Fluss
+- Später optional: Betreiber-Login per OIDC gegen die EEGFaktura-Keycloak ("Anmelden mit EEGFaktura", Authorization Code + PKCE). Setzt einen vom VFEEG-Team registrierten Client voraus (Anfrage-Entwurf: `docs/drafts/`, gitignored). Mündet in denselben Session-Fluss: Keycloak-Identität (E-Mail, beim ersten Login zusätzlich `sub` speichern) auf eine `member`-Zeile mit Rolle `operator` mappen, dann `createSession`. Kein Entwicklungsschritt hängt daran
 - Provider-Setup (Mandanten und Betreiber anlegen, Login-Links): `platform/scripts/admin.js`, läuft im Plattform-Container gegen `DATABASE_URL`
 - Zeitzone durchgehend Europe/Vienna; Vorsicht bei Datumslogik
 
@@ -63,7 +64,7 @@ Werkzeug (August 2026): **dbmate**. Migrationen sind reines SQL unter `platform/
 
 ## Verhältnis zu ISCHLSTROM
 
-Das Repo `Energiegemeinschaft` bleibt bestehen (Website, Finanzen, Onboarding). ISCHLSTROM bleibt vorerst auf eigener Infrastruktur; ein späterer Umzug auf die Plattform ist eine Option, keine Voraussetzung. Erster Mandant ist der Dummy **Salzkammerstrom** (Testdaten), an dem Import, Prognose und Dashboards durchgängig entwickelt und geprüft werden. ISCHLSTROM bleibt Referenzimplementierung und Portierungsquelle:
+Das Repo `Energiegemeinschaft` bleibt bestehen (Website, Finanzen, Onboarding). Der Dummy **Salzkammerstrom** ist der Demo-Mandant: erfundene, aber plausible Daten (per Generator erzeugt, kein EEG-Faktura-Zugang nötig), an dem entwickelt und vorgeführt wird. **ISCHLSTROM** ist der erste echte Test-Mandant: echte EEG-Faktura-Daten durchlaufen Import, Prognose und Dashboards; die eigene ISCHLSTROM-Infrastruktur läuft parallel weiter, ein vollständiger Umzug auf die Plattform bleibt eine spätere Option. ISCHLSTROM bleibt Referenzimplementierung und Portierungsquelle:
 
 - `notebooks/energyData/`, `notebooks/eegfaktura/` → pipeline (Import)
 - `notebooks/forecast/eeg_forecast.py` → pipeline (Prognose)
