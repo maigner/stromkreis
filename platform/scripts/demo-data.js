@@ -58,6 +58,71 @@ function sunFactor(hour) {
 	return Math.sin((Math.PI * (hour - 6.2)) / 14.5) ** 1.35;
 }
 
+// Zeitstempel im openhab.log-Format (lokale Zeit Europe/Vienna)
+const logTsFmt = new Intl.DateTimeFormat('en-GB', {
+	timeZone: 'Europe/Vienna',
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	minute: '2-digit',
+	second: '2-digit',
+	hourCycle: 'h23'
+});
+function logTs(ms) {
+	const p = Object.fromEntries(logTsFmt.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+	const millis = String(Math.floor(ms % 1000)).padStart(3, '0');
+	return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}.${millis}`;
+}
+
+// Juengste openhab.log-Zeilen, wie sie das Gateway mit dem Status-Push
+// mitschickt (Framework-Events englisch, eigene Regel-Logs deutsch/ASCII)
+function makeLogs(s, endMs) {
+	const times = [];
+	let t = endMs - Math.floor(rand() * 20000);
+	for (let i = 0; i < 30; i++) {
+		times.push(t);
+		t -= Math.floor((20 + rand() * 160) * 1000);
+	}
+	times.reverse();
+	let soc = Math.max(5, s.soc - 4);
+	let pv = Math.round(s.pv_kwp * 1000 * (0.25 + rand() * 0.3));
+	const lines = [];
+	for (const ms of times) {
+		const r = rand();
+		let level = 'INFO';
+		let logger;
+		let msg;
+		if (r < 0.26) {
+			const from = soc;
+			soc = Math.min(100, soc + (rand() < 0.75 ? 1 : 0));
+			logger = 'openhab.event.ItemStateChangedEvent';
+			msg = `Item 'Batterie_SOC' changed from ${from} to ${soc}`;
+		} else if (r < 0.48) {
+			const from = pv;
+			pv = Math.max(0, pv + Math.round((rand() - 0.5) * 400));
+			logger = 'openhab.event.ItemStateChangedEvent';
+			msg = `Item 'PV_Leistung' changed from ${from} to ${pv}`;
+		} else if (r < 0.62) {
+			logger = 'org.openhab.core.model.script.stromkreis';
+			msg = 'Status-Push an stromkreis.net gesendet (HTTP 200)';
+		} else if (r < 0.76) {
+			logger = 'org.openhab.core.model.script.ladesperre';
+			msg = `Pruefung Ladesperre: SoC ${soc}%, PV ${pv} W`;
+		} else if (r < 0.92) {
+			const from = Math.round((rand() - 0.5) * 3000);
+			logger = 'openhab.event.ItemStateChangedEvent';
+			msg = `Item 'Netz_Leistung' changed from ${from} to ${Math.round(from + (rand() - 0.5) * 600)}`;
+		} else {
+			level = 'WARN';
+			logger = 'org.openhab.core.io.transport.modbus';
+			msg = 'Try 1 out of 3 failed when executing request. Will try again soon.';
+		}
+		lines.push({ ts: logTs(ms), level, logger, msg });
+	}
+	return lines;
+}
+
 // Haushaltsprofil in kW (Grundlast, Morgen- und Abendspitze)
 function householdKw(hour, r) {
 	const morning = 0.55 * Math.exp(-((hour - 7.5) ** 2) / 3);
@@ -355,7 +420,8 @@ async function seed(slug) {
 				batterie_kapazitaet: s.capacityKwh,
 				min_battery_charge: 20,
 				openhab_version: '4.3.3',
-				openhabian_version: '1.9.1'
+				openhabian_version: '1.9.1',
+				logs: makeLogs(s, now - s.minutesAgo * 60000)
 			};
 			await sql`
 				insert into battery_site (tenant_id, member_id, name, inverter_profile, token_hash, last_seen_at, status, latitude, longitude, address)
@@ -394,7 +460,8 @@ async function heartbeat(slug) {
 				inverter_status: 'running',
 				pv_power_w: pv,
 				load_power_w: load,
-				grid_power_w: load - pv - s.battery_w
+				grid_power_w: load - pv - s.battery_w,
+				logs: makeLogs(s, lastSeen.getTime())
 			};
 			res = await sql`
 				update battery_site

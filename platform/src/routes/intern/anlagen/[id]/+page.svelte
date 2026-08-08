@@ -6,6 +6,7 @@
 
 	const site = $derived(data.site);
 	const status = $derived(data.site.status);
+	const logs = $derived(Array.isArray(data.site.status.logs) ? data.site.status.logs : []);
 
 	const dateFmt = new Intl.DateTimeFormat('de-AT', {
 		timeZone: 'Europe/Vienna',
@@ -126,6 +127,35 @@
 				</dl>
 			</section>
 		</div>
+
+		<section class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<h2 class="text-lg font-semibold">Protokoll</h2>
+				<a
+					href="/intern/anlagen/{site.id}/konsole"
+					class="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+				>
+					SSH-Konsole öffnen
+				</a>
+			</div>
+			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+				Letzte Zeilen aus openhab.log, übertragen mit dem Status-Push
+			</p>
+			{#if logs.length === 0}
+				<p class="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Keine Protokollzeilen übertragen.</p>
+			{:else}
+				<div class="mt-4 max-h-80 overflow-y-auto rounded-md bg-neutral-950 p-3 font-mono text-xs leading-relaxed text-neutral-300">
+					{#each logs as line, i (i)}
+						<p class="whitespace-pre-wrap">
+							<span class="text-neutral-500">{line.ts}</span>
+							<span class={line.level === 'ERROR' ? 'text-red-400' : line.level === 'WARN' ? 'text-amber-400' : 'text-green-400'}>[{line.level}]</span>
+							<span class="text-sky-400">[{line.logger}]</span>
+							- {line.msg}
+						</p>
+					{/each}
+				</div>
+			{/if}
+		</section>
 
 		{#if site.latitude != null && site.longitude != null}
 			<section class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
