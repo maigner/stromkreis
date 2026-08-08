@@ -60,7 +60,7 @@ Werkzeug (August 2026): **dbmate**. Migrationen sind reines SQL unter `platform/
 - 15-Minuten-Reihen aus EEG-Faktura: `measurement` (je Zählpunkt, Kategorie und Intervall, kWh, UTC-Intervallbeginn), Kategorien in `meter_code` je Mandant mit stabilem `kind`-Schlüssel für Auswertungen; `Anteil gemeinschaftliche Erzeugung` = gesamte Gemeinschaftserzeugung, `Eigendeckung` = tatsächlich verbrauchter Anteil (Semantik aus ISCHLSTROM übernommen)
 - `weather`: Stundenwetter je Mandant von Open-Meteo (Standort aus `tenant`); die Prognose interpoliert auf 15 Minuten
 - `forecast_run` / `forecast`: versionierte Prognoseläufe
-- `battery_site`: Anlage mit Wechselrichterprofil, Gateway-Token, Ladefenster-Konfiguration
+- `battery_site`: Anlage (openHABian-Gateway) mit Wechselrichterprofil, Gateway-Token (nur SHA-256-Hash), letztem Status-Push (`status` jsonb, `last_seen_at`); Ladefenster-Konfiguration und Status-Verlauf folgen mit der IBM-API
 - Materialisierte Sichten für Tages-/Wochenaggregation je Mandant
 
 ## Verhältnis zu ISCHLSTROM

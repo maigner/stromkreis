@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YW1zeaaIZWh93KXMACdOPoM6la6iTaRBPEK4lE4F9I2yV6MbmCehWanBEuJ7Pdk
+\restrict 0xdqZlqjcdMay3JJafKudQm75vhdcwRg0hgU97uMi0P29H76aqFio8zgOxZu0PZ
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -38,6 +38,40 @@ ALTER FUNCTION public.set_updated_at() OWNER TO postgres;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: battery_site; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.battery_site (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    member_id bigint,
+    name text NOT NULL,
+    inverter_profile text NOT NULL,
+    token_hash text NOT NULL,
+    last_seen_at timestamp with time zone,
+    status jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.battery_site OWNER TO postgres;
+
+--
+-- Name: battery_site_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.battery_site ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.battery_site_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 
 --
 -- Name: login_token; Type: TABLE; Schema: public; Owner: postgres
@@ -288,6 +322,38 @@ CREATE TABLE public.weather (
 ALTER TABLE public.weather OWNER TO postgres;
 
 --
+-- Name: battery_site battery_site_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: battery_site battery_site_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: battery_site battery_site_tenant_id_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_tenant_id_name_key UNIQUE (tenant_id, name);
+
+
+--
+-- Name: battery_site battery_site_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_token_hash_key UNIQUE (token_hash);
+
+
+--
 -- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -432,6 +498,13 @@ ALTER TABLE ONLY public.weather
 
 
 --
+-- Name: battery_site_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX battery_site_tenant_idx ON public.battery_site USING btree (tenant_id);
+
+
+--
 -- Name: login_token_member_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -481,6 +554,13 @@ CREATE INDEX session_member_idx ON public.session USING btree (tenant_id, member
 
 
 --
+-- Name: battery_site battery_site_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER battery_site_updated_at BEFORE UPDATE ON public.battery_site FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
 -- Name: measurement_point measurement_point_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -506,6 +586,22 @@ CREATE TRIGGER meter_code_updated_at BEFORE UPDATE ON public.meter_code FOR EACH
 --
 
 CREATE TRIGGER tenant_updated_at BEFORE UPDATE ON public.tenant FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: battery_site battery_site_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
+-- Name: battery_site battery_site_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_tenant_id_member_id_fkey FOREIGN KEY (tenant_id, member_id) REFERENCES public.member(tenant_id, id);
 
 
 --
@@ -608,10 +704,11 @@ ALTER TABLE ONLY public.weather
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YW1zeaaIZWh93KXMACdOPoM6la6iTaRBPEK4lE4F9I2yV6MbmCehWanBEuJ7Pdk
+\unrestrict 0xdqZlqjcdMay3JJafKudQm75vhdcwRg0hgU97uMi0P29H76aqFio8zgOxZu0PZ
 
 INSERT INTO public.schema_migrations VALUES ('20260807120000');
 INSERT INTO public.schema_migrations VALUES ('20260807120100');
 INSERT INTO public.schema_migrations VALUES ('20260807130000');
 INSERT INTO public.schema_migrations VALUES ('20260807140000');
 INSERT INTO public.schema_migrations VALUES ('20260808120000');
+INSERT INTO public.schema_migrations VALUES ('20260808150000');
