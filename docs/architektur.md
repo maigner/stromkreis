@@ -57,7 +57,8 @@ Werkzeug (August 2026): **dbmate**. Migrationen sind reines SQL unter `platform/
 
 - `tenant`: EEG mit Name, Standort (für Wetter), Branding-Minimum
 - `measurement_point`, `member`: einfaches Verzeichnis je Mandant, vom Betreiber gepflegt oder per CSV importiert. Rollen: `member` (Mitglied), `board` (Vorstand), `operator` (Betreiber, verwaltet den Mandanten, braucht eine E-Mail für den Magic-Link-Login)
-- 15-Minuten-Reihen aus EEG-Faktura; `Anteil gemeinschaftliche Erzeugung` = gesamte Gemeinschaftserzeugung, `Eigendeckung` = tatsächlich verbrauchter Anteil (Semantik aus ISCHLSTROM übernehmen)
+- 15-Minuten-Reihen aus EEG-Faktura: `measurement` (je Zählpunkt, Kategorie und Intervall, kWh, UTC-Intervallbeginn), Kategorien in `meter_code` je Mandant mit stabilem `kind`-Schlüssel für Auswertungen; `Anteil gemeinschaftliche Erzeugung` = gesamte Gemeinschaftserzeugung, `Eigendeckung` = tatsächlich verbrauchter Anteil (Semantik aus ISCHLSTROM übernommen)
+- `weather`: Stundenwetter je Mandant von Open-Meteo (Standort aus `tenant`); die Prognose interpoliert auf 15 Minuten
 - `forecast_run` / `forecast`: versionierte Prognoseläufe
 - `battery_site`: Anlage mit Wechselrichterprofil, Gateway-Token, Ladefenster-Konfiguration
 - Materialisierte Sichten für Tages-/Wochenaggregation je Mandant

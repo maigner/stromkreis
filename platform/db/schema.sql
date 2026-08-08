@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict xjY1rNomOMjQVwhDgbVoM33QSz9Mm8ftR3ZwczFzTmy4wYyL68YGGV2foxYByfu
+\restrict YW1zeaaIZWh93KXMACdOPoM6la6iTaRBPEK4lE4F9I2yV6MbmCehWanBEuJ7Pdk
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -20,7 +20,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+-- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
 CREATE FUNCTION public.set_updated_at() RETURNS trigger
@@ -33,12 +33,14 @@ end;
 $$;
 
 
+ALTER FUNCTION public.set_updated_at() OWNER TO postgres;
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: login_token; Type: TABLE; Schema: public; Owner: -
+-- Name: login_token; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.login_token (
@@ -52,8 +54,10 @@ CREATE TABLE public.login_token (
 );
 
 
+ALTER TABLE public.login_token OWNER TO postgres;
+
 --
--- Name: login_token_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: login_token_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
 ALTER TABLE public.login_token ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -67,7 +71,22 @@ ALTER TABLE public.login_token ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- Name: measurement_point; Type: TABLE; Schema: public; Owner: -
+-- Name: measurement; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.measurement (
+    tenant_id bigint NOT NULL,
+    measurement_point_id bigint NOT NULL,
+    meter_code_id bigint NOT NULL,
+    measured_at timestamp with time zone NOT NULL,
+    value numeric(19,10) NOT NULL
+);
+
+
+ALTER TABLE public.measurement OWNER TO postgres;
+
+--
+-- Name: measurement_point; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.measurement_point (
@@ -83,8 +102,10 @@ CREATE TABLE public.measurement_point (
 );
 
 
+ALTER TABLE public.measurement_point OWNER TO postgres;
+
 --
--- Name: measurement_point_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: measurement_point_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
 ALTER TABLE public.measurement_point ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -98,7 +119,7 @@ ALTER TABLE public.measurement_point ALTER COLUMN id ADD GENERATED ALWAYS AS IDE
 
 
 --
--- Name: member; Type: TABLE; Schema: public; Owner: -
+-- Name: member; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.member (
@@ -114,8 +135,10 @@ CREATE TABLE public.member (
 );
 
 
+ALTER TABLE public.member OWNER TO postgres;
+
 --
--- Name: member_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: member_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
 ALTER TABLE public.member ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -129,7 +152,39 @@ ALTER TABLE public.member ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+-- Name: meter_code; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.meter_code (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    description text NOT NULL,
+    unit text NOT NULL,
+    kind text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT meter_code_kind_check CHECK ((kind = ANY (ARRAY['total_consumption'::text, 'production_share'::text, 'self_use'::text, 'total_production'::text, 'overshoot'::text])))
+);
+
+
+ALTER TABLE public.meter_code OWNER TO postgres;
+
+--
+-- Name: meter_code_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.meter_code ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.meter_code_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.schema_migrations (
@@ -137,8 +192,10 @@ CREATE TABLE public.schema_migrations (
 );
 
 
+ALTER TABLE public.schema_migrations OWNER TO postgres;
+
 --
--- Name: session; Type: TABLE; Schema: public; Owner: -
+-- Name: session; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.session (
@@ -151,8 +208,10 @@ CREATE TABLE public.session (
 );
 
 
+ALTER TABLE public.session OWNER TO postgres;
+
 --
--- Name: session_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: session_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
 ALTER TABLE public.session ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -166,7 +225,7 @@ ALTER TABLE public.session ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: tenant; Type: TABLE; Schema: public; Owner: -
+-- Name: tenant; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.tenant (
@@ -181,8 +240,10 @@ CREATE TABLE public.tenant (
 );
 
 
+ALTER TABLE public.tenant OWNER TO postgres;
+
 --
--- Name: tenant_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tenant_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
 ALTER TABLE public.tenant ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -196,7 +257,38 @@ ALTER TABLE public.tenant ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: weather; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.weather (
+    tenant_id bigint NOT NULL,
+    "time" timestamp with time zone NOT NULL,
+    temperature_2m double precision NOT NULL,
+    cloud_cover double precision NOT NULL,
+    rain double precision NOT NULL,
+    snowfall double precision NOT NULL,
+    snow_depth double precision NOT NULL,
+    cloud_cover_low double precision NOT NULL,
+    cloud_cover_mid double precision NOT NULL,
+    cloud_cover_high double precision NOT NULL,
+    relative_humidity_2m double precision NOT NULL,
+    dew_point_2m double precision NOT NULL,
+    shortwave_radiation double precision,
+    direct_radiation double precision,
+    diffuse_radiation double precision,
+    direct_normal_irradiance double precision,
+    sunshine_duration double precision,
+    wind_speed_10m double precision,
+    precipitation double precision,
+    apparent_temperature double precision,
+    snow_depth_water_equivalent double precision
+);
+
+
+ALTER TABLE public.weather OWNER TO postgres;
+
+--
+-- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.login_token
@@ -204,7 +296,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: login_token login_token_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: login_token login_token_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.login_token
@@ -212,7 +304,15 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: measurement_point measurement_point_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: measurement measurement_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.measurement
+    ADD CONSTRAINT measurement_pkey PRIMARY KEY (tenant_id, measurement_point_id, meter_code_id, measured_at);
+
+
+--
+-- Name: measurement_point measurement_point_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -220,7 +320,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: measurement_point measurement_point_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -228,7 +328,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_metering_point_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: measurement_point measurement_point_tenant_id_metering_point_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -236,7 +336,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: member member_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: member member_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.member
@@ -244,7 +344,7 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: member member_tenant_id_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: member member_tenant_id_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.member
@@ -252,7 +352,7 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: member member_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: member member_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.member
@@ -260,7 +360,31 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: meter_code meter_code_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.meter_code
+    ADD CONSTRAINT meter_code_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: meter_code meter_code_tenant_id_description_unit_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.meter_code
+    ADD CONSTRAINT meter_code_tenant_id_description_unit_key UNIQUE (tenant_id, description, unit);
+
+
+--
+-- Name: meter_code meter_code_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.meter_code
+    ADD CONSTRAINT meter_code_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.schema_migrations
@@ -268,7 +392,7 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
--- Name: session session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: session session_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.session
@@ -276,7 +400,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: session session_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: session session_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.session
@@ -284,7 +408,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: tenant tenant_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tenant tenant_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.tenant
@@ -292,7 +416,7 @@ ALTER TABLE ONLY public.tenant
 
 
 --
--- Name: tenant tenant_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tenant tenant_slug_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.tenant
@@ -300,63 +424,92 @@ ALTER TABLE ONLY public.tenant
 
 
 --
--- Name: login_token_member_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: weather weather_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.weather
+    ADD CONSTRAINT weather_pkey PRIMARY KEY (tenant_id, "time");
+
+
+--
+-- Name: login_token_member_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX login_token_member_idx ON public.login_token USING btree (tenant_id, member_id);
 
 
 --
--- Name: measurement_point_member_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: measurement_point_member_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX measurement_point_member_idx ON public.measurement_point USING btree (tenant_id, member_id);
 
 
 --
--- Name: measurement_point_tenant_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: measurement_point_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX measurement_point_tenant_idx ON public.measurement_point USING btree (tenant_id);
 
 
 --
--- Name: member_tenant_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: measurement_tenant_time_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX measurement_tenant_time_idx ON public.measurement USING btree (tenant_id, measured_at);
+
+
+--
+-- Name: member_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX member_tenant_idx ON public.member USING btree (tenant_id);
 
 
 --
--- Name: session_member_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: meter_code_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX meter_code_tenant_idx ON public.meter_code USING btree (tenant_id);
+
+
+--
+-- Name: session_member_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX session_member_idx ON public.session USING btree (tenant_id, member_id);
 
 
 --
--- Name: measurement_point measurement_point_updated_at; Type: TRIGGER; Schema: public; Owner: -
+-- Name: measurement_point measurement_point_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
 CREATE TRIGGER measurement_point_updated_at BEFORE UPDATE ON public.measurement_point FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: member member_updated_at; Type: TRIGGER; Schema: public; Owner: -
+-- Name: member member_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
 CREATE TRIGGER member_updated_at BEFORE UPDATE ON public.member FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: tenant tenant_updated_at; Type: TRIGGER; Schema: public; Owner: -
+-- Name: meter_code meter_code_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER meter_code_updated_at BEFORE UPDATE ON public.meter_code FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: tenant tenant_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
 CREATE TRIGGER tenant_updated_at BEFORE UPDATE ON public.tenant FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: login_token login_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: login_token login_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.login_token
@@ -364,7 +517,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: login_token login_token_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: login_token login_token_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.login_token
@@ -372,7 +525,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: measurement_point measurement_point_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -380,7 +533,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: measurement_point measurement_point_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -388,7 +541,31 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: member member_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: measurement measurement_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.measurement
+    ADD CONSTRAINT measurement_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
+-- Name: measurement measurement_tenant_id_measurement_point_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.measurement
+    ADD CONSTRAINT measurement_tenant_id_measurement_point_id_fkey FOREIGN KEY (tenant_id, measurement_point_id) REFERENCES public.measurement_point(tenant_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: measurement measurement_tenant_id_meter_code_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.measurement
+    ADD CONSTRAINT measurement_tenant_id_meter_code_id_fkey FOREIGN KEY (tenant_id, meter_code_id) REFERENCES public.meter_code(tenant_id, id);
+
+
+--
+-- Name: member member_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.member
@@ -396,7 +573,15 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: session session_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: meter_code meter_code_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.meter_code
+    ADD CONSTRAINT meter_code_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
+-- Name: session session_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.session
@@ -404,7 +589,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: session session_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: session session_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.session
@@ -412,12 +597,21 @@ ALTER TABLE ONLY public.session
 
 
 --
+-- Name: weather weather_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.weather
+    ADD CONSTRAINT weather_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xjY1rNomOMjQVwhDgbVoM33QSz9Mm8ftR3ZwczFzTmy4wYyL68YGGV2foxYByfu
+\unrestrict YW1zeaaIZWh93KXMACdOPoM6la6iTaRBPEK4lE4F9I2yV6MbmCehWanBEuJ7Pdk
 
 INSERT INTO public.schema_migrations VALUES ('20260807120000');
 INSERT INTO public.schema_migrations VALUES ('20260807120100');
 INSERT INTO public.schema_migrations VALUES ('20260807130000');
 INSERT INTO public.schema_migrations VALUES ('20260807140000');
+INSERT INTO public.schema_migrations VALUES ('20260808120000');
