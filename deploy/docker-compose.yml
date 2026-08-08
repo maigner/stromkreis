@@ -30,6 +30,7 @@ services:
 
   platform:
     build: ./src/platform
+    image: stromkreis-platform
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
@@ -41,3 +42,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Demo-Heartbeat: simuliert die Status-Pushes der Salzkammerstrom-Gateways,
+  # sonst fallen alle Demo-Anlagen 10 Minuten nach dem Seed auf Offline.
+  demo-heartbeat:
+    image: stromkreis-platform
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
+      TZ: Europe/Vienna
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "while true; do node scripts/demo-data.js heartbeat salzkammerstrom; sleep 300; done"]

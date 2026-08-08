@@ -5,7 +5,10 @@
 // wetter und openHABian-Anlagen mit Status. Deterministisch (fester Seed),
 // erneutes Ausfuehren ersetzt die Demo-Daten vollstaendig; Betreiber- und
 // Vorstandskonten bleiben erhalten.
-// Aufruf: node scripts/demo-data.js seed [tenant-slug]   (Default: salzkammerstrom)
+// 'heartbeat' simuliert die regelmaessigen Status-Pushes der Gateways, damit
+// die Online-Anzeige (10-Minuten-Fenster) nicht nach dem Seed altert; laeuft
+// am Server als Compose-Dienst alle 5 Minuten.
+// Aufruf: node scripts/demo-data.js seed|heartbeat [tenant-slug]   (Default: salzkammerstrom)
 import postgres from 'postgres';
 import { createHash, randomBytes } from 'node:crypto';
 
@@ -366,6 +369,49 @@ async function seed(slug) {
 	});
 }
 
+// Frischer Status-Push fuer die Online-Anlagen; die Offline-Anlagen bleiben
+// auf festem Alter stehen (Status-Push bleibt dort absichtlich veraltet).
+async function heartbeat(slug) {
+	const [tenant] = await sql`select id, name from tenant where slug = ${slug}`;
+	if (!tenant) {
+		console.error(`Mandant '${slug}' nicht gefunden.`);
+		process.exit(1);
+	}
+	const now = Date.now();
+	const { hour } = localParts(now);
+	const clearSky = 0.7;
+	let updated = 0;
+	for (const s of SITES) {
+		const online = s.minutesAgo < 10;
+		const lastSeen = online
+			? new Date(now - Math.floor(Math.random() * 4 * 60000))
+			: new Date(now - s.minutesAgo * 60000);
+		let res;
+		if (online) {
+			const pv = Math.round(s.pv_kwp * 1000 * sunFactor(hour) * clearSky);
+			const load = Math.round(600 + Math.random() * 900);
+			const patch = {
+				inverter_status: 'running',
+				pv_power_w: pv,
+				load_power_w: load,
+				grid_power_w: load - pv - s.battery_w
+			};
+			res = await sql`
+				update battery_site
+				set last_seen_at = ${lastSeen}, status = status || ${sql.json(patch)}
+				where tenant_id = ${tenant.id} and name = ${s.name}
+			`;
+		} else {
+			res = await sql`
+				update battery_site set last_seen_at = ${lastSeen}
+				where tenant_id = ${tenant.id} and name = ${s.name}
+			`;
+		}
+		updated += res.count;
+	}
+	console.log(`Heartbeat: ${updated} Anlagen aktualisiert.`);
+}
+
 function round(x, digits = 4) {
 	return Math.round(x * 10 ** digits) / 10 ** digits;
 }
@@ -374,8 +420,10 @@ const [cmd, slugArg] = process.argv.slice(2);
 try {
 	if (cmd === 'seed') {
 		await seed(slugArg ?? 'salzkammerstrom');
+	} else if (cmd === 'heartbeat') {
+		await heartbeat(slugArg ?? 'salzkammerstrom');
 	} else {
-		console.error('Verwendung: node scripts/demo-data.js seed [tenant-slug]');
+		console.error('Verwendung: node scripts/demo-data.js seed|heartbeat [tenant-slug]');
 		process.exit(cmd ? 1 : 0);
 	}
 } finally {
