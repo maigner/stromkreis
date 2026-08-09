@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict taPUZACi2C2H90oiAnboRlSgkEdRx0dW0Xhsm0uSlbqiKW3SLrSZaaDnMpkrtos
+\restrict TbKARtYCvnK9e30w2Ax73ylV0rC46XBlgfVWZcg6H4KWTsTjOcyvYaO1hflBpcd
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -77,6 +77,26 @@ ALTER TABLE public.battery_site ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
+-- Name: eegfaktura_source; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.eegfaktura_source (
+    tenant_id bigint NOT NULL,
+    rc_number text NOT NULL,
+    base_url text DEFAULT 'https://eegfaktura.at'::text NOT NULL,
+    auth_mode text NOT NULL,
+    token_url text,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT eegfaktura_source_auth_mode_check CHECK ((auth_mode = ANY (ARRAY['basic'::text, 'client_credentials'::text]))),
+    CONSTRAINT eegfaktura_source_rc_number_check CHECK ((rc_number = upper(rc_number)))
+);
+
+
+ALTER TABLE public.eegfaktura_source OWNER TO postgres;
+
+--
 -- Name: login_token; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -116,7 +136,9 @@ CREATE TABLE public.measurement (
     measurement_point_id bigint NOT NULL,
     meter_code_id bigint NOT NULL,
     measured_at timestamp with time zone NOT NULL,
-    value numeric(19,10) NOT NULL
+    value numeric(19,10) NOT NULL,
+    quality smallint,
+    CONSTRAINT measurement_quality_check CHECK (((quality >= 0) AND (quality <= 3)))
 );
 
 
@@ -357,6 +379,14 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
+-- Name: eegfaktura_source eegfaktura_source_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.eegfaktura_source
+    ADD CONSTRAINT eegfaktura_source_pkey PRIMARY KEY (tenant_id);
+
+
+--
 -- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -564,6 +594,13 @@ CREATE TRIGGER battery_site_updated_at BEFORE UPDATE ON public.battery_site FOR 
 
 
 --
+-- Name: eegfaktura_source eegfaktura_source_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER eegfaktura_source_updated_at BEFORE UPDATE ON public.eegfaktura_source FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
 -- Name: measurement_point measurement_point_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -605,6 +642,14 @@ ALTER TABLE ONLY public.battery_site
 
 ALTER TABLE ONLY public.battery_site
     ADD CONSTRAINT battery_site_tenant_id_member_id_fkey FOREIGN KEY (tenant_id, member_id) REFERENCES public.member(tenant_id, id);
+
+
+--
+-- Name: eegfaktura_source eegfaktura_source_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.eegfaktura_source
+    ADD CONSTRAINT eegfaktura_source_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
 
 
 --
@@ -707,7 +752,8 @@ ALTER TABLE ONLY public.weather
 -- PostgreSQL database dump complete
 --
 
-\unrestrict taPUZACi2C2H90oiAnboRlSgkEdRx0dW0Xhsm0uSlbqiKW3SLrSZaaDnMpkrtos
+\unrestrict TbKARtYCvnK9e30w2Ax73ylV0rC46XBlgfVWZcg6H4KWTsTjOcyvYaO1hflBpcd
+
 
 INSERT INTO public.schema_migrations VALUES ('20260807120000');
 INSERT INTO public.schema_migrations VALUES ('20260807120100');
@@ -717,3 +763,4 @@ INSERT INTO public.schema_migrations VALUES ('20260808120000');
 INSERT INTO public.schema_migrations VALUES ('20260808150000');
 INSERT INTO public.schema_migrations VALUES ('20260808170000');
 INSERT INTO public.schema_migrations VALUES ('20260808180000');
+INSERT INTO public.schema_migrations VALUES ('20260809100000');

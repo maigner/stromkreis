@@ -50,7 +50,7 @@ JSON-Antwort: Map Zählpunkt zu `{direction, data: [{ts, value: [..], qov: [..]}
 
 `qov` je Slot: 1 gemessen, 2 Ersatzwert, 3 geschätzt, 0 unbekannt. Identitäten zur Plausibilisierung: G.03 <= G.02, G.03 <= G.01, Anteil = Eigendeckung + Überschuss (über die Gemeinschaft summiert).
 
-`POST /energystore/query/{ecid}/metadata` liefert `{periodBegin, periodEnd}` (Millisekunden), also den insgesamt verfügbaren Zeitraum. Billiger Endpunkt, ideal als Zugangs-Smoke-Test.
+`POST /energystore/query/{ecid}/metadata` liefert den verfügbaren Zeitraum als `{periodBegin, periodEnd}` (Millisekunden), je nach Version flach oder als Map je Zählpunkt; der Client reduziert auf min/max. Billiger Endpunkt, ideal als Zugangs-Smoke-Test.
 
 `GET /api/master/masterdata` liefert die Teilnehmerliste mit Zählpunkten (meteringPoint, direction, status, gridOperator, activeSince/inactiveSince, partFact usw.), Grundlage für den `measurement_point`-Abgleich.
 

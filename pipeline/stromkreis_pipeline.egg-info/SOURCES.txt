@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+stromkreis_pipeline/__init__.py
+stromkreis_pipeline/__main__.py
+stromkreis_pipeline/cli.py
+stromkreis_pipeline/db.py
+stromkreis_pipeline.egg-info/PKG-INFO
+stromkreis_pipeline.egg-info/SOURCES.txt
+stromkreis_pipeline.egg-info/dependency_links.txt
+stromkreis_pipeline.egg-info/requires.txt
+stromkreis_pipeline.egg-info/top_level.txt
+tests/test_client.py
+tests/test_load_sync.py
+tests/test_normalize.py
