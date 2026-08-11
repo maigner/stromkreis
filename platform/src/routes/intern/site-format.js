@@ -4,6 +4,7 @@
 /** @type {Record<string, string>} */
 export const profileLabels = {
 	'fronius-symo': 'Fronius Symo',
+	'fronius-snapinverter': 'Fronius Snapinverter',
 	sigenergy: 'Sigenergy',
 	deye: 'Deye',
 	victron: 'Victron'

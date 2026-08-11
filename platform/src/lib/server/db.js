@@ -14,12 +14,21 @@ function getClient() {
 	return client;
 }
 
-// Verbindet erst bei der ersten Query, damit die Build-Analyse
-// (Import der Servermodule ohne DATABASE_URL) nicht scheitert.
+// Verbindet erst bei der ersten Query bzw. beim ersten Helferzugriff
+// (sql.json, sql.array, ...), damit die Build-Analyse (Import der
+// Servermodule ohne DATABASE_URL) nicht scheitert.
 /** @param {any[]} args */
 function lazySql(...args) {
 	const c = /** @type {any} */ (getClient());
 	return c(...args);
 }
 
-export const sql = /** @type {import('postgres').Sql} */ (/** @type {unknown} */ (lazySql));
+export const sql = /** @type {import('postgres').Sql} */ (
+	/** @type {unknown} */ (
+		new Proxy(lazySql, {
+			get(_, prop) {
+				return Reflect.get(/** @type {any} */ (getClient()), prop);
+			}
+		})
+	)
+);

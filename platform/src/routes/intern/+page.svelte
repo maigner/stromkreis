@@ -1,10 +1,11 @@
 <script>
 	import SiteMap from './SiteMap.svelte';
+	import SetupWizard from './SetupWizard.svelte';
 	import { profileLabels, de, seenLabel, watt, batteryLabel, gridLabel } from './site-format.js';
 
 	let { data } = $props();
 
-	/** @type {'anlagen' | 'standorte' | 'energie'} */
+	/** @type {'anlagen' | 'standorte' | 'energie' | 'einrichtung'} */
 	let tab = $state('anlagen');
 
 	const roleLabels = { member: 'Mitglied', board: 'Vorstand', operator: 'Betreiber' };
@@ -76,6 +77,14 @@
 				onclick={() => (tab = 'energie')}
 			>
 				Energie
+			</button>
+			<button
+				class="-mb-px border-b-2 pb-2 text-sm font-medium {tab === 'einrichtung'
+					? 'border-amber-500 text-neutral-900 dark:text-neutral-100'
+					: 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}"
+				onclick={() => (tab = 'einrichtung')}
+			>
+				Neue Anlage
 			</button>
 		</nav>
 
@@ -176,6 +185,8 @@
 				<p class="text-sm text-neutral-500 dark:text-neutral-400">Noch keine Anlagen mit Standort.</p>
 			{/if}
 		</section>
+		{:else if tab === 'einrichtung'}
+		<SetupWizard members={data.members} center={data.center} />
 		{:else}
 		{#if gestern}
 			<section class="grid grid-cols-2 gap-4 lg:grid-cols-4">

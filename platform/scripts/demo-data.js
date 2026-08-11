@@ -476,6 +476,40 @@ async function heartbeat(slug) {
 		}
 		updated += res.count;
 	}
+
+	// Im Einrichtungs-Assistenten angelegte Anlagen frisch halten: alle
+	// Anlagen ausserhalb der SITES-Liste, die schon einmal gemeldet haben
+	// (nach dem ersten Status-Push), bleiben online.
+	const seeded = SITES.map((s) => s.name);
+	const wizardSites = await sql`
+		select id, status from battery_site
+		where tenant_id = ${tenant.id} and name != all(${seeded}) and last_seen_at is not null
+	`;
+	for (const row of wizardSites) {
+		const st = row.status ?? {};
+		const s = {
+			soc: typeof st.soc === 'number' ? st.soc : 60,
+			pv_kwp: typeof st.pv_kwp === 'number' ? st.pv_kwp : 5,
+			battery_w: typeof st.battery_power_w === 'number' ? st.battery_power_w : 0,
+			id: row.id
+		};
+		const lastSeen = new Date(now - Math.floor(Math.random() * 4 * 60000));
+		const pv = Math.round(s.pv_kwp * 1000 * sunFactor(hour) * clearSky);
+		const load = Math.round(600 + Math.random() * 900);
+		const patch = {
+			inverter_status: 'running',
+			pv_power_w: pv,
+			load_power_w: load,
+			grid_power_w: load - pv - s.battery_w,
+			logs: makeLogs(s, lastSeen.getTime())
+		};
+		const res = await sql`
+			update battery_site
+			set last_seen_at = ${lastSeen}, status = status || ${sql.json(patch)}
+			where tenant_id = ${tenant.id} and id = ${row.id}
+		`;
+		updated += res.count;
+	}
 	console.log(`Heartbeat: ${updated} Anlagen aktualisiert.`);
 }
 
