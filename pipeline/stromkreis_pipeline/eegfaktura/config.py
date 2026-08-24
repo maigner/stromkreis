@@ -23,6 +23,7 @@ class TenantSource:
     tenant_id: int
     slug: str
     rc_number: str
+    community_id: str | None  # ecId der Energiedaten-Endpunkte; None = rc_number
     base_url: str
     auth_mode: str  # 'basic' | 'client_credentials'
     token_url: str | None
@@ -33,7 +34,7 @@ def load_sources(conn, slug=None):
     """Aktive Import-Konfigurationen laden; mit slug genau einen Mandanten
     (dann auch inaktive, fuer manuelle Laeufe)."""
     query = """
-        select s.tenant_id, t.slug, s.rc_number, s.base_url, s.auth_mode, s.token_url, s.active
+        select s.tenant_id, t.slug, s.rc_number, s.community_id, s.base_url, s.auth_mode, s.token_url, s.active
         from eegfaktura_source s
         join tenant t on t.id = s.tenant_id
     """

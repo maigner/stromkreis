@@ -56,6 +56,14 @@ JSON-Antwort: Map Zählpunkt zu `{direction, data: [{ts, value: [..], qov: [..]}
 
 ### Fallstricke
 
+Nachtrag 24.8.2026 aus der Testinstanz (`docs/eegfaktura-lokal.md`, alles gegen den Quellcode verifiziert):
+
+- **`ecId` ist die Gemeinschafts-ID** (`AT...`, 33 Zeichen), nicht die RC-Nummer. Der energystore speichert je `<tenant>/<ecId>`; mit der RC-Nummer liefern `metadata` und `rawdata` leere Antworten. `X-Tenant` bleibt die RC-Nummer. Konfiguration: `eegfaktura_source.community_id`.
+- **Basic-Auth-Kodierung je Dienst:** energystore URL-safe, Backend (`/api/master/masterdata`) Standard-Base64. Der Client kodiert je Pfad.
+- **`masterdata`-Felder** heißen `firstname`, `lastname`, `meters` (nicht camelCase, nicht `meteringPoint`).
+- **Sommerzeit:** energystore v1 liefert am Umstellungstag 96 statt 92 Slots (vier doppelte UTC-Zeitpunkte); Duplikate verwerfen, letzter Wert gilt.
+- **`ProtectApi` akzeptiert nur Basic**, Bearer-Tokens werden mit 400 abgewiesen. Der `client_credentials`-Weg funktioniert nur gegen die `Protect`-Routen und braucht `access_groups` mit `/EEG_ADMIN` und den `tenant`-Claim im Token.
+
 - **Millisekunden**, siehe oben.
 - energystore dekodiert Basic-Auth mit **URL-safe Base64**. Python `requests` kodiert standard. Unterschiedlich sind nur `+` und `/`; enthält das Standard-Base64 der Credentials eines dieser Zeichen, scheitert der Login mit 403 trotz korrekter Daten. Abhilfe: Header selbst mit `base64.urlsafe_b64encode` bauen.
 - Der Handler schreibt den Tenant in **Großbuchstaben**; RC-Nummer so konfigurieren.

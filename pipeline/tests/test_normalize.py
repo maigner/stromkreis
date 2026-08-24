@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from stromkreis_pipeline.eegfaktura.client import EegfakturaError
+from stromkreis_pipeline.eegfaktura.client import EegfakturaError, from_ms
 from stromkreis_pipeline.eegfaktura.normalize import (
     normalize_direction,
     normalize_masterdata,
@@ -70,10 +70,30 @@ def test_masterdata_zu_zaehlpunkten():
         },
         {"firstName": None, "lastName": None, "meteringPoint": [{"meteringPoint": "AT3", "direction": "CONSUMPTION"}]},
         {"firstName": "Ohne", "lastName": "Punkte", "meteringPoint": []},
+        # Form der echten API: firstname/lastname, meters
+        {"firstname": "Max", "lastname": "Mustermann", "meters": [{"meteringPoint": "AT4", "direction": "GENERATION"}]},
     ]
     points = normalize_masterdata(payload)
     assert points == [
         ("AT1", "consumption", "Anna Auer"),
         ("AT2", "generation", "Anna Auer"),
         ("AT3", "consumption", None),
+        ("AT4", "generation", "Max Mustermann"),
     ]
+
+
+def test_doppelte_zeitstempel_letzter_wert_gilt(caplog):
+    # energystore v1 liefert am Sommerzeit-Tag 96 Slots; 02:00-02:45 Ortszeit
+    # (nicht existent) fallen auf dieselben UTC-Zeitpunkte wie 03:00-03:45.
+    ts = 1679792400000  # 2023-03-26 01:00 UTC = 03:00 MESZ
+    payload = {"AT1": {"direction": "CONSUMPTION", "data": [
+        {"ts": ts, "value": [0.008, 0.0, 0.0], "qov": [1, 1, 1]},
+        {"ts": ts + 900000, "value": [0.007, 0.0, 0.0], "qov": [1, 1, 1]},
+        {"ts": ts, "value": [0.012, 0.0, 0.0], "qov": [1, 1, 1]},
+    ]}}
+    records = normalize_rawdata(payload)
+    keys = {(r.kind, r.measured_at) for r in records}
+    assert len(records) == len(keys) == 6
+    total = [r for r in records if r.kind == "total_consumption" and r.measured_at == from_ms(ts)]
+    assert total[0].value == 0.012
+    assert "doppelte Zeitstempel" in caplog.text

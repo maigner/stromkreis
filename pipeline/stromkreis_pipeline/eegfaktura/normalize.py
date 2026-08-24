@@ -8,10 +8,13 @@ Slot-Belegung der rawdata-Antwort (fix, siehe docs/eegfaktura-api.md):
 Verbraucher value[0..2] = G.01, G.02, G.03; Erzeuger value[0..1] = G.01, P.01.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 
 from .client import EegfakturaError, from_ms
+
+log = logging.getLogger(__name__)
 
 # Kategorien je Richtung in Slot-Reihenfolge der API
 KINDS_CONSUMPTION = ("total_consumption", "production_share", "self_use")
@@ -56,7 +59,29 @@ def normalize_rawdata(payload):
 
     Werte fehlender Slots werden uebersprungen (kuerzere value-Listen kommen
     vor, wenn der Netzbetreiber einzelne Kategorien noch nicht liefert).
+
+    Doppelte Zeitstempel je Zaehlpunkt und Kategorie: der energystore (v1)
+    liefert am Tag der Sommerzeitumstellung 96 statt 92 Slots, die vier
+    nicht existierenden Ortszeit-Slots 02:00 bis 02:45 fallen auf dieselben
+    UTC-Zeitpunkte wie 03:00 bis 03:45 (Befund Testinstanz 24.8.2026). Der
+    spaeter gelieferte Wert ist der der echten Ortszeit und gilt; ohne diese
+    Bereinigung scheitert der Upsert (ON CONFLICT trifft eine Zeile zweimal).
     """
+    records = _dedupe(_records(payload))
+    return records
+
+
+def _dedupe(records):
+    by_key = {}
+    for r in records:
+        by_key[(r.metering_point, r.kind, r.measured_at)] = r  # letzter Wert gilt
+    dropped = len(records) - len(by_key)
+    if dropped:
+        log.warning("%d doppelte Zeitstempel verworfen (Sommerzeitumstellung?), letzter Wert gilt", dropped)
+    return list(by_key.values())
+
+
+def _records(payload):
     records = []
     for metering_point, block in payload.items():
         if not isinstance(block, dict) or "data" not in block:
@@ -88,12 +113,18 @@ def normalize_masterdata(payload):
     label ist der Teilnehmername (Vor- und Nachname); Geraetename waere
     verfuegbar, der Teilnehmerbezug ist fuers Dashboard aber nuetzlicher.
     """
+    # Feldnamen der echten API (/api/master/masterdata, Befund Testinstanz
+    # 24.8.2026): firstname/lastname und meters; die camelCase-Variante bleibt
+    # als Fallback (Form des Web-Endpunkts /participant).
     points = []
     for participant in payload:
-        name = " ".join(
-            part for part in (participant.get("firstName"), participant.get("lastName")) if part
-        ).strip() or None
-        for meter in participant.get("meteringPoint") or []:
+        first = participant.get("firstname") or participant.get("firstName")
+        last = participant.get("lastname") or participant.get("lastName")
+        name = " ".join(part for part in (first, last) if part).strip() or None
+        meters = participant.get("meters")
+        if meters is None:
+            meters = participant.get("meteringPoint") or []
+        for meter in meters:
             mp = meter.get("meteringPoint")
             if not mp:
                 continue

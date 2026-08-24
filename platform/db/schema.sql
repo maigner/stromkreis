@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict TbKARtYCvnK9e30w2Ax73ylV0rC46XBlgfVWZcg6H4KWTsTjOcyvYaO1hflBpcd
+\restrict 7g7u5uQCbV1fbcNPL60UgR3n6huLwKCKX7o4R5Tw0ly3y1cOUzptEy6heJtSgvi
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -89,7 +89,9 @@ CREATE TABLE public.eegfaktura_source (
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    community_id text,
     CONSTRAINT eegfaktura_source_auth_mode_check CHECK ((auth_mode = ANY (ARRAY['basic'::text, 'client_credentials'::text]))),
+    CONSTRAINT eegfaktura_source_community_id_check CHECK ((community_id = upper(community_id))),
     CONSTRAINT eegfaktura_source_rc_number_check CHECK ((rc_number = upper(rc_number)))
 );
 
@@ -752,8 +754,7 @@ ALTER TABLE ONLY public.weather
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TbKARtYCvnK9e30w2Ax73ylV0rC46XBlgfVWZcg6H4KWTsTjOcyvYaO1hflBpcd
-
+\unrestrict 7g7u5uQCbV1fbcNPL60UgR3n6huLwKCKX7o4R5Tw0ly3y1cOUzptEy6heJtSgvi
 
 INSERT INTO public.schema_migrations VALUES ('20260807120000');
 INSERT INTO public.schema_migrations VALUES ('20260807120100');
@@ -764,3 +765,4 @@ INSERT INTO public.schema_migrations VALUES ('20260808150000');
 INSERT INTO public.schema_migrations VALUES ('20260808170000');
 INSERT INTO public.schema_migrations VALUES ('20260808180000');
 INSERT INTO public.schema_migrations VALUES ('20260809100000');
+INSERT INTO public.schema_migrations VALUES ('20260824190000');

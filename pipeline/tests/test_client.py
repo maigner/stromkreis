@@ -39,6 +39,14 @@ def test_basic_auth_nutzt_urlsafe_base64():
     assert base64.urlsafe_b64decode(encoded) == b"user:>>>???"
 
 
+def test_basic_auth_nutzt_standard_base64_fuer_backend():
+    # Das backend (/api/*) dekodiert Standard-Base64, nur energystore URL-safe.
+    auth = BasicAuth("user", ">>>???")
+    encoded = auth.headers("/api/master/masterdata")["Authorization"][len("Basic "):]
+    assert base64.standard_b64decode(encoded) == b"user:>>>???"
+    assert encoded != auth.headers("/energystore/query/rawdata")["Authorization"][len("Basic "):]
+
+
 def test_rawdata_schickt_millisekunden_und_tenant_header(fake_api):
     fake_api.responses[("POST", "/energystore/query/rawdata")] = (200, {})
     client = EegfakturaClient(fake_api.url, "rc101533", BasicAuth("u", "p"))
@@ -46,10 +54,25 @@ def test_rawdata_schickt_millisekunden_und_tenant_header(fake_api):
 
     method, path, headers, body = fake_api.requests[0]
     assert headers["X-Tenant"] == "RC101533"  # Server vergleicht grossgeschrieben
-    assert body["ecId"] == "RC101533"
+    assert body["ecId"] == "RC101533"  # ohne ec_id: RC-Nummer
     assert body["start"] == 1767225600000
     assert body["end"] == 1767312000000
     assert body["cps"] == [{"meteringPoint": "AT003000001"}]
+
+
+def test_rawdata_und_metadata_nutzen_gemeinschafts_id_als_ecid(fake_api):
+    # Der energystore speichert je <tenant>/<Gemeinschafts-ID>; ecId ist die
+    # Gemeinschafts-ID (AT..., 33 Zeichen), X-Tenant bleibt die RC-Nummer.
+    ec_id = "AT00999900000TC100200000000000002"
+    fake_api.responses[("POST", "/energystore/query/rawdata")] = (200, {})
+    fake_api.responses[("POST", f"/energystore/query/{ec_id}/metadata")] = (
+        200, {"periodBegin": 1767225600000, "periodEnd": 1767312000000})
+    client = EegfakturaClient(fake_api.url, "te100200", BasicAuth("u", "p"), ec_id=ec_id.lower())
+    client.rawdata(START, END)
+    _, _, headers, body = fake_api.requests[0]
+    assert body["ecId"] == ec_id
+    assert headers["X-Tenant"] == "TE100200"
+    assert client.metadata() == (START, END)
 
 
 def test_rawdata_ohne_cps_laesst_feld_weg(fake_api):

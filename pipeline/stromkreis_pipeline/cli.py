@@ -30,7 +30,7 @@ def _parse_day(value, end_of_day=False):
 
 
 def _client_for(source):
-    return EegfakturaClient(source.base_url, source.rc_number, config.build_auth(source))
+    return EegfakturaClient(source.base_url, source.rc_number, config.build_auth(source), ec_id=source.community_id)
 
 
 def cmd_probe(args):

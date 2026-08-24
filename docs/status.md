@@ -1,6 +1,13 @@
-# Stand: 8. August 2026
+# Stand: 24. August 2026
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
+
+## Neu am 24.8.: EEG-Faktura-Testinstanz auf `server`
+
+- Vollständiger EEG-Faktura-Stack läuft auf `server` unter `/home/martin/Container/eegfaktura/` (Upstream-Compose als Tarball plus `compose.override.yaml`, Realm-Patch, Setup-Skript aus `deploy/eegfaktura-local/`). SPA http://server.fritz.box:8001, Admin-Portal :8002, Keycloak :8180. Secrets nur in `server:.../secrets.env`. Test-EEG `TE100200` mit Muster-Stammdaten und Energiedaten Jan bis Mai 2023. Aufbau von Null ist reproduzierbar (`down -v`, `up -d`, `setup-eeg.sh`). Befunde und Fallstricke: `docs/eegfaktura-lokal.md`; Betrieb: `deploy/eegfaktura-local/README.md`.
+- **Importer erstmals Ende-zu-Ende gelaufen** (gegen die Testinstanz, lokale Wegwerf-DB, Mandant `testeeg`): `eegfaktura-probe` ok, `eegfaktura-sync --full` 278.240 Zeilen, 11 Zählpunkte mit Namen, alle fünf Kategorien. Dabei behobene Importer-Fehler: `ecId` muss die Gemeinschafts-ID sein (neue Migration `eegfaktura_community_id`, Spalte `eegfaktura_source.community_id`, Client-Parameter `ec_id`; `schema.sql` regeneriert), Basic-Auth-Kodierung je Dienst (Backend Standard-, energystore URL-safe Base64), `masterdata`-Feldnamen (`firstname`/`lastname`/`meters`), Sommerzeit-Duplikate im energystore (Dedup in `normalize_rawdata`). 15 Tests grün.
+- Noch nicht committet (Martin macht git): `docs/eegfaktura-lokal.md`, `docs/eegfaktura-api.md` (Fallstricke), diese Datei, `deploy/eegfaktura-local/*`, Migration `20260824190000_eegfaktura_community_id.sql` samt `schema.sql`, Pipeline-Änderungen in `client.py`, `config.py`, `cli.py`, `normalize.py` und Tests.
+- **Für ISCHLSTROM** heißt das: in `eegfaktura_source` neben der RC-Nummer die Gemeinschafts-ID eintragen (steht in der EEG-Stammdatenansicht der SPA), sonst bleibt der Import leer.
 
 ## Entscheidungen
 

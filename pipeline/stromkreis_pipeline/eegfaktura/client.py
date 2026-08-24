@@ -46,14 +46,22 @@ def from_ms(ms):
 
 
 class BasicAuth:
-    """Portal-Zugangsdaten, serverseitiger Passwort-Tausch (ProtectApi)."""
+    """Portal-Zugangsdaten, serverseitiger Passwort-Tausch (ProtectApi).
+
+    Die beiden Dienste dekodieren den Header unterschiedlich: energystore
+    (/energystore/*) mit URL-safe Base64, backend (/api/*) mit Standard-Base64.
+    Die Varianten unterscheiden sich nur in '+'/'/' bzw. '-'/'_'; damit auch
+    Zugangsdaten mit solchen Zeichen ueberall funktionieren, wird je Pfad kodiert.
+    """
 
     def __init__(self, username, password):
         raw = f"{username}:{password}".encode()
-        self._header = "Basic " + base64.urlsafe_b64encode(raw).decode()
+        self._urlsafe = "Basic " + base64.urlsafe_b64encode(raw).decode()
+        self._standard = "Basic " + base64.b64encode(raw).decode()
 
-    def headers(self):
-        return {"Authorization": self._header}
+    def headers(self, path="/energystore/"):
+        header = self._standard if path.startswith("/api/") else self._urlsafe
+        return {"Authorization": header}
 
     def invalidate(self):
         pass  # kein Zustand
@@ -70,7 +78,7 @@ class ClientCredentialsAuth:
         self._token = None
         self._expires_at = 0.0  # time.monotonic()
 
-    def headers(self):
+    def headers(self, path=None):
         if self._token is None or time.monotonic() >= self._expires_at:
             self._fetch()
         return {"Authorization": f"Bearer {self._token}"}
@@ -103,21 +111,25 @@ class ClientCredentialsAuth:
 class EegfakturaClient:
     """Zugriff auf die drei Maschinen-Endpunkte einer EEG-Faktura-Instanz."""
 
-    def __init__(self, base_url, rc_number, auth, session=None):
+    def __init__(self, base_url, rc_number, auth, session=None, ec_id=None):
         self.base_url = base_url.rstrip("/")
         self.rc_number = rc_number.upper()  # Server vergleicht grossgeschrieben
+        # ecId der Energiedaten-Endpunkte: die Gemeinschafts-ID (AT..., 33 Zeichen).
+        # Der energystore speichert je <tenant>/<ecId>; ohne Angabe RC-Nummer
+        # (alte Annahme aus docs/eegfaktura-api.md, liefert bei EEG-Faktura leere Antworten).
+        self.ec_id = (ec_id or rc_number).upper()
         self.auth = auth
         self.session = session or requests.Session()
 
     def _request(self, method, path, json_body=None):
         url = self.base_url + path
         try:
-            headers = {"X-Tenant": self.rc_number, **self.auth.headers()}
+            headers = {"X-Tenant": self.rc_number, **self.auth.headers(path)}
             resp = self.session.request(method, url, json=json_body, headers=headers, timeout=TIMEOUT)
             if resp.status_code in (401, 403):
                 # Einmal mit frischer Auth wiederholen (Token abgelaufen o.ae.)
                 self.auth.invalidate()
-                headers = {"X-Tenant": self.rc_number, **self.auth.headers()}
+                headers = {"X-Tenant": self.rc_number, **self.auth.headers(path)}
                 resp = self.session.request(method, url, json=json_body, headers=headers, timeout=TIMEOUT)
         except requests.RequestException as err:
             raise EegfakturaError(f"{method} {path}: API nicht erreichbar: {err}") from err
@@ -135,7 +147,7 @@ class EegfakturaClient:
         Die API liefert je nach Version ein flaches Objekt oder eine Map je
         Zaehlpunkt; hier wird beides akzeptiert und auf min/max reduziert.
         """
-        payload = self._request("POST", f"/energystore/query/{self.rc_number}/metadata", json_body={})
+        payload = self._request("POST", f"/energystore/query/{self.ec_id}/metadata", json_body={})
         entries = []
         if isinstance(payload, dict):
             if "periodBegin" in payload:
@@ -155,7 +167,7 @@ class EegfakturaClient:
         Ohne metering_points loest der Server alle aktiven Zaehlpunkte auf.
         """
         body = {
-            "ecId": self.rc_number,
+            "ecId": self.ec_id,
             "start": to_ms(start),
             "end": to_ms(end),
         }
