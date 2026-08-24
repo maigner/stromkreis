@@ -8,12 +8,14 @@ Läuft auf dem Homelab-Host `server` unter `/home/martin/Container/eegfaktura/` 
 
 | Was | URL | Login |
 |---|---|---|
-| Kunden-SPA (EEG-Faktura) | http://server.fritz.box:8001 | `importer` (EEG_ADMIN) oder der bei der Registrierung angelegte EEG-Admin |
-| Admin-Portal (EEG-Registrierung) | http://server.fritz.box:8002 | `manager` |
-| Keycloak-Konsole | http://server.fritz.box:8180 | `admin` / `SuperSecretPassword` (Upstream-Default, nur im Heimnetz) |
-| API für den Importer | http://server.fritz.box:8001 (`/api/*`, `/energystore/*`) | Basic `importer` |
-| Keycloak-Token-Endpunkt | http://server.fritz.box:8180/realms/EEGFaktura/protocol/openid-connect/token | |
+| Kunden-SPA (EEG-Faktura) | https://eegfaktura-test.stromkreis.net | `importer` (EEG_ADMIN) oder der bei der Registrierung angelegte EEG-Admin |
+| Admin-Portal (EEG-Registrierung) | https://admin.eegfaktura-test.stromkreis.net | `manager` |
+| Keycloak-Konsole | https://auth.eegfaktura-test.stromkreis.net/admin/ | `admin` / `KC_ADMIN_PW` aus `secrets.env`; Caddy lässt `/admin/*` und `/realms/master/*` nur aus dem Heimnetz (192.168.178.0/24), dem Docker-Netz (172.16.0.0/12, das Admin-Backend legt Benutzer über die Admin-API an) und von der eigenen WAN-IP 85.127.8.140 (Heimnetz-Clients kommen per NAT-Hairpin mit dieser Adresse an) durch, 403 von außen. Bei Wechsel der Heim-IP anpassen |
+| API für den Importer | https://eegfaktura-test.stromkreis.net (`/api/*`, `/energystore/*`) | Basic `importer` |
+| Keycloak-Token-Endpunkt | https://auth.eegfaktura-test.stromkreis.net/realms/EEGFaktura/protocol/openid-connect/token | |
 | EEG-Faktura-Postgres | 127.0.0.1:26432 am Server (`eegfaktura`/`eegfaktura`) | |
+
+Alle drei Hostnamen sind A-Records in Route 53 auf die Heim-IP; TLS terminiert der Server-Caddy (`~/Container/caddy/Caddyfile`, Block "EEG-Faktura-Testinstanz", Backup `Caddyfile.bak-eegfaktura`) und leitet auf 127.0.0.1:8001/8002/8180 weiter. Die Container erreichen die Hostnamen per `extra_hosts: host-gateway` (Caddy lauscht im Host-Netz auf 443). Aus dem Internet erreichbar; alle EEG-Faktura-Ports selbst sind nur an 127.0.0.1 gebunden. Achtung beim Bearbeiten der Caddyfile: sie ist als einzelne Datei in den Caddy-Container gemountet; `sed -i` oder Editoren, die die Datei ersetzen, lassen den Container auf der alten Inode sitzen, `caddy reload` lädt dann die alte Fassung. In-place schreiben (`>>`, `cat >`) oder danach `docker compose restart` im Caddy-Ordner.
 
 Passwörter stehen in `server:/home/martin/Container/eegfaktura/secrets.env` (nicht im Repo; `.env` ist ein Symlink darauf, damit Compose `${ADMIN_CLI_SECRET}` sieht). Test-EEG: RC-Nummer `TE100200`, Gemeinschafts-ID `AT00999900000TC100200000000000002`, Netzbetreiber `AT009999`, Energiedaten 1.1.2023 bis 20.5.2023 (Musterdatei des Upstream-Repos).
 
@@ -21,7 +23,7 @@ Passwörter stehen in `server:/home/martin/Container/eegfaktura/secrets.env` (ni
 
 | Datei | Zweck |
 |---|---|
-| `compose.override.yaml` | Wird von Compose automatisch geladen. Keycloak auf Port 8180 (8080 ist am Server durch Nextcloud belegt), Unified Hostname `server.fritz.box:8180`, Healthcheck auf Management-Port 9181, `extra_hosts` host-gateway für alle Dienste, Backend aus lokalem Build, `master-server`-Env des energystore korrigiert, admin-cli-Secret ans Admin-Backend, eda/billing/postfix im Profil `full` (laufen nicht). |
+| `compose.override.yaml` | Wird von Compose automatisch geladen. Keycloak auf Port 8180 (8080 ist am Server durch Nextcloud belegt) mit `KC_HOSTNAME https://auth.eegfaktura-test.stromkreis.net` hinter Caddy (`KC_PROXY_HEADERS xforwarded`), Bootstrap-Admin-Passwort aus `.env`, alle Ports nur 127.0.0.1, Healthcheck auf Management-Port 9181, `extra_hosts` host-gateway für alle Dienste, Backend aus lokalem Build, `master-server`-Env des energystore korrigiert, admin-cli-Secret ans Admin-Backend, eda/billing/postfix im Profil `full` (laufen nicht). |
 | `patch-realm.py` | Patcht `keycloak/import/realm-export.json` vor dem ersten Start: Realm-`frontendUrl` (Token-Issuer), Redirect-URIs, Client `at.ourproject.vfeeg.api` (fehlt upstream), Gruppen-Mapper `access_groups`/`groups` (fehlen upstream), festes admin-cli-Secret, Benutzer `manager` und `importer`. |
 | `keycloak.json.tmpl` | Vorlage für `keycloak/keycloak.json` (Client-Konfiguration der Go-Dienste) mit Platzhaltern für die Secrets. |
 | `setup-eeg.sh` | Nach dem Start: EEG registrieren (Admin-Backend-API), Stammdaten (Backend) und Energiedaten (energystore-GraphQL) hochladen, ProtectApi-Smoke-Test. Idempotent. |
@@ -34,14 +36,16 @@ ssh server
 mkdir -p ~/Container/eegfaktura && cd ~/Container/eegfaktura
 curl -sL https://github.com/eegfaktura/eegfaktura-docker-compose/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
 # Dateien aus deploy/eegfaktura-local/ hierher kopieren (scp), build-backend.sh nach build/
-umask 077; printf "ADMIN_CLI_SECRET=%s\nAPI_SECRET=%s\nMANAGER_PW=%s\nIMPORTER_PW=%s\nRC_NUMBER=TE100200\n" \
-  "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 12 | tr -d '/+=')" > secrets.env
+umask 077; printf "ADMIN_CLI_SECRET=%s\nAPI_SECRET=%s\nMANAGER_PW=%s\nIMPORTER_PW=%s\nKC_ADMIN_PW=%s\nRC_NUMBER=TE100200\n" \
+  "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 18 | tr -d '/+=')" > secrets.env
 ln -sfn secrets.env .env
 set -a; . ./secrets.env; set +a
 cp -n keycloak/import/realm-export.json keycloak/import/realm-export.json.orig
-python3 patch-realm.py keycloak/import/realm-export.json server.fritz.box "$ADMIN_CLI_SECRET" "$API_SECRET" "$MANAGER_PW" "$IMPORTER_PW" "$RC_NUMBER"
+python3 patch-realm.py keycloak/import/realm-export.json eegfaktura-test.stromkreis.net "$ADMIN_CLI_SECRET" "$API_SECRET" "$MANAGER_PW" "$IMPORTER_PW" "$RC_NUMBER"
 sed -e "s/__API_SECRET__/$API_SECRET/" -e "s/__ADMIN_CLI_SECRET__/$ADMIN_CLI_SECRET/" keycloak.json.tmpl > keycloak/keycloak.json
 build/build-backend.sh
+# DNS-Records und Caddy-Block (siehe oben) muessen vorher stehen: Backend und energystore
+# holen beim Start die OIDC-Discovery von https://auth.eegfaktura-test.stromkreis.net
 docker compose up -d          # Keycloak importiert den Realm nur beim ersten Start (leere DB)
 docker compose ps             # warten bis alle 10 Dienste "Up", Keycloak "healthy"
 ./setup-eeg.sh
@@ -53,7 +57,7 @@ docker compose ps             # warten bis alle 10 Dienste "Up", Keycloak "healt
 
 ```sql
 insert into eegfaktura_source (tenant_id, rc_number, community_id, base_url, auth_mode)
-select id, 'TE100200', 'AT00999900000TC100200000000000002', 'http://server.fritz.box:8001', 'basic'
+select id, 'TE100200', 'AT00999900000TC100200000000000002', 'https://eegfaktura-test.stromkreis.net', 'basic'
 from tenant where slug = 'testeeg';
 ```
 

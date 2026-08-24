@@ -5,6 +5,8 @@ fuer die Stromkreis-Testinstanz auf 'server' (siehe docs/eegfaktura-lokal.md):
 - Client at.ourproject.vfeeg.api (confidential, Direct Access Grants, tenant-Mapper) fuer ProtectApi
 - festes admin-cli-Secret (muss zu keycloak.json passen)
 - Benutzer 'manager' (Realm-Rolle Manager) fuer das Admin-Portal
+<host> ist die Basis-Domain (eegfaktura-test.stromkreis.net); SPA unter https://<host>,
+Admin-Portal unter https://admin.<host>, Keycloak unter https://auth.<host> (Caddy, TLS).
 Aufruf: patch-realm.py <realm-export.json> <host> <admin-cli-secret> <api-secret> <manager-passwort> <importer-passwort> <rc-nummer>
 - Benutzer 'importer' (Gruppe EEG_ADMIN, tenant ["<rc>"], nicht-temporaeres Passwort) fuer den Stromkreis-Importer (ProtectApi)
 Das tenant-Attribut ist bei EEG-Faktura ein JSON-String '["RC..."]', den der Mapper (jsonType JSON) zum Array macht; NICHT multivalued.
@@ -12,10 +14,10 @@ Das tenant-Attribut ist bei EEG-Faktura ein JSON-String '["RC..."]', den der Map
 import json, sys, uuid
 path, host, admin_cli_secret, api_secret, manager_pw, importer_pw, rc = sys.argv[1:8]
 r = json.load(open(path))
-origins = [f"http://{host}:8001", f"http://{host}:8002", "http://localhost:8001", "http://localhost:8002"]
+origins = [f"https://{host}", f"https://admin.{host}", "http://localhost:8001", "http://localhost:8002"]
 # Realm-frontendUrl bestimmt den Token-Issuer und ueberstimmt KC_HOSTNAME; muss der
 # Unified Hostname sein, sonst brechen backend/energystore beim Start ab (Issuer-Mismatch).
-r.setdefault("attributes", {})["frontendUrl"] = f"http://{host}:8180"
+r.setdefault("attributes", {})["frontendUrl"] = f"https://auth.{host}"
 clients = {c["clientId"]: c for c in r["clients"]}
 clients["at.ourproject.vfeeg.app"]["redirectUris"] = [o + "/*" for o in origins]
 clients["at.ourproject.vfeeg.admin"]["redirectUris"] = [o + "/*" for o in origins]

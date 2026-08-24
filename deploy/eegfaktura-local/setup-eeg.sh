@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 set -a; . ./secrets.env; set +a
 
-KC=http://server.fritz.box:8180/realms/EEGFaktura/protocol/openid-connect/token
+KC=https://auth.eegfaktura-test.stromkreis.net/realms/EEGFaktura/protocol/openid-connect/token
 ADMIN=http://localhost:8002
 APP=http://localhost:8001
 RC=${RC_NUMBER:-TE100200}

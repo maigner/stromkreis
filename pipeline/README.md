@@ -21,7 +21,7 @@ DB-Zugang über `DATABASE_URL` (Compose-Stack) oder den pg_service-Eintrag `stro
 
 API-Vertrag und Plan: `docs/eegfaktura-api.md` im Repo-Root. Konfiguration je Mandant in der Tabelle `eegfaktura_source` (RC-Nummer als Tenant, **Gemeinschafts-ID `community_id` als `ecId` der Energiedaten-Endpunkte**, Basis-URL, auth_mode `basic` oder `client_credentials`); Secrets nur in der Umgebung: `EEGFAKTURA_<SLUG>_USER`/`_PASSWORD` bzw. `_CLIENT_ID`/`_CLIENT_SECRET` (Slug großgeschrieben, `-` als `_`). Ohne `community_id` liefert der energystore leere Antworten.
 
-Testgegenstelle: die EEG-Faktura-Testinstanz auf `server` (`deploy/eegfaktura-local/README.md`, Befunde in `docs/eegfaktura-lokal.md`), Basis-URL `http://server.fritz.box:8001`, Benutzer `importer`.
+Testgegenstelle: die EEG-Faktura-Testinstanz auf `server` (`deploy/eegfaktura-local/README.md`, Befunde in `docs/eegfaktura-lokal.md`), Basis-URL `https://eegfaktura-test.stromkreis.net`, Benutzer `importer`.
 
 ```bash
 # Zugang testen (metadata-Endpunkt, schreibt keine Energiedaten)

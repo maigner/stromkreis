@@ -4,26 +4,37 @@
 #
 # Abweichungen vom Upstream-Stack:
 # - Healthcheck: /health/ready liegt bei Keycloak 26 auf dem Management-Port 9181.
-# - Port 8080 ist am Server durch Nextcloud AIO belegt: Keycloak laeuft innen
-#   wie aussen auf 8180 (KC_HTTP_PORT), damit der Unified Hostname stimmt.
-# - Unified Hostname ist server.fritz.box:8180 (Browser: Fritzbox-DNS;
-#   Container: extra_hosts host-gateway auf den veroeffentlichten Port).
-#   Token-iss == JWKS-URL, keine hosts-Datei-Aenderung am Client noetig.
+# - Oeffentliche Hostnamen hinter dem Server-Caddy (TLS, ~/Container/caddy/Caddyfile):
+#     https://eegfaktura-test.stromkreis.net        -> 127.0.0.1:8001 (SPA + /api + /energystore)
+#     https://admin.eegfaktura-test.stromkreis.net  -> 127.0.0.1:8002 (Admin-Portal)
+#     https://auth.eegfaktura-test.stromkreis.net   -> 127.0.0.1:8180 (Keycloak; Konsole nur Heimnetz)
+#   Die Container erreichen die Hostnamen per extra_hosts host-gateway (Caddy lauscht
+#   im Host-Netz auf 443), Token-iss == JWKS-URL, gueltiges Let's-Encrypt-Zertifikat.
+# - Port 8080 ist am Server durch Nextcloud AIO belegt: Keycloak laeuft auf 8180.
+#   Alle Ports nur auf 127.0.0.1, nach aussen geht es ausschliesslich ueber Caddy.
 # - eda, billing, postfix laufen nicht (Profil "full"): keine Netzbetreiber-
 #   Anbindung, Abrechnung ausserhalb des Stromkreis-Scopes.
 
 x-kc-host: &kc-host
   extra_hosts:
-    - "server.fritz.box:host-gateway"
+    - "eegfaktura-test.stromkreis.net:host-gateway"
+    - "admin.eegfaktura-test.stromkreis.net:host-gateway"
+    - "auth.eegfaktura-test.stromkreis.net:host-gateway"
 
 services:
   eegfaktura-keycloak:
+    <<: *kc-host
     environment:
       KC_HTTP_PORT: "8180"
-      KEYCLOAK_FRONTEND_URL: "http://server.fritz.box:8180"
-      KC_HOSTNAME: "http://server.fritz.box:8180"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: "xforwarded"
+      KC_HOSTNAME: "https://auth.eegfaktura-test.stromkreis.net"
+      KEYCLOAK_FRONTEND_URL: "https://auth.eegfaktura-test.stromkreis.net"
+      # Bootstrap-Admin nur beim ersten Start einer leeren DB; Upstream-Default
+      # "SuperSecretPassword" ist fuer einen aus dem Internet erreichbaren Keycloak tabu.
+      KEYCLOAK_ADMIN_PASSWORD: "${KC_ADMIN_PW:?KC_ADMIN_PW fehlt in .env}"
     ports: !override
-      - "8180:8180"
+      - "127.0.0.1:8180:8180"
       - "127.0.0.1:9181:9181"
     healthcheck:
       test: [
@@ -38,17 +49,17 @@ services:
   eegfaktura-web:
     <<: *kc-host
     environment:
-      KEYCLOAK_URL: "http://server.fritz.box:8180"
+      KEYCLOAK_URL: "https://auth.eegfaktura-test.stromkreis.net"
 
   eegfaktura-admin-web:
     <<: *kc-host
     environment:
-      KEYCLOAK_URL: "http://server.fritz.box:8180"
+      KEYCLOAK_URL: "https://auth.eegfaktura-test.stromkreis.net"
 
   eegfaktura-admin-backend:
     <<: *kc-host
     environment:
-      KEYCLOAK_URL: "http://server.fritz.box:8180"
+      KEYCLOAK_URL: "https://auth.eegfaktura-test.stromkreis.net"
       # Admin-API-Zugang fuer das Anlegen der EEG-Admin-Benutzer. Das Image liest
       # NICHT keycloak.json (KEYCLOAK_CONFIG_JSON ist in application.conf auskommentiert),
       # sondern diese Variable; ohne sie gilt ein eingebautes Default-Secret -> 401
@@ -77,6 +88,11 @@ services:
   eegfaktura-postgresql:
     ports: !override
       - "127.0.0.1:26432:5432"
+
+  eegfaktura-proxy:
+    ports: !override
+      - "127.0.0.1:8001:80"
+      - "127.0.0.1:8002:81"
 
   eegfaktura-eda:
     profiles: ["full"]

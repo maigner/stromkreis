@@ -17,9 +17,9 @@ Basis ist der offizielle Entwicklungsstack `eegfaktura-docker-compose` (fertige 
 | eegfaktura-web, -admin-web, -admin-backend, -filestore, -proxy | SPA (8001), Admin-Portal (8002), Registrierung, Dokumente, Caddy | läuft |
 | eegfaktura-eda, -billing, -postfix | Marktkommunikation, Abrechnung, Mail | bewusst aus (Profil `full`) |
 
-Der Caddy-Proxy bildet exakt die Pfade der SaaS-Instanz ab (`/api/*`, `/energystore/*`). Der Importer braucht nur `base_url = http://server.fritz.box:8001`, sonst nichts.
+Der Caddy-Proxy bildet exakt die Pfade der SaaS-Instanz ab (`/api/*`, `/energystore/*`). Der Importer braucht nur `base_url = https://eegfaktura-test.stromkreis.net`, sonst nichts.
 
-**Unified Hostname.** Token-Issuer (`iss`) und JWKS-URL müssen für Browser und Container gleich sein. Port 8080 ist am Server durch Nextcloud AIO belegt, deshalb läuft Keycloak innen wie außen auf 8180 (`KC_HTTP_PORT`) unter `http://server.fritz.box:8180`: der Browser löst den Namen über die Fritzbox auf, die Container per `extra_hosts: host-gateway` auf den veröffentlichten Port. Keine Hosts-Datei-Änderung am MacBook nötig (anders als in der Upstream-README).
+**Öffentliche Hostnamen mit TLS (seit 24.8. abends).** Token-Issuer (`iss`) und JWKS-URL müssen für Browser und Container gleich sein. Die Instanz hängt hinter dem Server-Caddy unter `https://eegfaktura-test.stromkreis.net` (SPA, `/api`, `/energystore`), `https://admin.eegfaktura-test.stromkreis.net` (Admin-Portal) und `https://auth.eegfaktura-test.stromkreis.net` (Keycloak, `KC_HOSTNAME` mit `KC_PROXY_HEADERS xforwarded`); A-Records in Route 53 auf die Heim-IP, Let's-Encrypt-Zertifikate von Caddy. Die Container erreichen die Hostnamen per `extra_hosts: host-gateway` (Caddy lauscht im Host-Netz auf 443), die EEG-Faktura-Ports 8001/8002/8180 sind nur an 127.0.0.1 gebunden (8080 ist durch Nextcloud AIO belegt, daher 8180). Die Keycloak-Konsole (`/admin/*`, `/realms/master/*`) lässt Caddy nur aus dem Heimnetz, dem Docker-Netz 172.16.0.0/12 und von der eigenen WAN-IP 85.127.8.140 (NAT-Hairpin der Heimnetz-Clients) durch (das Admin-Backend legt EEG-Benutzer über dieselbe Admin-API an, sonst 403 bei der Registrierung); das Bootstrap-Admin-Passwort kommt aus `secrets.env` statt des Upstream-Defaults. Der erste Versuch mit `http://server.fritz.box:8180` als Unified Hostname scheiterte im Browser (vermutlich HTTPS-Erzwingung oder Browser-DNS ohne fritz.box), obwohl curl alles erreichte; die öffentlichen HTTPS-Namen räumen beides aus.
 
 **Daten.** Der Realm wird beim ersten Start aus `keycloak/import/realm-export.json` importiert, vorher gepatcht durch `patch-realm.py` (Abschnitt 2). `setup-eeg.sh` registriert per Admin-Backend-API die Test-EEG `TE100200` (Gemeinschafts-ID `AT00999900000TC100200000000000002`), lädt die Muster-Stammdaten (7 Teilnehmer, 11 Zählpunkte) und den Muster-Energiereport (1.1.2023 bis 20.5.2023, 7 Zählpunkte mit Daten) hoch und macht den ProtectApi-Smoke-Test. Der komplette Aufbau von Null (`docker compose down -v`, `up -d`, `setup-eeg.sh`) ist reproduzierbar durchgelaufen.
 
@@ -60,7 +60,7 @@ Der Compose-Stack setzt `ENERGYSTORE_SERVICES_master-server` kleingeschrieben; v
 
 ## 3. Ergebnis des Ende-zu-Ende-Tests (24.8.)
 
-Lokale Stromkreis-DB (Wegwerf-Postgres in Colima, Mandant `testeeg`, `eegfaktura_source` mit `community_id` und `base_url http://server.fritz.box:8001`, `auth_mode basic`, Benutzer `importer`):
+Lokale Stromkreis-DB (Wegwerf-Postgres in Colima, Mandant `testeeg`, `eegfaktura_source` mit `community_id` und `base_url https://eegfaktura-test.stromkreis.net`, `auth_mode basic`, Benutzer `importer`):
 
 - `eegfaktura-probe`: "Zugang ok, Daten von 2022-12-31 bis 2023-05-20 (basic)".
 - `eegfaktura-sync --full`: 278.240 Zeilen in 5 Monats-Chunks, 11 Zählpunkte mit Teilnehmernamen aus den Stammdaten (7 davon mit Daten: 6 Verbrauch, 1 Erzeugung; die 4 Erzeugungs-Zählpunkte `AT000...` der Muster-Stammdaten kommen im Muster-Energiereport nicht vor), alle fünf Kategorien (`total_consumption`, `production_share`, `self_use`, `total_production`, `overshoot`), `quality` aus `qov`, 48 Sommerzeit-Duplikate verworfen.
@@ -68,7 +68,7 @@ Lokale Stromkreis-DB (Wegwerf-Postgres in Colima, Mandant `testeeg`, `eegfaktura
 
 ## 4. Offen
 
-- **SSO lokal:** Client `net.stromkreis.platform` (public, Authorization Code + PKCE, Redirect `http://localhost:5173/auth/eegfaktura/callback`, Mapper wie am app-Client) in `patch-realm.py` ergänzen, sobald der OIDC-Login gebaut wird. Issuer lokal: `http://server.fritz.box:8180/realms/EEGFaktura`.
+- **SSO lokal:** Client `net.stromkreis.platform` (public, Authorization Code + PKCE, Redirect `http://localhost:5173/auth/eegfaktura/callback`, Mapper wie am app-Client) in `patch-realm.py` ergänzen, sobald der OIDC-Login gebaut wird. Issuer: `https://auth.eegfaktura-test.stromkreis.net/realms/EEGFaktura`.
 - **Client-Credentials-Weg** lokal testen (Client `net.stromkreis.import`, Service Account mit `tenant`-Attribut) sobald klar ist, gegen welche Routen die SaaS-Instanz ihn freischaltet.
 - Der Muster-Energiereport heißt `..._TE100100.xlsx`, die EEG `TE100200`; der energystore übernimmt die Gemeinschafts-ID aus dem Upload-Aufruf, nicht aus der Datei, deshalb stört das nicht.
 - Upstream melden (Compose-Repo): fehlender `api`-Client und Gruppen-Mapper im Realm-Export, Healthcheck-Port, `master-server`-Env, veraltetes Backend-Image, `KEYCLOAK_ADMIN_CLI_SECRET` (Issue #27).
