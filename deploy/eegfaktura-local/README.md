@@ -29,7 +29,9 @@ Passwörter stehen in `server:/home/martin/Container/eegfaktura/secrets.env` (Ko
 | `setup-eeg.sh [eegs/<RC>.json]` | Nach dem Start: EEG aus der Konfiguration registrieren (Admin-Backend-API), Upload-Benutzer per `kc-user.sh` einrichten, Stammdaten (Backend) und Energiedaten (energystore-GraphQL) hochladen, ProtectApi-Smoke-Test. Idempotent, Uploads überschreiben. Default `eegs/TE100200.json`. |
 | `kc-user.sh <user> <pw> <rc>` | Keycloak-Admin-API (127.0.0.1:8180, Realm `master`, Passwort `KC_ADMIN_PW`): Benutzer anlegen bzw. aktualisieren, festes Passwort, Gruppe `EEG_ADMIN`, `tenant`-Attribut um die RC-Nummer erweitern. Keycloak 26 verlangt beim PUT die vollständige User-Representation. |
 | `gen-members.py` | Erzeugt deterministisch eine Mitglieder-Konfiguration `eegs/<RC>.json` (Namen, Adressen, Profile haushalt/wärmepumpe/gewerbe, Jahresverbrauch, ~40% mit PV, ~20% Späteinsteiger). |
-| `eegs/*.json` | Konfigurationen der drei Dummy-EEGs (Tabelle oben). `TE100200.json` bildet die Upstream-Musterstammdaten nach und zeigt auf die Musterdateien. |
+| `eegs/*.json` | Konfigurationen der drei Dummy-EEGs (Tabelle oben). `TE100200.json` bildet die Upstream-Musterstammdaten nach und zeigt auf die Musterdateien. Straße und Hausnummer der Mitglieder sind seit 26.8. echte Adressen aus dem jeweiligen Ort (`set-addresses.py`). |
+| `eegs/adressen.json` | Je PLZ (4820, 4822, 4802) 400 echte Wohnadressen (Straße, Hausnummer) aus OpenStreetMap (Overpass, Objekte mit `addr:street`/`addr:housenumber`, ohne Gewerbe-Tags), Stand 26.8.2026. Datenquelle: © OpenStreetMap-Mitwirkende, ODbL. |
+| `set-addresses.py eegs/<RC>.json [--apply]` | Weist den Mitgliedern deterministisch (Seed = RC-Nummer) Adressen aus `adressen.json` zu und schreibt sie in die Konfiguration; mit `--apply` am Server zusätzlich in EEG-Faktura: Teilnehmer per Vor- und Nachname zuordnen, Wohn- und Rechnungsadresse per `PUT /api/participant/{id}`, Zählpunkt-Adressen per `PUT /api/meteringpoint/v2/{pid}/update/{mid}` (`{path, value}` je Feld). Braucht `secrets.env` (`API_SECRET`, `<UPLOAD_USER>_PW`). Idempotent. Die Plattform übernimmt die Adressen beim nächsten Import-Auftrag (`insert into eegfaktura_sync_job (tenant_id) ...`, Phase masterdata). |
 | `gen-eeg.py <config> <von> <bis> <ordner>` | Erzeugt aus einer Konfiguration `<RC>-Stammdaten.xlsx` (Sheet `EEG Stammdaten`, Spalten wie die Upstream-Vorlage, Status ACTIVATED) und `<RC>-Energiedaten.xlsx` (EDA-Report-Format, Sheet `Energiedaten`, 96 Slots je Tag in Ortszeit, Format aus `excel/ExcelSourceNew.go` des energystore abgeleitet): Haushalts-, Wärmepumpen- und Gewerbeprofile, PV nach Sonnenstand für das Salzkammergut mit Tageswetter, dynamische Zuteilung mit exakten EEG-Identitäten, Späteinsteiger per `begin`. Deterministisch. Lokal ausführen (braucht openpyxl, ca. 25 s je 20-Mitglieder-EEG und 2 Jahre), Dateien nach `server:.../data/` kopieren, dann `setup-eeg.sh` (Upload ca. 1 min). |
 | `build-backend.sh` | Baut `vfeeg-backend:local` aus dem aktuellen master (das Registry-Image `latest` ist veraltet und beantwortet authentifizierte Anfragen mit leeren 200ern). |
 
@@ -56,6 +58,7 @@ docker compose ps             # warten bis alle 10 Dienste "Up", Keycloak "healt
 ./setup-eeg.sh                      # TE100200 (Musterdateien)
 ./setup-eeg.sh eegs/TE100300.json   # weitere Dummy-EEGs, Dateien vorher mit gen-eeg.py erzeugen
 ./setup-eeg.sh eegs/TE100400.json
+./set-addresses.py eegs/TE100300.json --apply   # echte Adressen aus dem Ort in EEG-Faktura setzen
 ```
 
 `docker compose down -v` löscht alle Daten (Postgres, Keycloak, energystore); danach `up -d` und `setup-eeg.sh` erneut. Änderungen an `keycloak/keycloak.json` (Docker-Secret) brauchen `down`/`up`, kein `restart`.

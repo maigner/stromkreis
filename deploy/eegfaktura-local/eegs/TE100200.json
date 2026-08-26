@@ -13,24 +13,114 @@
  "energiedaten": "TEST_EEG_Report_TE100200_2023-2026.xlsx",
  "_hinweis": "Stammdaten sind die Upstream-Musterdatei (7 Teilnehmer, 11 Zaehlpunkte); die Mitgliederliste hier entspricht ihr und dient gen-eeg.py zur Erzeugung der Energiedaten (26.8.2026 eingespielt: 21.5.2023 bis 25.8.2026, davor Upstream-Muster Jan bis Mai 2023).",
  "members": [
-  {"first": "Max", "last": "Mustermann", "street": "Solargasse", "nr": "37",
-   "consumption": {"zp": "AT0099990000000000000000000020100", "annual_kwh": 4200, "profile": "haushalt", "begin": null}},
-  {"first": "Ingrid", "last": "Thatcher", "street": "Baumallee", "nr": "37",
+  {
+   "first": "Max",
+   "last": "Mustermann",
+   "street": "Kaiser-Franz-Josef-Straße",
+   "nr": "7",
+   "consumption": {
+    "zp": "AT0099990000000000000000000020100",
+    "annual_kwh": 4200,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Ingrid",
+   "last": "Thatcher",
+   "street": "Kochstraße",
+   "nr": "2",
    "consumption": null,
-   "generation": {"zp": "AT0000000000000000000000000000001", "kwp": 5.2, "azimuth": 180, "begin": null}},
-  {"first": "Richard", "last": "Finnegan", "street": "Panelpatz", "nr": "35",
-   "consumption": {"zp": "AT0099990000000000000000000020102", "annual_kwh": 3100, "profile": "haushalt", "begin": null},
-   "generation": {"zp": "AT0000000000000000000000000000003", "kwp": 8.0, "azimuth": 210, "begin": null}},
-  {"first": "Silvia", "last": "Beckett", "street": "Solargasse", "nr": "12",
-   "consumption": {"zp": "AT0099990000000000000000000020104", "annual_kwh": 7800, "profile": "waermepumpe", "begin": null}},
-  {"first": "Josef", "last": "Wilson", "street": "Baumallee", "nr": "5",
-   "consumption": {"zp": "AT0099990000000000000000000020105", "annual_kwh": 5600, "profile": "haushalt", "begin": null},
-   "generation": {"zp": "AT0000000000000000000000000000006", "kwp": 6.4, "azimuth": 150, "begin": "2025-03-01"}},
-  {"first": "Rosa", "last": "Crassus", "street": "Gemeinschaftsplatz", "nr": "1",
-   "consumption": {"zp": "AT0099990000000000000000000020108", "annual_kwh": 12500, "profile": "gewerbe", "begin": null},
-   "generation": {"zp": "AT0000000000000000000000000000007", "kwp": 29.9, "azimuth": 180, "begin": null}},
-  {"first": "Ronald", "last": "Hendrix", "street": "Gemeinschaftsplatz", "nr": "23",
-   "consumption": {"zp": "AT0099990000000000000000000020110", "annual_kwh": 3600, "profile": "haushalt", "begin": null},
-   "generation": {"zp": "AT0099990000000000000000030020109", "kwp": 9.8, "azimuth": 240, "begin": null}}
+   "generation": {
+    "zp": "AT0000000000000000000000000000001",
+    "kwp": 5.2,
+    "azimuth": 180,
+    "begin": null
+   }
+  },
+  {
+   "first": "Richard",
+   "last": "Finnegan",
+   "street": "Traxleckerweg",
+   "nr": "2a",
+   "consumption": {
+    "zp": "AT0099990000000000000000000020102",
+    "annual_kwh": 3100,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0000000000000000000000000000003",
+    "kwp": 8.0,
+    "azimuth": 210,
+    "begin": null
+   }
+  },
+  {
+   "first": "Silvia",
+   "last": "Beckett",
+   "street": "Kreuterer Straße",
+   "nr": "21b",
+   "consumption": {
+    "zp": "AT0099990000000000000000000020104",
+    "annual_kwh": 7800,
+    "profile": "waermepumpe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Josef",
+   "last": "Wilson",
+   "street": "Sonnenweg",
+   "nr": "6",
+   "consumption": {
+    "zp": "AT0099990000000000000000000020105",
+    "annual_kwh": 5600,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0000000000000000000000000000006",
+    "kwp": 6.4,
+    "azimuth": 150,
+    "begin": "2025-03-01"
+   }
+  },
+  {
+   "first": "Rosa",
+   "last": "Crassus",
+   "street": "Knappenweg",
+   "nr": "22",
+   "consumption": {
+    "zp": "AT0099990000000000000000000020108",
+    "annual_kwh": 12500,
+    "profile": "gewerbe",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0000000000000000000000000000007",
+    "kwp": 29.9,
+    "azimuth": 180,
+    "begin": null
+   }
+  },
+  {
+   "first": "Ronald",
+   "last": "Hendrix",
+   "street": "Wirerstraße",
+   "nr": "8",
+   "consumption": {
+    "zp": "AT0099990000000000000000000020110",
+    "annual_kwh": 3600,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000030020109",
+    "kwp": 9.8,
+    "azimuth": 240,
+    "begin": null
+   }
+  }
  ]
 }

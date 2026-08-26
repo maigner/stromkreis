@@ -1,0 +1,4817 @@
+{
+ "4820": {
+  "ort": "Bad Ischl",
+  "adressen": [
+   {
+    "street": "Adolf-Reim-Straße",
+    "nr": "1"
+   },
+   {
+    "street": "Ahornstraße",
+    "nr": "29"
+   },
+   {
+    "street": "Ahornstraße",
+    "nr": "38"
+   },
+   {
+    "street": "Ahornstraße",
+    "nr": "45"
+   },
+   {
+    "street": "Ahornstraße",
+    "nr": "46"
+   },
+   {
+    "street": "Ahornstraße",
+    "nr": "77"
+   },
+   {
+    "street": "Ahornstraße",
+    "nr": "97"
+   },
+   {
+    "street": "Alexander-Girardi-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Alexander-Girardi-Straße",
+    "nr": "6"
+   },
+   {
+    "street": "Am Buchenhain",
+    "nr": "12"
+   },
+   {
+    "street": "Am Buchenhain",
+    "nr": "4"
+   },
+   {
+    "street": "Am Buchenhain",
+    "nr": "6"
+   },
+   {
+    "street": "Am Buchenhain",
+    "nr": "7"
+   },
+   {
+    "street": "Antonius-Dicklberger-Straße",
+    "nr": "11"
+   },
+   {
+    "street": "Auböckplatz",
+    "nr": "10"
+   },
+   {
+    "street": "Auböckplatz",
+    "nr": "7"
+   },
+   {
+    "street": "Auweg",
+    "nr": "45"
+   },
+   {
+    "street": "Bachgasse",
+    "nr": "10"
+   },
+   {
+    "street": "Bachgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Bachgasse",
+    "nr": "4a"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "8b"
+   },
+   {
+    "street": "Bauerstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Brandenbergweg",
+    "nr": "24"
+   },
+   {
+    "street": "Brandenbergweg",
+    "nr": "4"
+   },
+   {
+    "street": "Brennerstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Brennerstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Brennerstraße",
+    "nr": "30b"
+   },
+   {
+    "street": "Brennerstraße",
+    "nr": "34"
+   },
+   {
+    "street": "Brennerstraße",
+    "nr": "38"
+   },
+   {
+    "street": "Brucknerstraße",
+    "nr": "2a"
+   },
+   {
+    "street": "Brunnleitenstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Brunnleitenstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Concordiastraße",
+    "nr": "2"
+   },
+   {
+    "street": "Dorfstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Dorfstraße",
+    "nr": "22"
+   },
+   {
+    "street": "Dr.-Mayer-Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Dr.-Sterz-Straße",
+    "nr": "10"
+   },
+   {
+    "street": "Dr.-Sterz-Straße",
+    "nr": "11"
+   },
+   {
+    "street": "Dr.-Sterz-Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Dumbastraße",
+    "nr": "10"
+   },
+   {
+    "street": "Dumbastraße",
+    "nr": "4b"
+   },
+   {
+    "street": "Dumbastraße",
+    "nr": "4c"
+   },
+   {
+    "street": "Dürrenbachweg",
+    "nr": "10"
+   },
+   {
+    "street": "Dürrenbachweg",
+    "nr": "5"
+   },
+   {
+    "street": "Dürrenbachweg",
+    "nr": "6a"
+   },
+   {
+    "street": "Eglmoosgasse",
+    "nr": "15"
+   },
+   {
+    "street": "Eglmoosgasse",
+    "nr": "18"
+   },
+   {
+    "street": "Eglmoosgasse",
+    "nr": "20"
+   },
+   {
+    "street": "Eglmoosgasse",
+    "nr": "23"
+   },
+   {
+    "street": "Einfangbühel",
+    "nr": "10"
+   },
+   {
+    "street": "Einfangbühel",
+    "nr": "12a"
+   },
+   {
+    "street": "Eiskapellenweg",
+    "nr": "1"
+   },
+   {
+    "street": "Eiskapellenweg",
+    "nr": "2"
+   },
+   {
+    "street": "Eiskapellenweg",
+    "nr": "3"
+   },
+   {
+    "street": "Emmerich-Kalman-Straße",
+    "nr": "1"
+   },
+   {
+    "street": "Emmerich-Kalman-Straße",
+    "nr": "13"
+   },
+   {
+    "street": "Emmerich-Kalman-Straße",
+    "nr": "2b"
+   },
+   {
+    "street": "Emmerich-Kalman-Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Emmerich-Kalman-Straße",
+    "nr": "9"
+   },
+   {
+    "street": "Engleitenstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Engleitenstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Erlenweg",
+    "nr": "7"
+   },
+   {
+    "street": "Erlenweg",
+    "nr": "9"
+   },
+   {
+    "street": "Esplanade",
+    "nr": "11"
+   },
+   {
+    "street": "Esplanade",
+    "nr": "6"
+   },
+   {
+    "street": "Faschlweg",
+    "nr": "10"
+   },
+   {
+    "street": "Faschlweg",
+    "nr": "18"
+   },
+   {
+    "street": "Faschlweg",
+    "nr": "30"
+   },
+   {
+    "street": "Ferdinweg",
+    "nr": "18"
+   },
+   {
+    "street": "Ferdinweg",
+    "nr": "6"
+   },
+   {
+    "street": "Fichtenweg",
+    "nr": "13"
+   },
+   {
+    "street": "Fichtenweg",
+    "nr": "5"
+   },
+   {
+    "street": "Franz-Lehar-Kai",
+    "nr": "4"
+   },
+   {
+    "street": "Franz-Nöbauer-Weg",
+    "nr": "11"
+   },
+   {
+    "street": "Franz-Nöbauer-Weg",
+    "nr": "21"
+   },
+   {
+    "street": "Franz-Nöbauer-Weg",
+    "nr": "31"
+   },
+   {
+    "street": "Franz-Nöbauer-Weg",
+    "nr": "35"
+   },
+   {
+    "street": "Franz-Nöbauer-Weg",
+    "nr": "4"
+   },
+   {
+    "street": "Franz-Nöbauer-Weg",
+    "nr": "9"
+   },
+   {
+    "street": "Franz-Stelzhamer-Kai",
+    "nr": "9"
+   },
+   {
+    "street": "Frauengasse",
+    "nr": "1"
+   },
+   {
+    "street": "Frauengasse",
+    "nr": "6"
+   },
+   {
+    "street": "Frauengasse",
+    "nr": "6a"
+   },
+   {
+    "street": "Friedrich-Gulda-Straße",
+    "nr": "12"
+   },
+   {
+    "street": "Gartenstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Gassnerweg",
+    "nr": "1e"
+   },
+   {
+    "street": "Glöcklerweg",
+    "nr": "4"
+   },
+   {
+    "street": "Grabenbachweg",
+    "nr": "30"
+   },
+   {
+    "street": "Grabenbachweg",
+    "nr": "33"
+   },
+   {
+    "street": "Grabenbachweg",
+    "nr": "44"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "13"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "17"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "56a"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "57"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "61"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "72"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "73"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "87"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "95"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "96"
+   },
+   {
+    "street": "Grazer Straße",
+    "nr": "9a"
+   },
+   {
+    "street": "Grillgasse",
+    "nr": "8"
+   },
+   {
+    "street": "Götzstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Götzstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Götzstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Hahnlfeldstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Hahnlfeldstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Hahnlfeldstraße",
+    "nr": "37"
+   },
+   {
+    "street": "Hahnlfeldstraße",
+    "nr": "44"
+   },
+   {
+    "street": "Hahnlfeldstraße",
+    "nr": "53"
+   },
+   {
+    "street": "Heckenweg",
+    "nr": "12"
+   },
+   {
+    "street": "Heckenweg",
+    "nr": "4"
+   },
+   {
+    "street": "Heckenweg",
+    "nr": "8"
+   },
+   {
+    "street": "Heideweg",
+    "nr": "10"
+   },
+   {
+    "street": "Herrengasse",
+    "nr": "21"
+   },
+   {
+    "street": "Herrengasse",
+    "nr": "32"
+   },
+   {
+    "street": "Hintersteinstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Hintersteinstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Hintersteinstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Hohenaualm",
+    "nr": "3"
+   },
+   {
+    "street": "Hohenaualm",
+    "nr": "5"
+   },
+   {
+    "street": "Hohenaualm",
+    "nr": "9"
+   },
+   {
+    "street": "Hubhanslauweg",
+    "nr": "29"
+   },
+   {
+    "street": "Hubhanslauweg",
+    "nr": "59"
+   },
+   {
+    "street": "Hubhanslauweg",
+    "nr": "6"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "33"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "37"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "41"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "42a"
+   },
+   {
+    "street": "Hubkoglstraße",
+    "nr": "58"
+   },
+   {
+    "street": "Hütterweg",
+    "nr": "13"
+   },
+   {
+    "street": "Ignaz-Heim-Straße",
+    "nr": "10"
+   },
+   {
+    "street": "Im Hopfgarten",
+    "nr": "2c"
+   },
+   {
+    "street": "Im Hopfgarten",
+    "nr": "4a"
+   },
+   {
+    "street": "Im Kranewitt",
+    "nr": "6"
+   },
+   {
+    "street": "Im Kranewitt",
+    "nr": "8"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "23a"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "25"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "34"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "49"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Jainzendorfstraße",
+    "nr": "9b"
+   },
+   {
+    "street": "Jainzentalstraße",
+    "nr": "39"
+   },
+   {
+    "street": "Jainzentalstraße",
+    "nr": "61"
+   },
+   {
+    "street": "Jainzentalstraße",
+    "nr": "66"
+   },
+   {
+    "street": "Jainzentalstraße",
+    "nr": "69"
+   },
+   {
+    "street": "Jodlerweg",
+    "nr": "11"
+   },
+   {
+    "street": "Johann-Krupitz-Weg",
+    "nr": "4"
+   },
+   {
+    "street": "Johann-Strauß-Straße",
+    "nr": "12"
+   },
+   {
+    "street": "Johann-Strauß-Straße",
+    "nr": "46"
+   },
+   {
+    "street": "Johann-Strauß-Straße",
+    "nr": "80"
+   },
+   {
+    "street": "Jägersteig",
+    "nr": "4"
+   },
+   {
+    "street": "Kaiser-Franz-Josef-Straße",
+    "nr": "19"
+   },
+   {
+    "street": "Kaiser-Franz-Josef-Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Kaiser-Franz-Josef-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Kaiser-Franz-Josef-Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Kalkgrubenstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Kalkgrubenstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Kaltenbach",
+    "nr": "42"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "37"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "40f"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "40h"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "41"
+   },
+   {
+    "street": "Kaltenbachstraße",
+    "nr": "62"
+   },
+   {
+    "street": "Kalvarienbergweg",
+    "nr": "16"
+   },
+   {
+    "street": "Kalvarienbergweg",
+    "nr": "6"
+   },
+   {
+    "street": "Karl-von-Erb-Weg",
+    "nr": "5"
+   },
+   {
+    "street": "Katereckstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Katereckstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Katharina-Schratt-Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "3"
+   },
+   {
+    "street": "Klausweg",
+    "nr": "7"
+   },
+   {
+    "street": "Klausweg",
+    "nr": "9"
+   },
+   {
+    "street": "Knappenweg",
+    "nr": "11"
+   },
+   {
+    "street": "Knappenweg",
+    "nr": "12a"
+   },
+   {
+    "street": "Knappenweg",
+    "nr": "14b"
+   },
+   {
+    "street": "Knappenweg",
+    "nr": "22"
+   },
+   {
+    "street": "Knappenweg",
+    "nr": "22a"
+   },
+   {
+    "street": "Knappenweg",
+    "nr": "5"
+   },
+   {
+    "street": "Kochstraße",
+    "nr": "1"
+   },
+   {
+    "street": "Kochstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Kochstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "12"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "21a"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "21b"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "21e"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "23c"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "24"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "25"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "27"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "33b"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "55b"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "74"
+   },
+   {
+    "street": "Kreuterer Straße",
+    "nr": "79"
+   },
+   {
+    "street": "Kreuzplatz",
+    "nr": "4"
+   },
+   {
+    "street": "Kreuzsteinweg",
+    "nr": "1"
+   },
+   {
+    "street": "Kreuzsteinweg",
+    "nr": "2"
+   },
+   {
+    "street": "Kurhausstraße",
+    "nr": "3c"
+   },
+   {
+    "street": "Kurhausstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Köhlerweg",
+    "nr": "25a"
+   },
+   {
+    "street": "Köhlerweg",
+    "nr": "28"
+   },
+   {
+    "street": "Köhlerweg",
+    "nr": "9"
+   },
+   {
+    "street": "Kößlbachstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Lauffnerwaldweg",
+    "nr": "1"
+   },
+   {
+    "street": "Lazzeristraße",
+    "nr": "16"
+   },
+   {
+    "street": "Leithnerstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Leithnerstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Leonsbergweg",
+    "nr": "1"
+   },
+   {
+    "street": "Leonsbergweg",
+    "nr": "3"
+   },
+   {
+    "street": "Leschetizkygasse",
+    "nr": "2"
+   },
+   {
+    "street": "Leschetizkygasse",
+    "nr": "3"
+   },
+   {
+    "street": "Lidlstraße",
+    "nr": "1"
+   },
+   {
+    "street": "Lidlstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Lidlstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "18"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "19f"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "23"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "42a"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "44"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "53"
+   },
+   {
+    "street": "Lindaustraße",
+    "nr": "7b"
+   },
+   {
+    "street": "Lindenweg",
+    "nr": "1"
+   },
+   {
+    "street": "Lindenweg",
+    "nr": "8"
+   },
+   {
+    "street": "Linzer Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Linzer Straße",
+    "nr": "29"
+   },
+   {
+    "street": "Lärchenwaldstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Lärchenwaldstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Lärchenwaldstraße",
+    "nr": "13a"
+   },
+   {
+    "street": "Lärchenwaldstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Lärchenwaldstraße",
+    "nr": "25"
+   },
+   {
+    "street": "Marie-Louisen-Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Marie-Louisen-Straße",
+    "nr": "17"
+   },
+   {
+    "street": "Marie-Louisen-Straße",
+    "nr": "19"
+   },
+   {
+    "street": "Marie-Louisen-Straße",
+    "nr": "5"
+   },
+   {
+    "street": "Marie-Louisen-Straße",
+    "nr": "8"
+   },
+   {
+    "street": "Mastaliergasse",
+    "nr": "10"
+   },
+   {
+    "street": "Mastaliergasse",
+    "nr": "12"
+   },
+   {
+    "street": "Mastaliergasse",
+    "nr": "15"
+   },
+   {
+    "street": "Mastaliergasse",
+    "nr": "5a"
+   },
+   {
+    "street": "Maxquellgasse",
+    "nr": "28"
+   },
+   {
+    "street": "Maxquellgasse",
+    "nr": "5"
+   },
+   {
+    "street": "Mozartstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Mühlenweg",
+    "nr": "2"
+   },
+   {
+    "street": "Nikolaus-Lenau-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Nikolaus-Lenau-Straße",
+    "nr": "5b"
+   },
+   {
+    "street": "Obereckstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Obereckstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Oscar-Straus Kai",
+    "nr": "2"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "100"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "12"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "17"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "21c"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "30a"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "45"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "49"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "61"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "68"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "75"
+   },
+   {
+    "street": "Pernecker Straße",
+    "nr": "79"
+   },
+   {
+    "street": "Pfannhauserweg",
+    "nr": "1"
+   },
+   {
+    "street": "Pfannhauserweg",
+    "nr": "3"
+   },
+   {
+    "street": "Pfarrgasse",
+    "nr": "4"
+   },
+   {
+    "street": "Pfarrgasse",
+    "nr": "5"
+   },
+   {
+    "street": "Pfarrgasse",
+    "nr": "7"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "20d"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "28a"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "30b"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "36a"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "3c"
+   },
+   {
+    "street": "Rettenbachwaldstraße",
+    "nr": "56"
+   },
+   {
+    "street": "Rettenbachweg",
+    "nr": "4c"
+   },
+   {
+    "street": "Rettenbachweg",
+    "nr": "8"
+   },
+   {
+    "street": "Rosenkoglstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "10"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "14"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "16"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "20b"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "21"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "22"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "29"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "30"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "33"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "36"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "39"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "54"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "6"
+   },
+   {
+    "street": "Rosenkranzgasse",
+    "nr": "63"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "18"
+   },
+   {
+    "street": "Saiherbachweg",
+    "nr": "18"
+   },
+   {
+    "street": "Saiherbachweg",
+    "nr": "3"
+   },
+   {
+    "street": "Salzburger Straße",
+    "nr": "101"
+   },
+   {
+    "street": "Salzburger Straße",
+    "nr": "26a"
+   },
+   {
+    "street": "Salzburger Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Salzburger Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Salzburger Straße",
+    "nr": "70"
+   },
+   {
+    "street": "Sarsteinerstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Sarsteinerstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Sarsteinerstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Sattelaustraße",
+    "nr": "2"
+   },
+   {
+    "street": "Schmalnaustraße",
+    "nr": "6"
+   },
+   {
+    "street": "Schröpferplatz",
+    "nr": "2"
+   },
+   {
+    "street": "Schulgasse",
+    "nr": "10"
+   },
+   {
+    "street": "Schulgasse",
+    "nr": "17"
+   },
+   {
+    "street": "Schulgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Schutzenbichl",
+    "nr": "10"
+   },
+   {
+    "street": "Schutzenbichl",
+    "nr": "7"
+   },
+   {
+    "street": "Schwarzlstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Schützenweg",
+    "nr": "15"
+   },
+   {
+    "street": "Schützenweg",
+    "nr": "6a"
+   },
+   {
+    "street": "Schützenweg",
+    "nr": "7"
+   },
+   {
+    "street": "Schützenweg",
+    "nr": "8"
+   },
+   {
+    "street": "Seeauerstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Seeauerstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Seifensiedergasse",
+    "nr": "2"
+   },
+   {
+    "street": "Sendlweg",
+    "nr": "14"
+   },
+   {
+    "street": "Sendlweg",
+    "nr": "8"
+   },
+   {
+    "street": "Siedlungsgasse",
+    "nr": "12"
+   },
+   {
+    "street": "Siedlungsgasse",
+    "nr": "13"
+   },
+   {
+    "street": "Siedlungsgasse",
+    "nr": "15"
+   },
+   {
+    "street": "Siriuskoglgasse",
+    "nr": "16"
+   },
+   {
+    "street": "Sonnenweg",
+    "nr": "1"
+   },
+   {
+    "street": "Sonnenweg",
+    "nr": "6"
+   },
+   {
+    "street": "Sparkassenplatz",
+    "nr": "2"
+   },
+   {
+    "street": "Steinfeldstraße",
+    "nr": "1"
+   },
+   {
+    "street": "Steinfeldstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Steinfeldstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Stiegengasse",
+    "nr": "5"
+   },
+   {
+    "street": "Strehnweg",
+    "nr": "2"
+   },
+   {
+    "street": "Sulzbacherstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Sulzbacherstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Sulzbacherstraße",
+    "nr": "36"
+   },
+   {
+    "street": "Südtiroler Straße",
+    "nr": "10"
+   },
+   {
+    "street": "Südtiroler Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Teichweg",
+    "nr": "2"
+   },
+   {
+    "street": "Thomas-Ender-Weg",
+    "nr": "5"
+   },
+   {
+    "street": "Traunkai",
+    "nr": "13"
+   },
+   {
+    "street": "Traunkai",
+    "nr": "14"
+   },
+   {
+    "street": "Traunkai",
+    "nr": "15"
+   },
+   {
+    "street": "Traunkai",
+    "nr": "36"
+   },
+   {
+    "street": "Traunkai",
+    "nr": "37"
+   },
+   {
+    "street": "Traunreiterweg",
+    "nr": "29g"
+   },
+   {
+    "street": "Traunreiterweg",
+    "nr": "7"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "10"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "12a"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "16"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "28"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "2a"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "30"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "31"
+   },
+   {
+    "street": "Traxleckerweg",
+    "nr": "37"
+   },
+   {
+    "street": "Tänzelgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Untere Lindaustraße",
+    "nr": "31"
+   },
+   {
+    "street": "Untereckstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Untereckstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Viertauerweg",
+    "nr": "14"
+   },
+   {
+    "street": "Viertauerweg",
+    "nr": "4"
+   },
+   {
+    "street": "Viertauerweg",
+    "nr": "8"
+   },
+   {
+    "street": "Vorsteherweg",
+    "nr": "4"
+   },
+   {
+    "street": "Vorsteherweg",
+    "nr": "7a"
+   },
+   {
+    "street": "Waldmüllerstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Waldmüllerstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Weidenweg",
+    "nr": "20"
+   },
+   {
+    "street": "Weidenweg",
+    "nr": "3"
+   },
+   {
+    "street": "Wiesingerstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Wiesingerstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Wirerstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Wirerstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Wolfganger Straße",
+    "nr": "14"
+   },
+   {
+    "street": "Wolfganger Straße",
+    "nr": "26"
+   },
+   {
+    "street": "Wolfganger Straße",
+    "nr": "28"
+   },
+   {
+    "street": "Wüstenrotergasse",
+    "nr": "2a"
+   },
+   {
+    "street": "Wüstenrotergasse",
+    "nr": "6"
+   },
+   {
+    "street": "Wüstenrotergasse",
+    "nr": "7"
+   },
+   {
+    "street": "Zahlerweg",
+    "nr": "2"
+   },
+   {
+    "street": "Zimnitzbachweg",
+    "nr": "46"
+   },
+   {
+    "street": "Zimnitzstraße",
+    "nr": "19"
+   },
+   {
+    "street": "Zimnitzstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Zimnitzstraße",
+    "nr": "2a"
+   },
+   {
+    "street": "Zimnitzstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Zimnitzstraße",
+    "nr": "4"
+   }
+  ]
+ },
+ "4822": {
+  "ort": "Bad Goisern am Hallstättersee",
+  "adressen": [
+   {
+    "street": "Anzenbergweg",
+    "nr": "1"
+   },
+   {
+    "street": "Anzenbergweg",
+    "nr": "2a"
+   },
+   {
+    "street": "Anzenbergweg",
+    "nr": "3"
+   },
+   {
+    "street": "Anzenbergweg",
+    "nr": "4"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "10"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "12"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "13"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "13a"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "14"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "16"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "17"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "19"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "6"
+   },
+   {
+    "street": "Auf der Kröß",
+    "nr": "6b"
+   },
+   {
+    "street": "Auskei-Weg",
+    "nr": "11"
+   },
+   {
+    "street": "Auskei-Weg",
+    "nr": "2a"
+   },
+   {
+    "street": "Auskei-Weg",
+    "nr": "4"
+   },
+   {
+    "street": "Auskei-Weg",
+    "nr": "5"
+   },
+   {
+    "street": "Auskei-Weg",
+    "nr": "5a"
+   },
+   {
+    "street": "Auskei-Weg",
+    "nr": "9"
+   },
+   {
+    "street": "Bachlunzenweg",
+    "nr": "1"
+   },
+   {
+    "street": "Bachlunzenweg",
+    "nr": "11"
+   },
+   {
+    "street": "Bachlunzenweg",
+    "nr": "3"
+   },
+   {
+    "street": "Bachlunzenweg",
+    "nr": "8"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "21"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Bleichstatt",
+    "nr": "15"
+   },
+   {
+    "street": "Bleichstatt",
+    "nr": "18"
+   },
+   {
+    "street": "Bleichstatt",
+    "nr": "7"
+   },
+   {
+    "street": "Bleichstatt",
+    "nr": "8"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "112"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "114"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "123d"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "135"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "21"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "21a"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "28"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "36"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "46a"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "54"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "55"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "63"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "65a"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "65b"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "66"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "67"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "72a"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "73"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "74a"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "75"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "79"
+   },
+   {
+    "street": "Bundesstraße",
+    "nr": "97"
+   },
+   {
+    "street": "Dr.-Kubinger-Promenade",
+    "nr": "4a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "10"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "13"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "16"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "18"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "19"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "20"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "26"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "29"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "32"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "33"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "34"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "38"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "38a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "39a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "40"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "41a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "42"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "43"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "45"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "46"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "48"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "5"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "50"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "56"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "58"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "60"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "60a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "60b"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "64a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "65"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "65a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "66"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "69"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "70"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "72"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "73a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "75"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "75a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "78"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "82a"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "9d"
+   },
+   {
+    "street": "Dr.-Löcker-Straße",
+    "nr": "9f"
+   },
+   {
+    "street": "Dr.-Matthia-Promenade",
+    "nr": "1"
+   },
+   {
+    "street": "Dr.-Matthia-Promenade",
+    "nr": "5"
+   },
+   {
+    "street": "Dr.-Matthia-Promenade",
+    "nr": "7"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "11"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "12"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "13"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "14"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "16"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "17"
+   },
+   {
+    "street": "Eißenwenger Straße",
+    "nr": "25"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "10"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "5"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "6"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "8"
+   },
+   {
+    "street": "Elßenwenger Straße",
+    "nr": "9"
+   },
+   {
+    "street": "Elßenwenger-Straße",
+    "nr": "31"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "10"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "10a"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "12"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "4a"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "4e"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "4f"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "4g"
+   },
+   {
+    "street": "Feuerbachgasse",
+    "nr": "6"
+   },
+   {
+    "street": "Gottlieb-Oberhauser-Straße",
+    "nr": "11"
+   },
+   {
+    "street": "Gottlieb-Oberhauser-Straße",
+    "nr": "16"
+   },
+   {
+    "street": "Gottlieb-Oberhauser-Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Gottlieb-Oberhauser-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Gottlieb-Oberhauser-Straße",
+    "nr": "5"
+   },
+   {
+    "street": "Grillgasse",
+    "nr": "2a"
+   },
+   {
+    "street": "Grillgasse",
+    "nr": "4"
+   },
+   {
+    "street": "Grillgasse",
+    "nr": "4a"
+   },
+   {
+    "street": "Grillgasse",
+    "nr": "5"
+   },
+   {
+    "street": "Grillgasse",
+    "nr": "6"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "105"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "137"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "159"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "178"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "18"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "198"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "82"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "85"
+   },
+   {
+    "street": "Gschwandt",
+    "nr": "86"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "19"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "6b"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "7a"
+   },
+   {
+    "street": "Gärtnerstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "1"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "10"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "12"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "3"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "3a"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "7"
+   },
+   {
+    "street": "Hammerschmiedweg",
+    "nr": "8"
+   },
+   {
+    "street": "Hofrat-Renner-Weg",
+    "nr": "5"
+   },
+   {
+    "street": "Hofrat-Renner-Weg",
+    "nr": "7"
+   },
+   {
+    "street": "Höllgraben",
+    "nr": "10"
+   },
+   {
+    "street": "Höllgraben",
+    "nr": "12"
+   },
+   {
+    "street": "Im Eichenwald",
+    "nr": "1"
+   },
+   {
+    "street": "Im Eichenwald",
+    "nr": "3"
+   },
+   {
+    "street": "Im Eichenwald",
+    "nr": "6"
+   },
+   {
+    "street": "Im Eichenwald",
+    "nr": "8"
+   },
+   {
+    "street": "Im Eichenwald",
+    "nr": "9"
+   },
+   {
+    "street": "Im Keferfeld",
+    "nr": "10"
+   },
+   {
+    "street": "Im Keferfeld",
+    "nr": "5"
+   },
+   {
+    "street": "Im Keferfeld",
+    "nr": "6"
+   },
+   {
+    "street": "Im Keferfeld",
+    "nr": "7"
+   },
+   {
+    "street": "Im Keferfeld",
+    "nr": "9a"
+   },
+   {
+    "street": "In der Brandten",
+    "nr": "1"
+   },
+   {
+    "street": "In der Brandten",
+    "nr": "5"
+   },
+   {
+    "street": "In der Brandten",
+    "nr": "8"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "1"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "11"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "13"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "14"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "18"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "20"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "21"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "21a"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "22"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "25"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "28a"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "28b"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "30"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "32a"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "32b"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "33"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "34"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "34a"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "34b"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "34c"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Josef-Putz-Straße",
+    "nr": "9"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "10"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "12"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "3"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "4"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "11"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "11a"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "13"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "13a"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "6"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "8"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "8a"
+   },
+   {
+    "street": "Konrad-Deubler-Gasse",
+    "nr": "9"
+   },
+   {
+    "street": "Krößmalergasse",
+    "nr": "1"
+   },
+   {
+    "street": "Krößmalergasse",
+    "nr": "1a"
+   },
+   {
+    "street": "Krößmalergasse",
+    "nr": "1b"
+   },
+   {
+    "street": "Kurparkstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Kurzentrumstraße",
+    "nr": "1"
+   },
+   {
+    "street": "Kurzentrumstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Kurzentrumstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Lahnbachweg",
+    "nr": "3"
+   },
+   {
+    "street": "Lahnbachweg",
+    "nr": "6"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "10"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "11"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "12"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "13"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "2"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "3"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "4"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "8"
+   },
+   {
+    "street": "Laimerweg",
+    "nr": "8b"
+   },
+   {
+    "street": "Muth",
+    "nr": "7"
+   },
+   {
+    "street": "Muth",
+    "nr": "8"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "17"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "19"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "31"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "33"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "34"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "35"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "36"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "37"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Obere Marktstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "12"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "12a"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "14"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "2"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "4"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "8"
+   },
+   {
+    "street": "Perndanner-Promenade",
+    "nr": "9"
+   },
+   {
+    "street": "Pflegergasse",
+    "nr": "3"
+   },
+   {
+    "street": "Preindlweg",
+    "nr": "5"
+   },
+   {
+    "street": "Preindlweg",
+    "nr": "7"
+   },
+   {
+    "street": "Preindlweg",
+    "nr": "9"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Rainerstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Ramsaustraße",
+    "nr": "10"
+   },
+   {
+    "street": "Ramsaustraße",
+    "nr": "6"
+   },
+   {
+    "street": "Ramsaustraße",
+    "nr": "9"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "14"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "15"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "16"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "17"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "19"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "20"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "21a"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "22"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "24"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "3"
+   },
+   {
+    "street": "Rudolf-von-Alt-Weg",
+    "nr": "7"
+   },
+   {
+    "street": "Sarstein",
+    "nr": "23"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "11"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "12"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "14"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "16"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "17"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "19"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "21"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "22"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "25"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "27"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Schmiedgasse",
+    "nr": "9"
+   },
+   {
+    "street": "Schrempfgasse",
+    "nr": "1"
+   },
+   {
+    "street": "Schrempfgasse",
+    "nr": "2"
+   },
+   {
+    "street": "Schrempfgasse",
+    "nr": "4a"
+   },
+   {
+    "street": "Schrempfgasse",
+    "nr": "5"
+   },
+   {
+    "street": "Schrempfgasse",
+    "nr": "6a"
+   },
+   {
+    "street": "Schrempfgasse",
+    "nr": "9"
+   },
+   {
+    "street": "Schwärzweg",
+    "nr": "3"
+   },
+   {
+    "street": "Schwärzweg",
+    "nr": "4"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "17"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "19"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "21"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "26a"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "28"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "38"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "38a"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "44"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Sophienbrückenstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Sportplatzweg",
+    "nr": "7"
+   },
+   {
+    "street": "Sportplatzweg",
+    "nr": "9"
+   },
+   {
+    "street": "Stambachgraben",
+    "nr": "1"
+   },
+   {
+    "street": "Stambachgraben",
+    "nr": "3"
+   },
+   {
+    "street": "Sydlerfeld",
+    "nr": "2"
+   },
+   {
+    "street": "Sydlerfeld",
+    "nr": "6"
+   },
+   {
+    "street": "Therapieweg",
+    "nr": "6"
+   },
+   {
+    "street": "Traxleck",
+    "nr": "2"
+   },
+   {
+    "street": "Traxleck",
+    "nr": "2a"
+   },
+   {
+    "street": "Traxleck",
+    "nr": "2c"
+   },
+   {
+    "street": "Traxleck",
+    "nr": "6"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "1"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "17"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "19"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "25"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "28"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "36"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "38"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "41"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "42"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "42a"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "43"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "44"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "49"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "51a"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "51b"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "55"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "57"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "58"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "61a"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "61b"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "62b"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "62c"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "68"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "70"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "75a"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "75b"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "77"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "81"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "83"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "84"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "85"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "85a"
+   },
+   {
+    "street": "Untere Marktstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Valeriegasse",
+    "nr": "11"
+   },
+   {
+    "street": "Valeriegasse",
+    "nr": "12"
+   },
+   {
+    "street": "Valeriegasse",
+    "nr": "4"
+   },
+   {
+    "street": "Waldgasse",
+    "nr": "12"
+   },
+   {
+    "street": "Waldgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Waldgasse",
+    "nr": "5"
+   },
+   {
+    "street": "Waldgasse",
+    "nr": "8"
+   },
+   {
+    "street": "Wartburggasse",
+    "nr": "4"
+   },
+   {
+    "street": "Wartburggasse",
+    "nr": "5"
+   },
+   {
+    "street": "Wehrenfenniggasse",
+    "nr": "3"
+   },
+   {
+    "street": "Wehrenfenniggasse",
+    "nr": "4"
+   },
+   {
+    "street": "Wirerstubenstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Wirerstubenstraße",
+    "nr": "5"
+   }
+  ]
+ },
+ "4802": {
+  "ort": "Ebensee am Traunsee",
+  "adressen": [
+   {
+    "street": "Almhausstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "15b"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "18a"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "37"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "41"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "45a"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "49"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "51"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "59"
+   },
+   {
+    "street": "Almhausstraße",
+    "nr": "63"
+   },
+   {
+    "street": "Alte Saline",
+    "nr": "5"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "17b"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "34"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "34a"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "58"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "64"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "72"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "82"
+   },
+   {
+    "street": "Alte Traunstraße",
+    "nr": "86"
+   },
+   {
+    "street": "Am Einlaß",
+    "nr": "16"
+   },
+   {
+    "street": "Am Einlaß",
+    "nr": "18"
+   },
+   {
+    "street": "Am Einlaß",
+    "nr": "5"
+   },
+   {
+    "street": "Am Einlaß",
+    "nr": "6"
+   },
+   {
+    "street": "Am Einlaß",
+    "nr": "7"
+   },
+   {
+    "street": "Am Einlaß",
+    "nr": "8"
+   },
+   {
+    "street": "Am Grünanger",
+    "nr": "12"
+   },
+   {
+    "street": "Am Grünanger",
+    "nr": "14"
+   },
+   {
+    "street": "Am Grünanger",
+    "nr": "2"
+   },
+   {
+    "street": "Am Grünanger",
+    "nr": "21"
+   },
+   {
+    "street": "Am Grünanger",
+    "nr": "4"
+   },
+   {
+    "street": "Am Grünanger",
+    "nr": "9"
+   },
+   {
+    "street": "Audorf",
+    "nr": "37"
+   },
+   {
+    "street": "Audorf",
+    "nr": "51"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "7a"
+   },
+   {
+    "street": "Aufeldstraße",
+    "nr": "9b"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "10a"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "21"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "33"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "39a"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "42"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "43"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "46a"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "57a"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "58"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "65b"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "69"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Bahnhofstraße",
+    "nr": "85"
+   },
+   {
+    "street": "Bartlberg",
+    "nr": "13"
+   },
+   {
+    "street": "Bartlberg",
+    "nr": "14"
+   },
+   {
+    "street": "Bartlberg",
+    "nr": "3"
+   },
+   {
+    "street": "Bartlberg",
+    "nr": "5"
+   },
+   {
+    "street": "Bartlberg",
+    "nr": "6"
+   },
+   {
+    "street": "Bartlberg",
+    "nr": "8"
+   },
+   {
+    "street": "Berggasse",
+    "nr": "11"
+   },
+   {
+    "street": "Berggasse",
+    "nr": "18"
+   },
+   {
+    "street": "Berggasse",
+    "nr": "31"
+   },
+   {
+    "street": "Berggasse",
+    "nr": "9"
+   },
+   {
+    "street": "Bleichstattgasse",
+    "nr": "2"
+   },
+   {
+    "street": "Bleichstattgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Bruder Klaus-Straße",
+    "nr": "1"
+   },
+   {
+    "street": "Bruder Klaus-Straße",
+    "nr": "8"
+   },
+   {
+    "street": "Burgenlandstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Dr. Rasper-Straße",
+    "nr": "14d"
+   },
+   {
+    "street": "Dr. Rasper-Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Dr. Rasper-Straße",
+    "nr": "16"
+   },
+   {
+    "street": "Dr. Rasper-Straße",
+    "nr": "9"
+   },
+   {
+    "street": "Dr. Rößler-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Dr. Rößler-Straße",
+    "nr": "7"
+   },
+   {
+    "street": "Eibenbergsiedlung",
+    "nr": "10"
+   },
+   {
+    "street": "Eibenbergsiedlung",
+    "nr": "13"
+   },
+   {
+    "street": "Eibenbergsiedlung",
+    "nr": "20"
+   },
+   {
+    "street": "Eibenbergsiedlung",
+    "nr": "30"
+   },
+   {
+    "street": "Eisenbahnergasse",
+    "nr": "5"
+   },
+   {
+    "street": "Ferdinand Schaller-Weg",
+    "nr": "10"
+   },
+   {
+    "street": "Ferdinand Schaller-Weg",
+    "nr": "12"
+   },
+   {
+    "street": "Ferdinand Schaller-Weg",
+    "nr": "14"
+   },
+   {
+    "street": "Ferdinand Schaller-Weg",
+    "nr": "18"
+   },
+   {
+    "street": "Ferdinand Schaller-Weg",
+    "nr": "3"
+   },
+   {
+    "street": "Ferdinand Schaller-Weg",
+    "nr": "9"
+   },
+   {
+    "street": "Fichteneckweg",
+    "nr": "4"
+   },
+   {
+    "street": "Fichteneckweg",
+    "nr": "6"
+   },
+   {
+    "street": "Fichteneckweg",
+    "nr": "8"
+   },
+   {
+    "street": "Finkerleitenstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Finkerleitenstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Finkerleitenstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Finkerleitenstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Finkerleitenstraße",
+    "nr": "40"
+   },
+   {
+    "street": "Finkerleitenstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Gartenstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Gartenstraße",
+    "nr": "2a"
+   },
+   {
+    "street": "Gartenstraße",
+    "nr": "6b"
+   },
+   {
+    "street": "Glöcklergasse",
+    "nr": "11"
+   },
+   {
+    "street": "Glöcklergasse",
+    "nr": "2"
+   },
+   {
+    "street": "Glöcklergasse",
+    "nr": "3"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "2a"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "33"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "35"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "5"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "66"
+   },
+   {
+    "street": "Grünangerstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Grünfeldstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Handwerkergasse",
+    "nr": "3"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "21"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "26"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Hauptstraße",
+    "nr": "7"
+   },
+   {
+    "street": "Heißlfeld-Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Heißlfeld-Straße",
+    "nr": "18"
+   },
+   {
+    "street": "Heißlfeld-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Heißlfeld-Straße",
+    "nr": "6"
+   },
+   {
+    "street": "Hermine Schleicher-Weg",
+    "nr": "1"
+   },
+   {
+    "street": "Hermine Schleicher-Weg",
+    "nr": "12"
+   },
+   {
+    "street": "Hermine Schleicher-Weg",
+    "nr": "19"
+   },
+   {
+    "street": "Hermine Schleicher-Weg",
+    "nr": "8"
+   },
+   {
+    "street": "Herzmanovsky-Straße",
+    "nr": "10"
+   },
+   {
+    "street": "Herzmanovsky-Straße",
+    "nr": "12"
+   },
+   {
+    "street": "Herzmanovsky-Straße",
+    "nr": "28"
+   },
+   {
+    "street": "Herzmanovsky-Straße",
+    "nr": "36"
+   },
+   {
+    "street": "Herzmanovsky-Straße",
+    "nr": "9"
+   },
+   {
+    "street": "Hintere Rindbachstraße",
+    "nr": "22"
+   },
+   {
+    "street": "Hintere Rindbachstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Hintere Rindbachstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Hintere Rindbachstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Hintere Rindbachstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Hugo Wolf-Straße",
+    "nr": "4"
+   },
+   {
+    "street": "Im Weida",
+    "nr": "1"
+   },
+   {
+    "street": "Ischlerstraße",
+    "nr": "1"
+   },
+   {
+    "street": "Ischlerstraße",
+    "nr": "33"
+   },
+   {
+    "street": "Ischlerstraße",
+    "nr": "35"
+   },
+   {
+    "street": "Ischlerstraße",
+    "nr": "37"
+   },
+   {
+    "street": "Ischlerstraße",
+    "nr": "37b"
+   },
+   {
+    "street": "Jocher-Wiese",
+    "nr": "13"
+   },
+   {
+    "street": "Jocher-Wiese",
+    "nr": "3"
+   },
+   {
+    "street": "Kainzenstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Kainzenstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Kalvarienberggasse",
+    "nr": "21"
+   },
+   {
+    "street": "Kalvarienberggasse",
+    "nr": "27"
+   },
+   {
+    "street": "Kalvarienberggasse",
+    "nr": "2a"
+   },
+   {
+    "street": "Kalvarienberggasse",
+    "nr": "4"
+   },
+   {
+    "street": "Kalvarienberggasse",
+    "nr": "6"
+   },
+   {
+    "street": "Kalvarienberggasse",
+    "nr": "8"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "18"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "28"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "7"
+   },
+   {
+    "street": "Kirchengasse",
+    "nr": "8"
+   },
+   {
+    "street": "Lahngasse",
+    "nr": "1"
+   },
+   {
+    "street": "Lahngasse",
+    "nr": "11"
+   },
+   {
+    "street": "Lahngasse",
+    "nr": "13"
+   },
+   {
+    "street": "Lahngasse",
+    "nr": "19a"
+   },
+   {
+    "street": "Lahngasse",
+    "nr": "3"
+   },
+   {
+    "street": "Lahnsteinsiedlung",
+    "nr": "12"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "14"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "33"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "40"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "41"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "42"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "46"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "47"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Lahnstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Landsgraben",
+    "nr": "15"
+   },
+   {
+    "street": "Landsgraben",
+    "nr": "5a"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "22"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "34"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "36"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "39"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "42"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "46"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "54a"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "58"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "70"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "74"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "76"
+   },
+   {
+    "street": "Langbathstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "10"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "21"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "28"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "30"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "44"
+   },
+   {
+    "street": "Langwieserstraße",
+    "nr": "48"
+   },
+   {
+    "street": "Maria Greil-Straße",
+    "nr": "18"
+   },
+   {
+    "street": "Maria Greil-Straße",
+    "nr": "22"
+   },
+   {
+    "street": "Maria Greil-Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Maria Greil-Straße",
+    "nr": "9"
+   },
+   {
+    "street": "Marienstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Marktgasse",
+    "nr": "22"
+   },
+   {
+    "street": "Max Zieger-Straße",
+    "nr": "27"
+   },
+   {
+    "street": "Max Zieger-Straße",
+    "nr": "27b"
+   },
+   {
+    "street": "Max Zieger-Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Max Zieger-Straße",
+    "nr": "34"
+   },
+   {
+    "street": "Max Zieger-Straße",
+    "nr": "41"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "12a"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "16b"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "16c"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "21c"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Mendelssohnstraße",
+    "nr": "27"
+   },
+   {
+    "street": "Neubaugasse",
+    "nr": "1"
+   },
+   {
+    "street": "Neubaugasse",
+    "nr": "3"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "12"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "13"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "18"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "21e"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "21h"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "26"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "27"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "29"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "31"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "39a"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "4"
+   },
+   {
+    "street": "Neudorf",
+    "nr": "9"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "10"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "22"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "26f"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "27"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "31"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "33"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "35"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "39"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "47"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "49"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "5"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "53"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "57"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "8"
+   },
+   {
+    "street": "Offenseestraße",
+    "nr": "93"
+   },
+   {
+    "street": "Pestalozzi-Straße",
+    "nr": "1"
+   },
+   {
+    "street": "Pestalozzi-Straße",
+    "nr": "2"
+   },
+   {
+    "street": "Pestalozziplatz",
+    "nr": "4"
+   },
+   {
+    "street": "Pfaffingstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Pfaffingstraße",
+    "nr": "38"
+   },
+   {
+    "street": "Pfaffingstraße",
+    "nr": "52"
+   },
+   {
+    "street": "Pfaffingstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Pfaffingstraße",
+    "nr": "82"
+   },
+   {
+    "street": "Pfaffingstraße",
+    "nr": "94"
+   },
+   {
+    "street": "Pflanzgartenstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Plankauweg",
+    "nr": "11"
+   },
+   {
+    "street": "Plankauweg",
+    "nr": "27"
+   },
+   {
+    "street": "Plankauweg",
+    "nr": "33"
+   },
+   {
+    "street": "Plankauweg",
+    "nr": "8"
+   },
+   {
+    "street": "Postgasse",
+    "nr": "10"
+   },
+   {
+    "street": "Postgasse",
+    "nr": "3"
+   },
+   {
+    "street": "Postgasse",
+    "nr": "4"
+   },
+   {
+    "street": "Prato-Allee",
+    "nr": "20"
+   },
+   {
+    "street": "Prato-Allee",
+    "nr": "23"
+   },
+   {
+    "street": "Prato-Allee",
+    "nr": "4"
+   },
+   {
+    "street": "Prato-Allee",
+    "nr": "40"
+   },
+   {
+    "street": "Prato-Allee",
+    "nr": "42"
+   },
+   {
+    "street": "Prato-Allee",
+    "nr": "44"
+   },
+   {
+    "street": "Prof.-Kienesberger-Straße",
+    "nr": "15"
+   },
+   {
+    "street": "Prof.-Kienesberger-Straße",
+    "nr": "2"
+   },
+   {
+    "street": "Prof.-Kienesberger-Straße",
+    "nr": "3"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "102"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "112"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "128"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "13"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "136"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "140"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "146"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "24"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "25"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "32"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "46a"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "50"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "51"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "54"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "68"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "70"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "74"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "80"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "82"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "87"
+   },
+   {
+    "street": "Rindbachstraße",
+    "nr": "92"
+   },
+   {
+    "street": "Roitherschul-Gasse",
+    "nr": "12"
+   },
+   {
+    "street": "Roitherschul-Gasse",
+    "nr": "19"
+   },
+   {
+    "street": "Roitherschul-Gasse",
+    "nr": "2"
+   },
+   {
+    "street": "Roitherschul-Gasse",
+    "nr": "27"
+   },
+   {
+    "street": "Roitherschul-Gasse",
+    "nr": "9"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "16"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "20"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "25"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "27a"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "31"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "41"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "46"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "47"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "58"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "63"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "64b"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "66"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "67"
+   },
+   {
+    "street": "Roitherstraße",
+    "nr": "68"
+   },
+   {
+    "street": "Rudolf Ippisch-Platz",
+    "nr": "1"
+   },
+   {
+    "street": "Rudolf Ippisch-Platz",
+    "nr": "16"
+   },
+   {
+    "street": "Rudolf Ippisch-Platz",
+    "nr": "5"
+   },
+   {
+    "street": "Salinenplatz",
+    "nr": "6"
+   },
+   {
+    "street": "Salinenplatz",
+    "nr": "8"
+   },
+   {
+    "street": "Schillerstraße",
+    "nr": "3"
+   },
+   {
+    "street": "Schillerstraße",
+    "nr": "4"
+   },
+   {
+    "street": "Schubertstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Schubertstraße",
+    "nr": "18"
+   },
+   {
+    "street": "Schubertstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "15a"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "18"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "20"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "28c"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "31"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "32"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "44"
+   },
+   {
+    "street": "Schwaigerweg",
+    "nr": "5"
+   },
+   {
+    "street": "Schöffauweg",
+    "nr": "10"
+   },
+   {
+    "street": "Schöffauweg",
+    "nr": "4a"
+   },
+   {
+    "street": "Seebergsiedlung",
+    "nr": "1"
+   },
+   {
+    "street": "Seebergsiedlung",
+    "nr": "15"
+   },
+   {
+    "street": "Seebergsiedlung",
+    "nr": "7"
+   },
+   {
+    "street": "Seewinkel",
+    "nr": "3"
+   },
+   {
+    "street": "Siedlergasse",
+    "nr": "1"
+   },
+   {
+    "street": "Siedlergasse",
+    "nr": "2"
+   },
+   {
+    "street": "Siedlergasse",
+    "nr": "6"
+   },
+   {
+    "street": "Soleweg",
+    "nr": "4"
+   },
+   {
+    "street": "Soleweg",
+    "nr": "7/2"
+   },
+   {
+    "street": "Soleweg",
+    "nr": "9"
+   },
+   {
+    "street": "Solvaystraße",
+    "nr": "6"
+   },
+   {
+    "street": "Solvaystraße",
+    "nr": "7"
+   },
+   {
+    "street": "Sonnengasse",
+    "nr": "12"
+   },
+   {
+    "street": "Sonnengasse",
+    "nr": "14"
+   },
+   {
+    "street": "Sonnengasse",
+    "nr": "18"
+   },
+   {
+    "street": "Sonnengasse",
+    "nr": "3"
+   },
+   {
+    "street": "Sonnengasse",
+    "nr": "6"
+   },
+   {
+    "street": "Sonnengasse",
+    "nr": "8"
+   },
+   {
+    "street": "Sonnsteinweg",
+    "nr": "4"
+   },
+   {
+    "street": "Spitalgasse",
+    "nr": "6"
+   },
+   {
+    "street": "Spitalgasse",
+    "nr": "9"
+   },
+   {
+    "street": "Steinkogelstraße",
+    "nr": "14c"
+   },
+   {
+    "street": "Steinkogelstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Steinkogelstraße",
+    "nr": "15b"
+   },
+   {
+    "street": "Steinkogelstraße",
+    "nr": "19a"
+   },
+   {
+    "street": "Steinkogelstraße",
+    "nr": "1a"
+   },
+   {
+    "street": "Steinkogelstraße",
+    "nr": "24a"
+   },
+   {
+    "street": "Steinkogelweg",
+    "nr": "17"
+   },
+   {
+    "street": "Steinkogelweg",
+    "nr": "20"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "15"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "17"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "34"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "36"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "68"
+   },
+   {
+    "street": "Strandbadstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Sägewerkstraße",
+    "nr": "12"
+   },
+   {
+    "street": "Sägewerkstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Sägewerkstraße",
+    "nr": "8"
+   },
+   {
+    "street": "Traunwiese",
+    "nr": "4"
+   },
+   {
+    "street": "Waldstraße",
+    "nr": "11"
+   },
+   {
+    "street": "Waldstraße",
+    "nr": "2"
+   },
+   {
+    "street": "Waldstraße",
+    "nr": "23"
+   },
+   {
+    "street": "Waldstraße",
+    "nr": "6"
+   },
+   {
+    "street": "Waldstraße",
+    "nr": "6a"
+   },
+   {
+    "street": "Waldstraße",
+    "nr": "9"
+   },
+   {
+    "street": "Webereistraße",
+    "nr": "1b"
+   },
+   {
+    "street": "Webereistraße",
+    "nr": "1e"
+   },
+   {
+    "street": "Webereistraße",
+    "nr": "2c"
+   },
+   {
+    "street": "Wiesenweg",
+    "nr": "12"
+   },
+   {
+    "street": "Wiesenweg",
+    "nr": "5"
+   },
+   {
+    "street": "Wiesenweg",
+    "nr": "9"
+   },
+   {
+    "street": "Zur Werft",
+    "nr": "4"
+   }
+  ]
+ }
+}
