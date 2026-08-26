@@ -36,7 +36,7 @@ export async function load({ locals }) {
 	}
 
 	const sites = await sql`
-		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address,
+		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address, b.last_seen_at,
 			b.setup_phase, b.setup_message, b.provision_code, b.provision_expires_at,
 			coalesce(b.last_seen_at > now() - interval '10 minutes', false) as online,
 			extract(epoch from now() - b.last_seen_at)::int as seen_seconds_ago,
@@ -57,9 +57,9 @@ export async function load({ locals }) {
 				order by p.direction, p.metering_point) filter (where p.id is not null), '[]') as points
 		from member m
 		left join measurement_point p on p.tenant_id = m.tenant_id and p.member_id = m.id
-		where m.tenant_id = ${tenantId}
+		where m.tenant_id = ${tenantId} and m.role = 'member'
 		group by m.id
-		order by m.name
+		order by m.participant_number nulls last, m.name
 	`;
 
 	// Letzter Import-Auftrag (laufend oder abgeschlossen) fuer die Statusanzeige
@@ -157,14 +157,31 @@ export const actions = {
 		const tenantId = locals.user.tenant_id;
 
 		const form = await request.formData();
-		const name = String(form.get('name') ?? '').trim();
-		const address = String(form.get('address') ?? '').trim();
+		let name = String(form.get('name') ?? '').trim();
+		let address = String(form.get('address') ?? '').trim();
 		const profile = String(form.get('profile') ?? '');
 		const memberRaw = String(form.get('member_id') ?? '');
-		const latitude = Number(form.get('latitude'));
-		const longitude = Number(form.get('longitude'));
-		const capacityKwh = Number(form.get('capacity_kwh'));
-		const pvKwp = Number(form.get('pv_kwp'));
+		const capacityKwh = String(form.get('capacity_kwh') ?? '').trim() === '' ? 10 : Number(form.get('capacity_kwh'));
+		const pvKwp = String(form.get('pv_kwp') ?? '').trim() === '' ? 0 : Number(form.get('pv_kwp'));
+
+		// Schnellformular (Anlagen-Tab, nur Mitglied und Wechselrichtertyp): Name und Adresse
+		// aus dem Mitglied, Standort vom Gemeinschafts-Mittelpunkt, Zaehlpunkt = Erzeugung des Mitglieds
+		let memberAddress = null;
+		let memberName = null;
+		if (memberRaw !== '') {
+			const [m] = await sql`select name, address from member where tenant_id = ${tenantId} and id = ${Number(memberRaw)}`;
+			memberAddress = m?.address ?? null;
+			memberName = m?.name ?? null;
+		}
+		if (!address && memberAddress) address = memberAddress;
+		if (!name && memberName) name = `Anlage ${memberName}`;
+		let latitude = Number(form.get('latitude'));
+		let longitude = Number(form.get('longitude'));
+		if (String(form.get('latitude') ?? '') === '' || String(form.get('longitude') ?? '') === '') {
+			const [t] = await sql`select latitude, longitude from tenant where id = ${tenantId}`;
+			latitude = Number(t.latitude);
+			longitude = Number(t.longitude);
+		}
 		const pointRaw = String(form.get('measurement_point_id') ?? '');
 		const wifiSsid = String(form.get('wifi_ssid') ?? '').trim().slice(0, 32) || null;
 		const wifiPassword = wifiSsid ? String(form.get('wifi_password') ?? '').slice(0, 63) : null;
@@ -173,7 +190,7 @@ export const actions = {
 			return fail(400, { message: 'Bitte einen Namen mit höchstens 80 Zeichen angeben.' });
 		}
 		if (!address) {
-			return fail(400, { message: 'Bitte eine Adresse angeben.' });
+			return fail(400, { message: 'Bitte eine Adresse angeben (das Mitglied hat keine hinterlegt).' });
 		}
 		if (!PROFILES.includes(profile)) {
 			return fail(400, { message: 'Unbekanntes Wechselrichterprofil.' });
@@ -200,7 +217,13 @@ export const actions = {
 		}
 
 		let pointId = null;
-		if (pointRaw !== '' && memberId !== null) {
+		if (!form.has('measurement_point_id') && memberId !== null) {
+			const [point] = await sql`
+				select id from measurement_point where tenant_id = ${tenantId} and member_id = ${memberId}
+				order by (direction = 'generation') desc, metering_point limit 1
+			`;
+			pointId = point?.id ?? null;
+		} else if (pointRaw !== '' && memberId !== null) {
 			const [point] = await sql`
 				select id from measurement_point where tenant_id = ${tenantId} and id = ${Number(pointRaw)} and member_id = ${memberId}
 			`;

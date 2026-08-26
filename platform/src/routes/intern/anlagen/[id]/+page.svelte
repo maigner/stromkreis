@@ -64,7 +64,7 @@
 				<div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
 					{#if site.code_valid}
 						<span>Einrichtungscode <code class="rounded bg-white px-2 py-0.5 font-mono tracking-widest dark:bg-neutral-950">{site.provision_code}</code> gültig bis {new Date(site.provision_expires_at).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>
-						<a href="/intern/anlagen/{site.id}/sd-karte.zip" data-sveltekit-reload class="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Karten-Dateien (Zip)</a>
+						<span class="text-xs text-neutral-600 dark:text-neutral-400">SD-Karten-Image: Erstellung auf der Plattform in Arbeit</span>
 					{:else}
 						<span class="text-neutral-600 dark:text-neutral-400">Kein gültiger Einrichtungscode.</span>
 					{/if}

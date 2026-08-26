@@ -2,12 +2,14 @@
 	import SiteMap from './SiteMap.svelte';
 	import SetupWizard from './SetupWizard.svelte';
 	import SyncStatus from './SyncStatus.svelte';
+	import NewSiteForm from './NewSiteForm.svelte';
 	import { profileLabels, de, seenLabel, watt, batteryLabel, gridLabel } from './site-format.js';
 
 	let { data } = $props();
 
 	/** @type {'anlagen' | 'standorte' | 'energie' | 'einrichtung'} */
 	let tab = $state('anlagen');
+	let showNewSite = $state(false);
 
 	const roleLabels = { member: 'Mitglied', board: 'Vorstand', operator: 'Betreiber' };
 
@@ -99,13 +101,30 @@
 		{#if tab === 'anlagen'}
 		<section>
 			<h2 class="sr-only">Anlagen</h2>
-			<p class="text-sm text-neutral-600 dark:text-neutral-400">
-				openHABian-Gateways der Mitglieder, Status per HTTPS-Push
-			</p>
+			<div class="flex flex-wrap items-center justify-end gap-3">
+				{#if data.sites.length > 0 && !showNewSite}
+					<button
+						class="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600"
+						onclick={() => (showNewSite = true)}
+					>
+						Neue Anlage für ein Mitglied
+					</button>
+				{/if}
+			</div>
 
 			{#if data.sites.length === 0}
-				<p class="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Noch keine Anlagen angebunden.</p>
+				<p class="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
+					Noch keine Anlagen angebunden. Lege die erste Anlage für ein Mitglied an; Mitglieder und Zählpunkte kommen aus dem EEGFaktura-Import.
+				</p>
+				<div class="mt-4">
+					<NewSiteForm members={data.members} />
+				</div>
 			{:else}
+				{#if showNewSite}
+					<div class="mt-4">
+						<NewSiteForm members={data.members} onclose={() => (showNewSite = false)} />
+					</div>
+				{/if}
 				<div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 					{#each data.sites as site (site.id)}
 						<a
@@ -125,9 +144,15 @@
 							{#if site.address}
 								<p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{site.address}</p>
 							{/if}
-							<p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-								openHABian {site.status.openhabian_version ?? '?'} · openHAB {site.status.openhab_version ?? '?'} · {seenLabel(site)}
-							</p>
+							{#if site.setup_phase !== 'fertig' && !site.last_seen_at}
+								<p class="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+									Einrichtung: {site.setup_label}{site.provision_code ? ` · Code ${site.provision_code}` : ''}
+								</p>
+							{:else}
+								<p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+									openHABian {site.status.openhabian_version ?? '?'} · openHAB {site.status.openhab_version ?? '?'} · {seenLabel(site)}
+								</p>
+							{/if}
 
 							{#if typeof site.status.soc === 'number'}
 								<div class="mt-3">

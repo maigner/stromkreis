@@ -1,9 +1,10 @@
 // Einrichtung eines Gateways (openHABian auf Raspberry Pi) nach dem ISCHLSTROM-Modell
 // (Energiegemeinschaft/website/src/lib/server/db/members/openhabProvision.js):
 // Die Plattform vergibt je Anlage einen Einrichtungscode XXXX-XXXX (60 Tage) und
-// einen Anlagen-Token (nur Hash gespeichert). Auf die SD-Karte kommen nur
-// openhabian.conf (Hostname, Benutzer, WLAN, Zeitzone) und stromkreis-provision.conf
-// (Code + Plattform-URL). Das Gateway holt beim ersten Start per
+// einen Anlagen-Token (nur Hash gespeichert). Stromkreis gibt ausschliesslich fertige
+// SD-Karten-Images aus (openHABian plus openhabian.conf mit Hostname, Benutzer, WLAN,
+// Zeitzone und stromkreis-provision.conf mit Code + Plattform-URL; Image-Builder folgt,
+// die Renderer unten liefern die Dateien dafuer). Das Gateway holt beim ersten Start per
 // POST /api/gateway/provision/v1 {code} seine Konfiguration samt Token und meldet
 // den Fortschritt per POST /api/gateway/provision/v1/result. Kein Token, kein
 // Passwort auf der Karte; der Code bleibt bis "fertig" oder Ablauf gueltig,

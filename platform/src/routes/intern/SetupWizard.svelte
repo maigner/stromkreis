@@ -45,7 +45,7 @@
 	let formError = $state('');
 	let created = $state(/** @type {{id: number, code: string, expires: string} | null} */ (null));
 
-	const selectedMember = $derived(members.find((m) => String(m.id) === memberId));
+	const selectedMember = $derived(members.find((m) => String(m.id) === String(memberId)));
 	$effect(() => {
 		// Adresse und Name aus dem Mitglied vorbelegen, solange nichts eingetippt wurde
 		if (selectedMember) {
@@ -293,7 +293,7 @@
 						</button>
 					</div>
 					<p class="mt-2 text-xs text-amber-800 dark:text-amber-300">
-						Der Code ist kein Passwort: Das Gateway tauscht ihn beim ersten Start gegen seinen Zugangstoken. Auf der SD-Karte liegt nur der Code.
+						Der Code ist kein Passwort: Das Gateway tauscht ihn beim ersten Start gegen seinen Zugangstoken. Im SD-Karten-Image liegt nur der Code.
 					</p>
 				</div>
 			{/if}
@@ -304,27 +304,21 @@
 		</div>
 	{:else if step === 3}
 		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-			<h3 class="font-semibold">SD-Karte vorbereiten</h3>
-			<ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
-				<li>
-					Raspberry Pi Imager von
-					<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-amber-600 hover:underline dark:text-amber-500">raspberrypi.com/software</a>
-					installieren und starten.
-				</li>
-				<li>Unter "Betriebssystem" wählen: Other specific-purpose OS, Home assistants, openHABian (64-bit). Die microSD-Karte als Ziel wählen und schreiben.</li>
-				<li>
-					Die Karten-Dateien herunterladen und beide Dateien (<code class="font-mono text-xs">openhabian.conf</code>, <code class="font-mono text-xs">stromkreis-provision.conf</code>) auf die Boot-Partition der Karte kopieren, openhabian.conf dabei ersetzen.
-				</li>
-			</ol>
-			<div class="mt-5 flex flex-wrap items-center gap-3">
-				{#if created}
-					<a href="/intern/anlagen/{created.id}/sd-karte.zip" class={primaryBtn} data-sveltekit-reload>Karten-Dateien herunterladen (Zip)</a>
-				{/if}
-				<span class="text-xs text-neutral-500">Enthält Hostname, Zeitzone, WLAN (falls angegeben), Einrichtungscode und Plattform-URL. Kein Token, kein Passwort der Plattform.</span>
-			</div>
-			<p class="mt-4 text-sm text-neutral-700 dark:text-neutral-300">
-				Danach die Karte in den Raspberry Pi stecken, Netzwerk und Strom anschließen. openHABian installiert sich unbeaufsichtigt (15 bis 45 Minuten), holt dann mit dem Code seine Konfiguration von Stromkreis und meldet den Fortschritt hierher.
+			<h3 class="font-semibold">SD-Karte schreiben</h3>
+			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+				Stromkreis arbeitet ausschließlich mit fertigen SD-Karten-Images: openHABian plus Hostname, Zeitzone, WLAN (falls angegeben), Einrichtungscode und Plattform-URL, fix und fertig eingebaut. Kein Token, kein Passwort der Plattform im Image.
 			</p>
+			<div class="mt-4 rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-400">
+				Die Image-Erstellung auf der Plattform ist in Arbeit. Bis dahin: Einrichtungscode
+				{#if created}<code class="font-mono tracking-widest">{created.code}</code>{/if}
+				notieren; das Image wird demnächst hier zum Download erscheinen.
+			</div>
+			<ol class="mt-4 list-decimal space-y-2 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
+				<li>
+					Das Image mit dem Raspberry Pi Imager (<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-amber-600 hover:underline dark:text-amber-500">raspberrypi.com/software</a>, "Eigenes Image") auf die microSD-Karte schreiben.
+				</li>
+				<li>Karte in den Raspberry Pi stecken, Netzwerk und Strom anschließen. openHABian installiert sich unbeaufsichtigt (15 bis 45 Minuten), holt dann mit dem Code seine Konfiguration von Stromkreis und meldet den Fortschritt hierher.</li>
+			</ol>
 		</div>
 		<div class="flex justify-between">
 			<button class={secondaryBtn} onclick={() => (step = 2)}>Zurück</button>
