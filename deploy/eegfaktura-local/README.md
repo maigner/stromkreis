@@ -26,8 +26,11 @@ Passwörter stehen in `server:/home/martin/Container/eegfaktura/secrets.env` (Ko
 | `compose.override.yaml` | Wird von Compose automatisch geladen. `restart: unless-stopped` für alle Dienste (Upstream setzt keine Restart-Policy; nach dem Server-Neustart am 24.8. blieb der Stack liegen, bis er am 26.8. per `up -d` neu gestartet wurde). Keycloak auf Port 8180 (8080 ist am Server durch Nextcloud belegt) mit `KC_HOSTNAME https://auth.eegfaktura-test.stromkreis.net` hinter Caddy (`KC_PROXY_HEADERS xforwarded`), Bootstrap-Admin-Passwort aus `.env`, alle Ports nur 127.0.0.1, Healthcheck auf Management-Port 9181, `extra_hosts` host-gateway für alle Dienste, Backend aus lokalem Build, `master-server`-Env des energystore korrigiert, admin-cli-Secret ans Admin-Backend, eda/billing/postfix im Profil `full` (laufen nicht). |
 | `patch-realm.py` | Patcht `keycloak/import/realm-export.json` vor dem ersten Start: Realm-`frontendUrl` (Token-Issuer), Redirect-URIs, Client `at.ourproject.vfeeg.api` (fehlt upstream), Gruppen-Mapper `access_groups`/`groups` (fehlen upstream), festes admin-cli-Secret, Benutzer `manager` und `importer`. |
 | `keycloak.json.tmpl` | Vorlage für `keycloak/keycloak.json` (Client-Konfiguration der Go-Dienste) mit Platzhaltern für die Secrets. |
-| `setup-eeg.sh` | Nach dem Start: EEG registrieren (Admin-Backend-API), Stammdaten (Backend) und Energiedaten (energystore-GraphQL) hochladen, ProtectApi-Smoke-Test. Idempotent. |
-| `gen-energy-report.py` | Erzeugt einen synthetischen EDA-Energiereport (Sheet `Energiedaten`, 96 Slots je Tag, Ortszeit) für alle 11 Zählpunkte der Muster-Stammdaten: Haushalts-, Wärmepumpen- und Gewerbeprofile, PV nach Sonnenstand für Bad Ischl mit Tageswetter, dynamische Zuteilung mit exakten EEG-Identitäten; Wilsons PV geht erst am 1.3.2025 ans Netz. Deterministisch. Aufruf lokal (braucht openpyxl): `gen-energy-report.py 2023-05-21 2026-08-25 report.xlsx`, Datei nach `server:.../data/` und Upload wie in `setup-eeg.sh` Schritt 5 (ca. 45 s für gut 3 Jahre; Upload überschreibt vorhandene Slots). Am 26.8.2026 eingespielt (`data/TEST_EEG_Report_TE100200_2023-2026.xlsx`). |
+| `setup-eeg.sh [eegs/<RC>.json]` | Nach dem Start: EEG aus der Konfiguration registrieren (Admin-Backend-API), Upload-Benutzer per `kc-user.sh` einrichten, Stammdaten (Backend) und Energiedaten (energystore-GraphQL) hochladen, ProtectApi-Smoke-Test. Idempotent, Uploads überschreiben. Default `eegs/TE100200.json`. |
+| `kc-user.sh <user> <pw> <rc>` | Keycloak-Admin-API (127.0.0.1:8180, Realm `master`, Passwort `KC_ADMIN_PW`): Benutzer anlegen bzw. aktualisieren, festes Passwort, Gruppe `EEG_ADMIN`, `tenant`-Attribut um die RC-Nummer erweitern. Keycloak 26 verlangt beim PUT die vollständige User-Representation. |
+| `gen-members.py` | Erzeugt deterministisch eine Mitglieder-Konfiguration `eegs/<RC>.json` (Namen, Adressen, Profile haushalt/wärmepumpe/gewerbe, Jahresverbrauch, ~40% mit PV, ~20% Späteinsteiger). |
+| `eegs/*.json` | Konfigurationen der drei Dummy-EEGs (Tabelle oben). `TE100200.json` bildet die Upstream-Musterstammdaten nach und zeigt auf die Musterdateien. |
+| `gen-eeg.py <config> <von> <bis> <ordner>` | Erzeugt aus einer Konfiguration `<RC>-Stammdaten.xlsx` (Sheet `EEG Stammdaten`, Spalten wie die Upstream-Vorlage, Status ACTIVATED) und `<RC>-Energiedaten.xlsx` (EDA-Report-Format, Sheet `Energiedaten`, 96 Slots je Tag in Ortszeit, Format aus `excel/ExcelSourceNew.go` des energystore abgeleitet): Haushalts-, Wärmepumpen- und Gewerbeprofile, PV nach Sonnenstand für das Salzkammergut mit Tageswetter, dynamische Zuteilung mit exakten EEG-Identitäten, Späteinsteiger per `begin`. Deterministisch. Lokal ausführen (braucht openpyxl, ca. 25 s je 20-Mitglieder-EEG und 2 Jahre), Dateien nach `server:.../data/` kopieren, dann `setup-eeg.sh` (Upload ca. 1 min). |
 | `build-backend.sh` | Baut `vfeeg-backend:local` aus dem aktuellen master (das Registry-Image `latest` ist veraltet und beantwortet authentifizierte Anfragen mit leeren 200ern). |
 
 ## Neuinstallation von Null
@@ -36,9 +39,10 @@ Passwörter stehen in `server:/home/martin/Container/eegfaktura/secrets.env` (Ko
 ssh server
 mkdir -p ~/Container/eegfaktura && cd ~/Container/eegfaktura
 curl -sL https://github.com/eegfaktura/eegfaktura-docker-compose/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
-# Dateien aus deploy/eegfaktura-local/ hierher kopieren (scp), build-backend.sh nach build/
-umask 077; printf "ADMIN_CLI_SECRET=%s\nAPI_SECRET=%s\nMANAGER_PW=%s\nIMPORTER_PW=%s\nKC_ADMIN_PW=%s\nRC_NUMBER=TE100200\n" \
-  "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 18 | tr -d '/+=')" > secrets.env
+# Dateien aus deploy/eegfaktura-local/ hierher kopieren (scp, inkl. eegs/), build-backend.sh nach build/,
+# lokal erzeugte Import-Dateien (gen-eeg.py) nach data/
+umask 077; printf "ADMIN_CLI_SECRET=%s\nAPI_SECRET=%s\nMANAGER_PW=%s\nIMPORTER_PW=%s\nDERKASSIER_PW=%s\nKC_ADMIN_PW=%s\nRC_NUMBER=TE100200\n" \
+  "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 12 | tr -d '/+=')" "$(openssl rand -base64 18 | tr -d '/+=')" > secrets.env
 ln -sfn secrets.env .env
 set -a; . ./secrets.env; set +a
 cp -n keycloak/import/realm-export.json keycloak/import/realm-export.json.orig
@@ -49,7 +53,9 @@ build/build-backend.sh
 # holen beim Start die OIDC-Discovery von https://auth.eegfaktura-test.stromkreis.net
 docker compose up -d          # Keycloak importiert den Realm nur beim ersten Start (leere DB)
 docker compose ps             # warten bis alle 10 Dienste "Up", Keycloak "healthy"
-./setup-eeg.sh
+./setup-eeg.sh                      # TE100200 (Musterdateien)
+./setup-eeg.sh eegs/TE100300.json   # weitere Dummy-EEGs, Dateien vorher mit gen-eeg.py erzeugen
+./setup-eeg.sh eegs/TE100400.json
 ```
 
 `docker compose down -v` löscht alle Daten (Postgres, Keycloak, energystore); danach `up -d` und `setup-eeg.sh` erneut. Änderungen an `keycloak/keycloak.json` (Docker-Secret) brauchen `down`/`up`, kein `restart`.

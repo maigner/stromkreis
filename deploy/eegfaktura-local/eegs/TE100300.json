@@ -1,0 +1,316 @@
+{
+ "rc": "TE100300",
+ "community_id": "AT00999900000TC100300000000000000",
+ "grid": "AT009999",
+ "name": "EEG Sonnenstrom Bad Goisern",
+ "plz": "4822",
+ "ort": "Bad Goisern am Hallstättersee",
+ "street": "Bahnhofstrasse",
+ "street_nr": "1",
+ "members": [
+  {
+   "first": "Stefan",
+   "last": "Berger",
+   "business": false,
+   "street": "Untere Traunstrasse",
+   "nr": "74",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030001",
+    "annual_kwh": 2212,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Josef",
+   "last": "Wagner",
+   "business": false,
+   "street": "Wehrgasse",
+   "nr": "111",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030002",
+    "annual_kwh": 5216,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030002",
+    "kwp": 13.6,
+    "azimuth": 210,
+    "begin": null
+   }
+  },
+  {
+   "first": "Brigitte",
+   "last": "Winkler",
+   "business": false,
+   "street": "Steegstrasse",
+   "nr": "38",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030003",
+    "annual_kwh": 2591,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Markus",
+   "last": "Bauer",
+   "business": false,
+   "street": "Bahnhofstrasse",
+   "nr": "9",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030004",
+    "annual_kwh": 4449,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Maria",
+   "last": "Maier",
+   "business": false,
+   "street": "Bahnhofstrasse",
+   "nr": "76",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030005",
+    "annual_kwh": 9081,
+    "profile": "waermepumpe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Franz",
+   "last": "Egger",
+   "business": false,
+   "street": "Steegstrasse",
+   "nr": "87",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030006",
+    "annual_kwh": 2642,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030006",
+    "kwp": 13.8,
+    "azimuth": 225,
+    "begin": null
+   }
+  },
+  {
+   "first": "Wolfgang",
+   "last": "Wallner",
+   "business": false,
+   "street": "Kurparkstrasse",
+   "nr": "102",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030007",
+    "annual_kwh": 5550,
+    "profile": "haushalt",
+    "begin": "2025-10-01"
+   }
+  },
+  {
+   "first": "Barbara",
+   "last": "Eder",
+   "business": false,
+   "street": "Untere Traunstrasse",
+   "nr": "20",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030008",
+    "annual_kwh": 10813,
+    "profile": "waermepumpe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Alois",
+   "last": "Bauer",
+   "business": false,
+   "street": "Untere Traunstrasse",
+   "nr": "84",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030009",
+    "annual_kwh": 2408,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030009",
+    "kwp": 4.6,
+    "azimuth": 210,
+    "begin": null
+   }
+  },
+  {
+   "first": "Peter",
+   "last": "Wagner",
+   "business": false,
+   "street": "Bahnhofstrasse",
+   "nr": "23",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030010",
+    "annual_kwh": 2759,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Hubert",
+   "last": "Lehner",
+   "business": false,
+   "street": "Ramsau",
+   "nr": "77",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030011",
+    "annual_kwh": 3607,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Kfz-Werkstatt",
+   "last": "Wimmer",
+   "business": true,
+   "street": "Bahnhofstrasse",
+   "nr": "38",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030012",
+    "annual_kwh": 17082,
+    "profile": "gewerbe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Baeckerei",
+   "last": "Fischer",
+   "business": true,
+   "street": "Bahnhofstrasse",
+   "nr": "63",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030013",
+    "annual_kwh": 10476,
+    "profile": "gewerbe",
+    "begin": "2025-05-01"
+   }
+  },
+  {
+   "first": "Georg",
+   "last": "Lehner",
+   "business": false,
+   "street": "Untere Traunstrasse",
+   "nr": "44",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030014",
+    "annual_kwh": 5438,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Silvia",
+   "last": "Schwarz",
+   "business": false,
+   "street": "Wehrgasse",
+   "nr": "59",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030015",
+    "annual_kwh": 6327,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030015",
+    "kwp": 7.7,
+    "azimuth": 180,
+    "begin": null
+   }
+  },
+  {
+   "first": "Elisabeth",
+   "last": "Winkler",
+   "business": false,
+   "street": "Marktstrasse",
+   "nr": "86",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030016",
+    "annual_kwh": 8406,
+    "profile": "waermepumpe",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030016",
+    "kwp": 6.1,
+    "azimuth": 165,
+    "begin": null
+   }
+  },
+  {
+   "first": "Alois",
+   "last": "Baumgartner",
+   "business": false,
+   "street": "Steegstrasse",
+   "nr": "73",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030017",
+    "annual_kwh": 3743,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Herbert",
+   "last": "Maier",
+   "business": false,
+   "street": "Wehrgasse",
+   "nr": "82",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030018",
+    "annual_kwh": 3743,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Sabine",
+   "last": "Leitner",
+   "business": false,
+   "street": "Steegstrasse",
+   "nr": "54",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030019",
+    "annual_kwh": 10984,
+    "profile": "waermepumpe",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030019",
+    "kwp": 7.6,
+    "azimuth": 240,
+    "begin": null
+   }
+  },
+  {
+   "first": "Christine",
+   "last": "Steiner",
+   "business": false,
+   "street": "Bahnhofstrasse",
+   "nr": "16",
+   "consumption": {
+    "zp": "AT0099990000000000000000010030020",
+    "annual_kwh": 2953,
+    "profile": "haushalt",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110030020",
+    "kwp": 8.3,
+    "azimuth": 150,
+    "begin": null
+   }
+  }
+ ],
+ "upload_user": "importer",
+ "admin_user": "admin-te100300"
+}

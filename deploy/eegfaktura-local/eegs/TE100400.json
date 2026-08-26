@@ -1,0 +1,292 @@
+{
+ "rc": "TE100400",
+ "community_id": "AT00999900000TC100400000000000000",
+ "grid": "AT009999",
+ "name": "EEG Traunsee Ebensee",
+ "plz": "4802",
+ "ort": "Ebensee am Traunsee",
+ "street": "Hauptstrasse",
+ "street_nr": "1",
+ "members": [
+  {
+   "first": "Georg",
+   "last": "Weber",
+   "business": false,
+   "street": "Trauneck",
+   "nr": "53",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040001",
+    "annual_kwh": 6760,
+    "profile": "waermepumpe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Leopold",
+   "last": "Eder",
+   "business": false,
+   "street": "Seeplatz",
+   "nr": "19",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040002",
+    "annual_kwh": 4533,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Herbert",
+   "last": "Huber",
+   "business": false,
+   "street": "Rindbachstrasse",
+   "nr": "53",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040003",
+    "annual_kwh": 2251,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Nahversorger",
+   "last": "Wagner",
+   "business": true,
+   "street": "Bahnhofstrasse",
+   "nr": "99",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040004",
+    "annual_kwh": 14340,
+    "profile": "gewerbe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Petra",
+   "last": "Weber",
+   "business": false,
+   "street": "Langbathstrasse",
+   "nr": "71",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040005",
+    "annual_kwh": 2696,
+    "profile": "haushalt",
+    "begin": "2025-08-01"
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110040005",
+    "kwp": 4.8,
+    "azimuth": 180,
+    "begin": "2025-08-01"
+   }
+  },
+  {
+   "first": "Sabine",
+   "last": "Fuchs",
+   "business": false,
+   "street": "Bahnhofstrasse",
+   "nr": "55",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040006",
+    "annual_kwh": 2444,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Hubert",
+   "last": "Auer",
+   "business": false,
+   "street": "Trauneck",
+   "nr": "108",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040007",
+    "annual_kwh": 4470,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Sabine",
+   "last": "Auer",
+   "business": false,
+   "street": "Langbathstrasse",
+   "nr": "37",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040008",
+    "annual_kwh": 4596,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Baeckerei",
+   "last": "Bauer",
+   "business": true,
+   "street": "Seeplatz",
+   "nr": "78",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040009",
+    "annual_kwh": 22011,
+    "profile": "gewerbe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Herbert",
+   "last": "Schmid",
+   "business": false,
+   "street": "Schulgasse",
+   "nr": "55",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040010",
+    "annual_kwh": 9229,
+    "profile": "waermepumpe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Markus",
+   "last": "Auer",
+   "business": false,
+   "street": "Kohlstatt",
+   "nr": "77",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040011",
+    "annual_kwh": 5964,
+    "profile": "haushalt",
+    "begin": "2025-06-01"
+   }
+  },
+  {
+   "first": "Herbert",
+   "last": "Reiter",
+   "business": false,
+   "street": "Hauptstrasse",
+   "nr": "51",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040012",
+    "annual_kwh": 2415,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Tischlerei",
+   "last": "Huber",
+   "business": true,
+   "street": "Rindbachstrasse",
+   "nr": "32",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040013",
+    "annual_kwh": 14298,
+    "profile": "gewerbe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Alois",
+   "last": "Baumgartner",
+   "business": false,
+   "street": "Trauneck",
+   "nr": "94",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040014",
+    "annual_kwh": 7852,
+    "profile": "waermepumpe",
+    "begin": null
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110040014",
+    "kwp": 7.3,
+    "azimuth": 150,
+    "begin": null
+   }
+  },
+  {
+   "first": "Franz",
+   "last": "Wimmer",
+   "business": false,
+   "street": "Trauneck",
+   "nr": "60",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040015",
+    "annual_kwh": 2855,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Sabine",
+   "last": "Berger",
+   "business": false,
+   "street": "Schulgasse",
+   "nr": "2",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040016",
+    "annual_kwh": 5087,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Silvia",
+   "last": "Fischer",
+   "business": false,
+   "street": "Langbathstrasse",
+   "nr": "113",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040017",
+    "annual_kwh": 3419,
+    "profile": "haushalt",
+    "begin": null
+   }
+  },
+  {
+   "first": "Nahversorger",
+   "last": "Huber",
+   "business": true,
+   "street": "Bahnhofstrasse",
+   "nr": "14",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040018",
+    "annual_kwh": 11780,
+    "profile": "gewerbe",
+    "begin": null
+   }
+  },
+  {
+   "first": "Nahversorger",
+   "last": "Schwarz",
+   "business": true,
+   "street": "Langbathstrasse",
+   "nr": "31",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040019",
+    "annual_kwh": 15451,
+    "profile": "gewerbe",
+    "begin": "2026-05-01"
+   }
+  },
+  {
+   "first": "Christine",
+   "last": "Leitner",
+   "business": false,
+   "street": "Kohlstatt",
+   "nr": "115",
+   "consumption": {
+    "zp": "AT0099990000000000000000010040020",
+    "annual_kwh": 8403,
+    "profile": "waermepumpe",
+    "begin": "2025-03-01"
+   },
+   "generation": {
+    "zp": "AT0099990000000000000000110040020",
+    "kwp": 14.5,
+    "azimuth": 225,
+    "begin": "2025-03-01"
+   }
+  }
+ ],
+ "upload_user": "DerKassier",
+ "admin_user": "DerKassier"
+}
