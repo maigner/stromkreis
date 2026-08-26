@@ -4,7 +4,8 @@ Plattform beim Betreiber-Login einstellt.
 Ablauf je Auftrag (bewusst langsam, damit die EEG-Faktura-Instanz nicht unter
 Last geraet und die Plattform waehrend des Imports fluessig bleibt):
   1. Phase masterdata: Teilnehmer und Zaehlpunkte (GET /api/participant) in
-     member und measurement_point uebernehmen.
+     member und measurement_point uebernehmen; Mitglieder mit geaenderter
+     Adresse geokodieren (geocode.py, Nominatim) und ihre Anlagen nachziehen.
   2. Phase energy: Energiedaten in 30-Tage-Stuecken, mit Pause zwischen den
      Stuecken (PACE_SECONDS), Fortschritt je Stueck in job.progress.
 Auth: Refresh-Token des Betreibers (eegfaktura_oidc_token, verschluesselt),
@@ -22,7 +23,7 @@ import os
 import time
 from datetime import datetime, timezone
 
-from . import db, secrets
+from . import db, geocode, secrets
 from .eegfaktura import load, sync
 from .eegfaktura.client import EegfakturaClient, EegfakturaError, RefreshTokenAuth
 from .eegfaktura.normalize import normalize_participants
@@ -144,7 +145,12 @@ def run_job(conn, job):
         point_ids = load.ensure_measurement_points(conn, tenant_id, points)
         load.link_points_to_members(conn, tenant_id, participants)
         conn.commit()
-        update_job(conn, job["id"], phase="energy", progress={"members": counts, "points": len(point_ids)})
+        geocoded, missed = geocode.geocode_members(conn, tenant_id)
+        conn.commit()
+        if geocoded or missed:
+            log.info("%s: %d Mitglieder geokodiert, %d ohne Treffer", src["slug"], geocoded, missed)
+        update_job(conn, job["id"], phase="energy", progress={
+            "members": counts, "points": len(point_ids), "geocoded": geocoded, "geocode_missed": missed})
         job["phase"] = "energy"
         time.sleep(min(PACE_SECONDS, 5))
 

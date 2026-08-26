@@ -1,8 +1,4 @@
---
--- PostgreSQL database dump
---
-
-\restrict 8b8sj3iUg6FzBOKSJMUCTxd4VxDwweXfCBBsZfmCb8LRlgoUOeSMWQPU98fi2OX
+\restrict dbmate
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -245,6 +241,10 @@ CREATE TABLE public.member (
     participant_number text,
     address text,
     eegfaktura_participant_id text,
+    latitude double precision,
+    longitude double precision,
+    geocoded_address text,
+    geocoded_at timestamp with time zone,
     CONSTRAINT member_operator_has_email CHECK (((role <> 'operator'::text) OR (email IS NOT NULL))),
     CONSTRAINT member_role_check CHECK ((role = ANY (ARRAY['member'::text, 'board'::text, 'operator'::text])))
 );
@@ -255,6 +255,13 @@ CREATE TABLE public.member (
 --
 
 COMMENT ON COLUMN public.member.oidc_sub IS 'Keycloak-Subject der EEG-Faktura-Identitaet, beim ersten OIDC-Login gesetzt';
+
+
+--
+-- Name: COLUMN member.geocoded_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.member.geocoded_address IS 'Adresse, auf die sich latitude/longitude beziehen; weicht sie von address ab, geokodiert der Worker neu';
 
 
 --
@@ -902,22 +909,24 @@ ALTER TABLE ONLY public.weather
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8b8sj3iUg6FzBOKSJMUCTxd4VxDwweXfCBBsZfmCb8LRlgoUOeSMWQPU98fi2OX
+\unrestrict dbmate
 
 
 --
 -- Dbmate schema migrations
 --
 
-INSERT INTO public.schema_migrations (version) VALUES ('20260807120000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260807120100');
-INSERT INTO public.schema_migrations (version) VALUES ('20260807130000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260807140000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260808120000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260808150000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260808170000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260808180000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260809100000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260824190000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260826200000');
-INSERT INTO public.schema_migrations (version) VALUES ('20260826200100');
+INSERT INTO public.schema_migrations (version) VALUES
+    ('20260807120000'),
+    ('20260807120100'),
+    ('20260807130000'),
+    ('20260807140000'),
+    ('20260808120000'),
+    ('20260808150000'),
+    ('20260808170000'),
+    ('20260808180000'),
+    ('20260809100000'),
+    ('20260824190000'),
+    ('20260826200000'),
+    ('20260826200100'),
+    ('20260826210000');

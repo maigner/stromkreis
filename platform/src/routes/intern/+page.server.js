@@ -168,19 +168,29 @@ export const actions = {
 		// aus dem Mitglied, Standort vom Gemeinschafts-Mittelpunkt, Zaehlpunkt = Erzeugung des Mitglieds
 		let memberAddress = null;
 		let memberName = null;
+		/** @type {[number, number] | null} Koordinaten des Mitglieds (Geokodierung durch den Worker) */
+		let memberCoords = null;
 		if (memberRaw !== '') {
-			const [m] = await sql`select name, address from member where tenant_id = ${tenantId} and id = ${Number(memberRaw)}`;
+			const [m] = await sql`select name, address, latitude, longitude from member where tenant_id = ${tenantId} and id = ${Number(memberRaw)}`;
 			memberAddress = m?.address ?? null;
 			memberName = m?.name ?? null;
+			if (m?.latitude != null && m?.longitude != null) memberCoords = [Number(m.latitude), Number(m.longitude)];
 		}
 		if (!address && memberAddress) address = memberAddress;
 		if (!name && memberName) name = `Anlage ${memberName}`;
 		let latitude = Number(form.get('latitude'));
 		let longitude = Number(form.get('longitude'));
 		if (String(form.get('latitude') ?? '') === '' || String(form.get('longitude') ?? '') === '') {
-			const [t] = await sql`select latitude, longitude from tenant where id = ${tenantId}`;
-			latitude = Number(t.latitude);
-			longitude = Number(t.longitude);
+			// Standort: Mitgliedskoordinaten (geokodierte EEG-Faktura-Adresse), sonst der
+			// Gemeinschafts-Mittelpunkt; solche Anlagen zieht der Worker nach, sobald das
+			// Mitglied Koordinaten hat.
+			if (memberCoords) {
+				[latitude, longitude] = memberCoords;
+			} else {
+				const [t] = await sql`select latitude, longitude from tenant where id = ${tenantId}`;
+				latitude = Number(t.latitude);
+				longitude = Number(t.longitude);
+			}
 		}
 		const pointRaw = String(form.get('measurement_point_id') ?? '');
 		const wifiSsid = String(form.get('wifi_ssid') ?? '').trim().slice(0, 32) || null;

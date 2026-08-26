@@ -80,7 +80,9 @@ def db_conn():
         cur.execute("select id from tenant where slug like 'pytest-%'")
         for (tenant_id,) in cur.fetchall():
             cur.execute("delete from measurement where tenant_id = %s", (tenant_id,))
+            cur.execute("delete from battery_site where tenant_id = %s", (tenant_id,))
             cur.execute("delete from measurement_point where tenant_id = %s", (tenant_id,))
+            cur.execute("delete from member where tenant_id = %s", (tenant_id,))
             cur.execute("delete from meter_code where tenant_id = %s", (tenant_id,))
             cur.execute("delete from eegfaktura_source where tenant_id = %s", (tenant_id,))
             cur.execute("delete from tenant where id = %s", (tenant_id,))
