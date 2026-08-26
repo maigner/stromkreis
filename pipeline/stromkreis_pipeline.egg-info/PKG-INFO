@@ -7,5 +7,6 @@ Requires-Python: >=3.11
 Requires-Dist: pandas
 Requires-Dist: requests
 Requires-Dist: psycopg[binary]
+Requires-Dist: cryptography
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"

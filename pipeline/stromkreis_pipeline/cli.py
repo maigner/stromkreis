@@ -3,6 +3,11 @@
     python -m stromkreis_pipeline eegfaktura-probe --tenant <slug>
     python -m stromkreis_pipeline eegfaktura-sync [--tenant <slug>]
         [--since JJJJ-MM-TT] [--until JJJJ-MM-TT] [--full]
+    python -m stromkreis_pipeline worker
+
+worker arbeitet die von der Plattform beim Betreiber-Login eingestellten
+Import-Auftraege ab (eegfaktura_sync_job, Auth per Refresh-Token; Endlosschleife,
+Container "worker" im Testdeployment).
 
 probe prueft nur den Zugang (metadata-Endpunkt, keine Schreibzugriffe auf
 Energiedaten). sync importiert inkrementell; --full erzwingt den kompletten
@@ -90,6 +95,9 @@ def main(argv=None):
     run.add_argument("--until", help="Fensterende JJJJ-MM-TT (inklusive)")
     run.add_argument("--full", action="store_true", help="kompletten Zeitraum ab periodBegin importieren")
     run.set_defaults(func=cmd_sync)
+
+    worker = commands.add_parser("worker", help="Import-Auftraege der Plattform abarbeiten (Endlosschleife)")
+    worker.set_defaults(func=lambda args: __import__("stromkreis_pipeline.worker", fromlist=["main_loop"]).main_loop())
 
     args = parser.parse_args(argv)
     return args.func(args)

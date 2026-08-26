@@ -135,3 +135,75 @@ def daily_reporting_share(conn, tenant_id, day_start, day_end):
         )
         reporting = cur.fetchone()[0]
     return reporting / total
+
+
+def upsert_members(conn, tenant_id, participants):
+    """Teilnehmer aus EEG-Faktura in member uebernehmen (Rolle member).
+
+    Schluessel ist die EEG-Faktura-Teilnehmer-ID; ohne ID wird ueber den Namen
+    zugeordnet. Betreiber-/Vorstandszeilen (aus dem Login) bleiben unberuehrt,
+    ausser die E-Mail passt: dann bekommt die vorhandene Zeile die
+    Teilnehmerdaten. Rueckgabe: Anzahl verarbeiteter Teilnehmer.
+    """
+    count = 0
+    with conn.cursor() as cur:
+        for p in participants:
+            cur.execute(
+                """
+                select id from member
+                where tenant_id = %s and (
+                    (%s::text is not null and eegfaktura_participant_id = %s)
+                    or (%s::text is not null and lower(email) = lower(%s))
+                    or (eegfaktura_participant_id is null and name = %s)
+                )
+                order by (eegfaktura_participant_id = %s) desc nulls last, id
+                limit 1
+                """,
+                (tenant_id, p["external_id"], p["external_id"], p["email"], p["email"], p["name"], p["external_id"]),
+            )
+            row = cur.fetchone()
+            if row:
+                cur.execute(
+                    """
+                    update member set name = %s, email = coalesce(email, %s), participant_number = %s,
+                        address = %s, eegfaktura_participant_id = coalesce(%s, eegfaktura_participant_id)
+                    where tenant_id = %s and id = %s
+                    """,
+                    (p["name"], p["email"], p["participant_number"], p["address"], p["external_id"], tenant_id, row[0]),
+                )
+            else:
+                cur.execute(
+                    """
+                    insert into member (tenant_id, name, email, role, participant_number, address, eegfaktura_participant_id)
+                    values (%s, %s, %s, 'member', %s, %s, %s)
+                    on conflict (tenant_id, email) do update set name = excluded.name,
+                        participant_number = excluded.participant_number, address = excluded.address,
+                        eegfaktura_participant_id = excluded.eegfaktura_participant_id
+                    """,
+                    (tenant_id, p["name"], p["email"], p["participant_number"], p["address"], p["external_id"]),
+                )
+            count += 1
+    return count
+
+
+def link_points_to_members(conn, tenant_id, participants):
+    """measurement_point.member_id anhand der Teilnehmerliste setzen."""
+    with conn.cursor() as cur:
+        for p in participants:
+            if not p["points"]:
+                continue
+            cur.execute(
+                """
+                select id from member where tenant_id = %s and (
+                    (%s::text is not null and eegfaktura_participant_id = %s) or name = %s)
+                order by (eegfaktura_participant_id = %s) desc nulls last, id limit 1
+                """,
+                (tenant_id, p["external_id"], p["external_id"], p["name"], p["external_id"]),
+            )
+            row = cur.fetchone()
+            if not row:
+                continue
+            cur.execute(
+                "update measurement_point set member_id = %s where tenant_id = %s and metering_point = any(%s)",
+                (row[0], tenant_id, [mp for mp, _ in p["points"]]),
+            )

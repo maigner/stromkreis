@@ -130,3 +130,37 @@ def normalize_masterdata(payload):
                 continue
             points.append((mp, normalize_direction(meter.get("direction")), name))
     return points
+
+
+def normalize_participants(payload):
+    """participant-Antwort (Bearer-Route /api/participant) zu Teilnehmern.
+
+    Rueckgabe: Liste von dicts {external_id, participant_number, name, email,
+    address, points: [(metering_point, direction)]}. Beide Namensformen
+    (firstname/firstName) werden akzeptiert; Zaehlpunkte ohne Nummer fallen weg.
+    """
+    result = []
+    for p in payload:
+        first = p.get("firstname") or p.get("firstName") or ""
+        last = p.get("lastname") or p.get("lastName") or ""
+        name = " ".join(part for part in (first, last) if part).strip() or f"Teilnehmer {p.get('participantNumber') or p.get('id')}"
+        contact = p.get("contact") or {}
+        addr = p.get("residentAddress") or p.get("billingAddress") or {}
+        street = " ".join(part for part in (addr.get("street"), addr.get("streetNumber")) if part)
+        city = " ".join(part for part in (addr.get("zip"), addr.get("city")) if part)
+        address = ", ".join(part for part in (street, city) if part) or None
+        points = []
+        for meter in p.get("meters") or p.get("meteringPoint") or []:
+            mp = meter.get("meteringPoint")
+            if not mp:
+                continue
+            points.append((mp, normalize_direction(meter.get("direction") or "CONSUMPTION")))
+        result.append({
+            "external_id": str(p.get("id")) if p.get("id") is not None else None,
+            "participant_number": str(p.get("participantNumber")) if p.get("participantNumber") else None,
+            "name": name,
+            "email": (contact.get("email") or None),
+            "address": address,
+            "points": points,
+        })
+    return result

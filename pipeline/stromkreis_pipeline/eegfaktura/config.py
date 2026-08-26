@@ -25,7 +25,7 @@ class TenantSource:
     rc_number: str
     community_id: str | None  # ecId der Energiedaten-Endpunkte; None = rc_number
     base_url: str
-    auth_mode: str  # 'basic' | 'client_credentials'
+    auth_mode: str  # 'basic' | 'client_credentials' | 'oidc' (nur Worker, Refresh-Token aus der DB)
     token_url: str | None
     active: bool
 
@@ -79,4 +79,6 @@ def build_auth(source):
             _require_env(source.slug, "CLIENT_ID"),
             _require_env(source.slug, "CLIENT_SECRET"),
         )
+    if source.auth_mode == "oidc":
+        raise ConfigError("auth_mode oidc laeuft nur im Worker (python -m stromkreis_pipeline worker)")
     raise ConfigError(f"Unbekannter auth_mode: {source.auth_mode}")

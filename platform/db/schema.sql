@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 7g7u5uQCbV1fbcNPL60UgR3n6huLwKCKX7o4R5Tw0ly3y1cOUzptEy6heJtSgvi
+\restrict 8b8sj3iUg6FzBOKSJMUCTxd4VxDwweXfCBBsZfmCb8LRlgoUOeSMWQPU98fi2OX
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -20,7 +20,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.set_updated_at() RETURNS trigger
@@ -33,14 +33,12 @@ end;
 $$;
 
 
-ALTER FUNCTION public.set_updated_at() OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: battery_site; Type: TABLE; Schema: public; Owner: postgres
+-- Name: battery_site; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.battery_site (
@@ -56,14 +54,22 @@ CREATE TABLE public.battery_site (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     latitude double precision,
     longitude double precision,
-    address text
+    address text,
+    provision_code text,
+    provision_expires_at timestamp with time zone,
+    provisioned_at timestamp with time zone,
+    setup_phase text DEFAULT 'neu'::text NOT NULL,
+    setup_message text,
+    setup_phase_at timestamp with time zone,
+    measurement_point_id bigint,
+    capacity_kwh numeric(8,2),
+    pv_kwp numeric(8,2),
+    CONSTRAINT battery_site_provision_code_format CHECK (((provision_code IS NULL) OR (provision_code ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$'::text)))
 );
 
 
-ALTER TABLE public.battery_site OWNER TO postgres;
-
 --
--- Name: battery_site_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: battery_site_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.battery_site ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -77,7 +83,25 @@ ALTER TABLE public.battery_site ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: eegfaktura_source; Type: TABLE; Schema: public; Owner: postgres
+-- Name: eegfaktura_oidc_token; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eegfaktura_oidc_token (
+    tenant_id bigint NOT NULL,
+    member_id bigint NOT NULL,
+    issuer text NOT NULL,
+    client_id text NOT NULL,
+    refresh_token_enc text NOT NULL,
+    scope text,
+    refreshed_at timestamp with time zone,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: eegfaktura_source; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.eegfaktura_source (
@@ -90,16 +114,48 @@ CREATE TABLE public.eegfaktura_source (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     community_id text,
-    CONSTRAINT eegfaktura_source_auth_mode_check CHECK ((auth_mode = ANY (ARRAY['basic'::text, 'client_credentials'::text]))),
+    CONSTRAINT eegfaktura_source_auth_mode_check CHECK ((auth_mode = ANY (ARRAY['basic'::text, 'client_credentials'::text, 'oidc'::text]))),
     CONSTRAINT eegfaktura_source_community_id_check CHECK ((community_id = upper(community_id))),
     CONSTRAINT eegfaktura_source_rc_number_check CHECK ((rc_number = upper(rc_number)))
 );
 
 
-ALTER TABLE public.eegfaktura_source OWNER TO postgres;
+--
+-- Name: eegfaktura_sync_job; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eegfaktura_sync_job (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    phase text DEFAULT 'queued'::text NOT NULL,
+    full_import boolean DEFAULT false NOT NULL,
+    progress jsonb DEFAULT '{}'::jsonb NOT NULL,
+    error text,
+    requested_by bigint,
+    requested_at timestamp with time zone DEFAULT now() NOT NULL,
+    started_at timestamp with time zone,
+    heartbeat_at timestamp with time zone,
+    finished_at timestamp with time zone,
+    CONSTRAINT eegfaktura_sync_job_phase_check CHECK ((phase = ANY (ARRAY['queued'::text, 'masterdata'::text, 'energy'::text, 'done'::text, 'error'::text])))
+);
+
 
 --
--- Name: login_token; Type: TABLE; Schema: public; Owner: postgres
+-- Name: eegfaktura_sync_job_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.eegfaktura_sync_job ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.eegfaktura_sync_job_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: login_token; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.login_token (
@@ -113,10 +169,8 @@ CREATE TABLE public.login_token (
 );
 
 
-ALTER TABLE public.login_token OWNER TO postgres;
-
 --
--- Name: login_token_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: login_token_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.login_token ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -130,7 +184,7 @@ ALTER TABLE public.login_token ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- Name: measurement; Type: TABLE; Schema: public; Owner: postgres
+-- Name: measurement; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.measurement (
@@ -144,10 +198,8 @@ CREATE TABLE public.measurement (
 );
 
 
-ALTER TABLE public.measurement OWNER TO postgres;
-
 --
--- Name: measurement_point; Type: TABLE; Schema: public; Owner: postgres
+-- Name: measurement_point; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.measurement_point (
@@ -163,10 +215,8 @@ CREATE TABLE public.measurement_point (
 );
 
 
-ALTER TABLE public.measurement_point OWNER TO postgres;
-
 --
--- Name: measurement_point_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: measurement_point_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.measurement_point ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -180,7 +230,7 @@ ALTER TABLE public.measurement_point ALTER COLUMN id ADD GENERATED ALWAYS AS IDE
 
 
 --
--- Name: member; Type: TABLE; Schema: public; Owner: postgres
+-- Name: member; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.member (
@@ -191,15 +241,24 @@ CREATE TABLE public.member (
     role text DEFAULT 'member'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    oidc_sub text,
+    participant_number text,
+    address text,
+    eegfaktura_participant_id text,
     CONSTRAINT member_operator_has_email CHECK (((role <> 'operator'::text) OR (email IS NOT NULL))),
     CONSTRAINT member_role_check CHECK ((role = ANY (ARRAY['member'::text, 'board'::text, 'operator'::text])))
 );
 
 
-ALTER TABLE public.member OWNER TO postgres;
+--
+-- Name: COLUMN member.oidc_sub; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.member.oidc_sub IS 'Keycloak-Subject der EEG-Faktura-Identitaet, beim ersten OIDC-Login gesetzt';
+
 
 --
--- Name: member_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: member_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.member ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -213,7 +272,7 @@ ALTER TABLE public.member ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: meter_code; Type: TABLE; Schema: public; Owner: postgres
+-- Name: meter_code; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.meter_code (
@@ -228,10 +287,8 @@ CREATE TABLE public.meter_code (
 );
 
 
-ALTER TABLE public.meter_code OWNER TO postgres;
-
 --
--- Name: meter_code_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: meter_code_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.meter_code ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -245,7 +302,7 @@ ALTER TABLE public.meter_code ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: schema_migrations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.schema_migrations (
@@ -253,10 +310,8 @@ CREATE TABLE public.schema_migrations (
 );
 
 
-ALTER TABLE public.schema_migrations OWNER TO postgres;
-
 --
--- Name: session; Type: TABLE; Schema: public; Owner: postgres
+-- Name: session; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.session (
@@ -269,10 +324,8 @@ CREATE TABLE public.session (
 );
 
 
-ALTER TABLE public.session OWNER TO postgres;
-
 --
--- Name: session_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: session_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.session ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -286,7 +339,7 @@ ALTER TABLE public.session ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: tenant; Type: TABLE; Schema: public; Owner: postgres
+-- Name: tenant; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tenant (
@@ -301,10 +354,8 @@ CREATE TABLE public.tenant (
 );
 
 
-ALTER TABLE public.tenant OWNER TO postgres;
-
 --
--- Name: tenant_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: tenant_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.tenant ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -318,7 +369,7 @@ ALTER TABLE public.tenant ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: weather; Type: TABLE; Schema: public; Owner: postgres
+-- Name: weather; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.weather (
@@ -346,10 +397,8 @@ CREATE TABLE public.weather (
 );
 
 
-ALTER TABLE public.weather OWNER TO postgres;
-
 --
--- Name: battery_site battery_site_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.battery_site
@@ -357,7 +406,15 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
--- Name: battery_site battery_site_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_provision_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_provision_code_key UNIQUE (provision_code);
+
+
+--
+-- Name: battery_site battery_site_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.battery_site
@@ -365,7 +422,7 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
--- Name: battery_site battery_site_tenant_id_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_tenant_id_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.battery_site
@@ -373,7 +430,7 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
--- Name: battery_site battery_site_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.battery_site
@@ -381,7 +438,15 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
--- Name: eegfaktura_source eegfaktura_source_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: eegfaktura_oidc_token eegfaktura_oidc_token_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eegfaktura_oidc_token
+    ADD CONSTRAINT eegfaktura_oidc_token_pkey PRIMARY KEY (tenant_id);
+
+
+--
+-- Name: eegfaktura_source eegfaktura_source_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.eegfaktura_source
@@ -389,7 +454,15 @@ ALTER TABLE ONLY public.eegfaktura_source
 
 
 --
--- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: eegfaktura_sync_job eegfaktura_sync_job_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eegfaktura_sync_job
+    ADD CONSTRAINT eegfaktura_sync_job_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.login_token
@@ -397,7 +470,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: login_token login_token_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: login_token login_token_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.login_token
@@ -405,7 +478,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: measurement measurement_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement measurement_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement
@@ -413,7 +486,7 @@ ALTER TABLE ONLY public.measurement
 
 
 --
--- Name: measurement_point measurement_point_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement_point measurement_point_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -421,7 +494,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement_point measurement_point_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -429,7 +502,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_metering_point_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement_point measurement_point_tenant_id_metering_point_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -437,7 +510,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: member member_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: member member_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.member
@@ -445,7 +518,7 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: member member_tenant_id_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: member member_tenant_id_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.member
@@ -453,7 +526,7 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: member member_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: member member_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.member
@@ -461,7 +534,7 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: meter_code meter_code_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: meter_code meter_code_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.meter_code
@@ -469,7 +542,7 @@ ALTER TABLE ONLY public.meter_code
 
 
 --
--- Name: meter_code meter_code_tenant_id_description_unit_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: meter_code meter_code_tenant_id_description_unit_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.meter_code
@@ -477,7 +550,7 @@ ALTER TABLE ONLY public.meter_code
 
 
 --
--- Name: meter_code meter_code_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: meter_code meter_code_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.meter_code
@@ -485,7 +558,7 @@ ALTER TABLE ONLY public.meter_code
 
 
 --
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.schema_migrations
@@ -493,7 +566,7 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
--- Name: session session_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: session session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.session
@@ -501,7 +574,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: session session_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: session session_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.session
@@ -509,7 +582,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: tenant tenant_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tenant tenant_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tenant
@@ -517,7 +590,7 @@ ALTER TABLE ONLY public.tenant
 
 
 --
--- Name: tenant tenant_slug_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tenant tenant_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tenant
@@ -525,7 +598,7 @@ ALTER TABLE ONLY public.tenant
 
 
 --
--- Name: weather weather_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: weather weather_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.weather
@@ -533,105 +606,148 @@ ALTER TABLE ONLY public.weather
 
 
 --
--- Name: battery_site_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: battery_site_tenant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX battery_site_tenant_idx ON public.battery_site USING btree (tenant_id);
 
 
 --
--- Name: login_token_member_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: eegfaktura_sync_job_queue_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX eegfaktura_sync_job_queue_idx ON public.eegfaktura_sync_job USING btree (requested_at) WHERE (phase = ANY (ARRAY['queued'::text, 'masterdata'::text, 'energy'::text]));
+
+
+--
+-- Name: eegfaktura_sync_job_tenant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX eegfaktura_sync_job_tenant_idx ON public.eegfaktura_sync_job USING btree (tenant_id, requested_at DESC);
+
+
+--
+-- Name: login_token_member_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX login_token_member_idx ON public.login_token USING btree (tenant_id, member_id);
 
 
 --
--- Name: measurement_point_member_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: measurement_point_member_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX measurement_point_member_idx ON public.measurement_point USING btree (tenant_id, member_id);
 
 
 --
--- Name: measurement_point_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: measurement_point_tenant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX measurement_point_tenant_idx ON public.measurement_point USING btree (tenant_id);
 
 
 --
--- Name: measurement_tenant_time_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: measurement_tenant_time_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX measurement_tenant_time_idx ON public.measurement USING btree (tenant_id, measured_at);
 
 
 --
--- Name: member_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: member_eegfaktura_participant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX member_eegfaktura_participant_idx ON public.member USING btree (tenant_id, eegfaktura_participant_id) WHERE (eegfaktura_participant_id IS NOT NULL);
+
+
+--
+-- Name: member_oidc_sub_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX member_oidc_sub_idx ON public.member USING btree (oidc_sub) WHERE (oidc_sub IS NOT NULL);
+
+
+--
+-- Name: member_tenant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX member_tenant_idx ON public.member USING btree (tenant_id);
 
 
 --
--- Name: meter_code_tenant_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: meter_code_tenant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX meter_code_tenant_idx ON public.meter_code USING btree (tenant_id);
 
 
 --
--- Name: session_member_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: session_member_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX session_member_idx ON public.session USING btree (tenant_id, member_id);
 
 
 --
--- Name: battery_site battery_site_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER battery_site_updated_at BEFORE UPDATE ON public.battery_site FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: eegfaktura_source eegfaktura_source_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: eegfaktura_oidc_token eegfaktura_oidc_token_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER eegfaktura_oidc_token_updated_at BEFORE UPDATE ON public.eegfaktura_oidc_token FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: eegfaktura_source eegfaktura_source_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER eegfaktura_source_updated_at BEFORE UPDATE ON public.eegfaktura_source FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: measurement_point measurement_point_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: measurement_point measurement_point_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER measurement_point_updated_at BEFORE UPDATE ON public.measurement_point FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: member member_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: member member_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER member_updated_at BEFORE UPDATE ON public.member FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: meter_code meter_code_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: meter_code meter_code_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER meter_code_updated_at BEFORE UPDATE ON public.meter_code FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: tenant tenant_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: tenant tenant_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tenant_updated_at BEFORE UPDATE ON public.tenant FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: battery_site battery_site_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_measurement_point_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_measurement_point_fkey FOREIGN KEY (tenant_id, measurement_point_id) REFERENCES public.measurement_point(tenant_id, id) ON DELETE SET NULL;
+
+
+--
+-- Name: battery_site battery_site_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.battery_site
@@ -639,7 +755,7 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
--- Name: battery_site battery_site_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: battery_site battery_site_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.battery_site
@@ -647,7 +763,23 @@ ALTER TABLE ONLY public.battery_site
 
 
 --
--- Name: eegfaktura_source eegfaktura_source_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: eegfaktura_oidc_token eegfaktura_oidc_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eegfaktura_oidc_token
+    ADD CONSTRAINT eegfaktura_oidc_token_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id) ON DELETE CASCADE;
+
+
+--
+-- Name: eegfaktura_oidc_token eegfaktura_oidc_token_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eegfaktura_oidc_token
+    ADD CONSTRAINT eegfaktura_oidc_token_tenant_id_member_id_fkey FOREIGN KEY (tenant_id, member_id) REFERENCES public.member(tenant_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: eegfaktura_source eegfaktura_source_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.eegfaktura_source
@@ -655,7 +787,23 @@ ALTER TABLE ONLY public.eegfaktura_source
 
 
 --
--- Name: login_token login_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: eegfaktura_sync_job eegfaktura_sync_job_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eegfaktura_sync_job
+    ADD CONSTRAINT eegfaktura_sync_job_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id) ON DELETE CASCADE;
+
+
+--
+-- Name: eegfaktura_sync_job eegfaktura_sync_job_tenant_id_requested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eegfaktura_sync_job
+    ADD CONSTRAINT eegfaktura_sync_job_tenant_id_requested_by_fkey FOREIGN KEY (tenant_id, requested_by) REFERENCES public.member(tenant_id, id) ON DELETE SET NULL;
+
+
+--
+-- Name: login_token login_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.login_token
@@ -663,7 +811,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: login_token login_token_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: login_token login_token_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.login_token
@@ -671,7 +819,7 @@ ALTER TABLE ONLY public.login_token
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement_point measurement_point_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -679,7 +827,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement_point measurement_point_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement_point measurement_point_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement_point
@@ -687,7 +835,7 @@ ALTER TABLE ONLY public.measurement_point
 
 
 --
--- Name: measurement measurement_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement measurement_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement
@@ -695,7 +843,7 @@ ALTER TABLE ONLY public.measurement
 
 
 --
--- Name: measurement measurement_tenant_id_measurement_point_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement measurement_tenant_id_measurement_point_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement
@@ -703,7 +851,7 @@ ALTER TABLE ONLY public.measurement
 
 
 --
--- Name: measurement measurement_tenant_id_meter_code_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: measurement measurement_tenant_id_meter_code_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.measurement
@@ -711,7 +859,7 @@ ALTER TABLE ONLY public.measurement
 
 
 --
--- Name: member member_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: member member_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.member
@@ -719,7 +867,7 @@ ALTER TABLE ONLY public.member
 
 
 --
--- Name: meter_code meter_code_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: meter_code meter_code_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.meter_code
@@ -727,7 +875,7 @@ ALTER TABLE ONLY public.meter_code
 
 
 --
--- Name: session session_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: session session_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.session
@@ -735,7 +883,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: session session_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: session session_tenant_id_member_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.session
@@ -743,7 +891,7 @@ ALTER TABLE ONLY public.session
 
 
 --
--- Name: weather weather_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: weather weather_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.weather
@@ -754,15 +902,22 @@ ALTER TABLE ONLY public.weather
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 7g7u5uQCbV1fbcNPL60UgR3n6huLwKCKX7o4R5Tw0ly3y1cOUzptEy6heJtSgvi
+\unrestrict 8b8sj3iUg6FzBOKSJMUCTxd4VxDwweXfCBBsZfmCb8LRlgoUOeSMWQPU98fi2OX
 
-INSERT INTO public.schema_migrations VALUES ('20260807120000');
-INSERT INTO public.schema_migrations VALUES ('20260807120100');
-INSERT INTO public.schema_migrations VALUES ('20260807130000');
-INSERT INTO public.schema_migrations VALUES ('20260807140000');
-INSERT INTO public.schema_migrations VALUES ('20260808120000');
-INSERT INTO public.schema_migrations VALUES ('20260808150000');
-INSERT INTO public.schema_migrations VALUES ('20260808170000');
-INSERT INTO public.schema_migrations VALUES ('20260808180000');
-INSERT INTO public.schema_migrations VALUES ('20260809100000');
-INSERT INTO public.schema_migrations VALUES ('20260824190000');
+
+--
+-- Dbmate schema migrations
+--
+
+INSERT INTO public.schema_migrations (version) VALUES ('20260807120000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260807120100');
+INSERT INTO public.schema_migrations (version) VALUES ('20260807130000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260807140000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260808120000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260808150000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260808170000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260808180000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260809100000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260824190000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260826200000');
+INSERT INTO public.schema_migrations (version) VALUES ('20260826200100');

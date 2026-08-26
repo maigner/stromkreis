@@ -102,3 +102,17 @@ Offene Schemafrage: `qov` mitführen? Empfehlung: nullable `quality smallint` au
 - Ist der Basic-Weg (`ProtectApi`) auf der SaaS-Instanz aktiv und offiziell zulässig?
 - energystore v1 oder v2 auf der SaaS? Rate-Limits oder Zeitfenster für größere Backfills?
 - Ist `GET /api/master/masterdata` extern erreichbar oder nur intern?
+
+
+## Nachtrag 26.8.2026: Bearer-Routen fuer den Login-Weg
+
+Mit dem OIDC-Login der Plattform gibt es kein Portal-Passwort, also keinen ProtectApi-Zugang (der nimmt nur Basic). Die SPA-Routen akzeptieren dagegen ein Keycloak-Access-Token mit den Claims `tenant` (Array von RC-Nummern) und `access_groups` (mit `/EEG_ADMIN`), unabhaengig vom Client (`SkipClientIDCheck`, `azp` wird nicht geprueft; kein Audience-Mapper, weil das Backend `aud` als String parst):
+
+| Zweck | Route | Hinweise |
+|---|---|---|
+| EEG-Stammsatz (Name, `communityId` = ecId, `rcNumber`) | `GET /api/eeg` | Header `tenant: <RC>`; `ConditionProtect`, auch fuer `/EEG_USER` |
+| Teilnehmer mit Zaehlpunkten | `GET /api/participant` | Feld `meters`, `id`, `participantNumber`, `firstname`/`lastname`, `contact.email`, `residentAddress` |
+| Zeitraum je Zaehlpunkt | `GET /energystore/eeg/v2/{ecid}/meta` | `X-Tenant: <RC>`; kein Gruppen-Check im energystore |
+| 15-Minuten-Rohdaten | `POST /energystore/eeg/v2/{ecid}/raw` | Body `{"meters":[...],"start":ms,"end":ms}`; Zaehlpunkte muessen explizit mitgegeben werden |
+
+Refresh-Tokens (`offline_access`, Standardrolle im Realm) rotieren in der Testinstanz nicht (`revokeRefreshToken=false`), Offline-Sitzung 30 Tage idle; der Worker haelt sie durch regelmaessige Laeufe frisch. Access-Token 5 Minuten. Keycloak 26 setzt `sub` nicht mehr ins Access-Token, nur ins ID-Token.

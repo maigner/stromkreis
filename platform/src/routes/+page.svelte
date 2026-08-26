@@ -1,3 +1,7 @@
+<script>
+	let { data } = $props();
+</script>
+
 <svelte:head>
 	<title>Stromkreis | Plattform für Energiegemeinschaften</title>
 	<meta
@@ -30,6 +34,38 @@
 				steuern, dass sie der Gemeinschaft nützen.
 			</p>
 		</div>
+
+		<section
+			class="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-amber-700 dark:bg-amber-950/40"
+		>
+			<div>
+				<h2 class="font-semibold">Für Betreiber von Energiegemeinschaften</h2>
+				<p class="mt-1 text-sm text-neutral-700 dark:text-neutral-300">
+					{#if data.user}
+						Du bist angemeldet bei {data.user.tenant_name}.
+					{:else if data.oidc}
+						Anmelden mit dem EEGFaktura-Konto deiner EEG. Nach der ersten Anmeldung holt Stromkreis
+						Mitglieder, Zählpunkte und Energiedaten im Hintergrund aus EEGFaktura.
+					{:else}
+						Die Anmeldung erfolgt derzeit über persönliche Einladungslinks.
+					{/if}
+				</p>
+			</div>
+			{#if data.user}
+				<a
+					href="/intern"
+					class="shrink-0 rounded-md bg-amber-500 px-4 py-2 text-center font-medium text-neutral-900 hover:bg-amber-400"
+					>Zum Dashboard</a
+				>
+			{:else if data.oidc}
+				<a
+					href="/auth/eegfaktura/login"
+					data-sveltekit-reload
+					class="shrink-0 rounded-md bg-amber-500 px-4 py-2 text-center font-medium text-neutral-900 hover:bg-amber-400"
+					>Anmelden mit EEGFaktura</a
+				>
+			{/if}
+		</section>
 
 		<div class="grid gap-4 sm:grid-cols-3">
 			<section

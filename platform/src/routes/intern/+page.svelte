@@ -1,6 +1,7 @@
 <script>
 	import SiteMap from './SiteMap.svelte';
 	import SetupWizard from './SetupWizard.svelte';
+	import SyncStatus from './SyncStatus.svelte';
 	import { profileLabels, de, seenLabel, watt, batteryLabel, gridLabel } from './site-format.js';
 
 	let { data } = $props();
@@ -42,6 +43,9 @@
 				<h1 class="text-3xl font-bold tracking-tight">Hallo, {data.user.name}</h1>
 				<p class="mt-1 text-neutral-600 dark:text-neutral-400">
 					Angemeldet als {roleLabels[data.user.role]}
+					{#if data.canSwitch}
+						· <a href="/intern/eeg-wechsel" class="text-amber-600 hover:underline dark:text-amber-500">EEG wechseln</a>
+					{/if}
 				</p>
 			</div>
 			<form method="POST" action="/abmelden">
@@ -52,6 +56,10 @@
 				</button>
 			</form>
 		</header>
+
+		{#if data.sync}
+			<SyncStatus job={data.sync} />
+		{/if}
 
 		<nav class="flex gap-6 border-b border-neutral-200 dark:border-neutral-800" aria-label="Bereiche">
 			<button
@@ -186,7 +194,7 @@
 			{/if}
 		</section>
 		{:else if tab === 'einrichtung'}
-		<SetupWizard members={data.members} center={data.center} />
+		<SetupWizard members={data.members} center={data.center} demo={data.demo} sites={data.sites} />
 		{:else}
 		{#if gestern}
 			<section class="grid grid-cols-2 gap-4 lg:grid-cols-4">

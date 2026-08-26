@@ -30,6 +30,14 @@ class SyncStats:
     rows: int = 0
     points: int = 0
     warnings: list = field(default_factory=list)
+    point_ids: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SourceInfo:
+    """Minimale Quellbeschreibung fuer sync_tenant (der Worker hat keine TenantSource)."""
+    tenant_id: int
+    slug: str
 
 
 def last_measured_at(conn, tenant_id):
@@ -51,9 +59,13 @@ def determine_window(conn, tenant_id, client, since=None, until=None, full=False
     return period_begin, min(end, period_end) if until is None else end
 
 
-def sync_tenant(conn, source, client, since=None, until=None, full=False):
+def sync_tenant(conn, source, client, since=None, until=None, full=False, on_chunk=None, use_masterdata=True):
     """Einen Mandanten importieren. Commit je Chunk; wirft EegfakturaError
-    bei Zugangs-/API-Fehlern (der Aufrufer isoliert je Mandant)."""
+    bei Zugangs-/API-Fehlern (der Aufrufer isoliert je Mandant).
+
+    on_chunk(stats, chunk_start, chunk_end) wird nach jedem Chunk gerufen
+    (Fortschritt, Pausen). use_masterdata=False ueberspringt /api/master/masterdata
+    (Bearer-Weg: die Zaehlpunkte kommen aus measurement_point bzw. metadata)."""
     stats = SyncStats(tenant_slug=source.slug)
     tenant_id = source.tenant_id
 
@@ -62,16 +74,22 @@ def sync_tenant(conn, source, client, since=None, until=None, full=False):
     # Stammdaten sind optional: liefert /api/master/masterdata nichts (z.B.
     # nicht extern erreichbar), kommen die Zaehlpunkte aus den Rohdaten.
     known_points = None
-    try:
-        master_points = normalize_masterdata(client.masterdata())
-        point_ids = load.ensure_measurement_points(conn, tenant_id, master_points)
-        known_points = [mp for mp, _, _ in master_points]
-        conn.commit()
-    except EegfakturaError as err:
-        msg = f"masterdata nicht verfuegbar, Zaehlpunkte kommen aus den Rohdaten ({err})"
-        log.warning("%s: %s", source.slug, msg)
-        stats.warnings.append(msg)
+    if use_masterdata:
+        try:
+            master_points = normalize_masterdata(client.masterdata())
+            point_ids = load.ensure_measurement_points(conn, tenant_id, master_points)
+            known_points = [mp for mp, _, _ in master_points]
+            conn.commit()
+        except EegfakturaError as err:
+            msg = f"masterdata nicht verfuegbar, Zaehlpunkte kommen aus den Rohdaten ({err})"
+            log.warning("%s: %s", source.slug, msg)
+            stats.warnings.append(msg)
+            point_ids = load.ensure_measurement_points(conn, tenant_id, [])
+    else:
         point_ids = load.ensure_measurement_points(conn, tenant_id, [])
+        # Bekannte Zaehlpunkte plus alle, fuer die der energystore Daten hat
+        known_points = sorted(set(point_ids) | set(client.metadata_points()))
+    stats.point_ids = point_ids
 
     start, end = determine_window(conn, tenant_id, client, since=since, until=until, full=full)
     stats.window_start, stats.window_end = start, end
@@ -96,11 +114,14 @@ def sync_tenant(conn, source, client, since=None, until=None, full=False):
 
         stats.rows += load.upsert_measurements(conn, tenant_id, records, point_ids, code_ids)
         stats.chunks += 1
+        stats.point_ids = point_ids
         conn.commit()
         log.info(
             "%s: Chunk %s bis %s, %d Zeilen bisher",
             source.slug, chunk_start.date(), chunk_end.date(), stats.rows,
         )
+        if on_chunk is not None:
+            on_chunk(stats, chunk_start, chunk_end)
         chunk_start = chunk_end
 
     stats.points = len(point_ids)

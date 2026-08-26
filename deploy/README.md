@@ -15,12 +15,13 @@ Das Skript synchronisiert den Quelltext per rsync nach `server:/home/martin/Cont
 ```
 /home/martin/Container/stromkreis/
   docker-compose.yml   # aus deploy/ synchronisiert
-  .env                 # nur am Server: POSTGRES_PASSWORD, PUBLIC_ORIGIN
+  .env                 # nur am Server: POSTGRES_PASSWORD, PUBLIC_ORIGIN, OIDC_ISSUER, OIDC_CLIENT_ID,
+                       #   EEGFAKTURA_BASE_URL, TOKEN_SECRET (openssl rand -hex 32), WORKER_PACE_SECONDS
   src/                 # rsync-Kopie des Repos (Build-Kontext)
   data/postgres/       # Datenbank-Volume
 ```
 
-Die Plattform lauscht auf `127.0.0.1:4000`, die Datenbank ist nicht veröffentlicht. Öffentlicher Zugang läuft über den Eintrag in `~/Container/caddy/Caddyfile` am Server:
+Dienste: Postgres, Plattform, `worker` (Pipeline-Container, arbeitet die Import-Aufträge des EEGFaktura-Logins ab; `docker compose logs -f worker`), `demo-heartbeat`. Die Plattform lauscht auf `127.0.0.1:4000`, die Datenbank ist nicht veröffentlicht. Öffentlicher Zugang läuft über den Eintrag in `~/Container/caddy/Caddyfile` am Server:
 
 ```
 https://stromkreis.net {
@@ -42,4 +43,4 @@ docker compose exec platform node scripts/admin.js operator:create <tenant-slug>
 docker compose exec platform node scripts/admin.js invite <tenant-slug> <email>
 ```
 
-`operator:create` und `invite` drucken einen Einmal-Login-Link (7 Tage gültig), der manuell an die Person übergeben wird.
+`operator:create` und `invite` drucken einen Einmal-Login-Link (7 Tage gültig), der manuell an die Person übergeben wird. Betreiber mit EEGFaktura-Konto brauchen das nicht: "Anmelden mit EEGFaktura" auf der Startseite legt Mandant und Betreiber-Konto beim ersten Login an (Keycloak-Client `net.stromkreis.platform`, siehe `eegfaktura-local/kc-client.sh` und `docs/status.md`).

@@ -95,7 +95,7 @@ def test_sync_tenant_gegen_fake_api(db_conn, tenant_id, fake_api):
     })
 
     source = TenantSource(
-        tenant_id=tenant_id, slug="pytest-eeg", rc_number="RC_TEST",
+        tenant_id=tenant_id, slug="pytest-eeg", rc_number="RC_TEST", community_id=None,
         base_url=fake_api.url, auth_mode="basic", token_url=None, active=True,
     )
     client = EegfakturaClient(source.base_url, source.rc_number, BasicAuth("u", "p"))

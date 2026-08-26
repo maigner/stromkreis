@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { createHash, randomBytes } from 'node:crypto';
 import { sql } from '$lib/server/db.js';
+import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, randomPassword } from '$lib/server/gateway-provision.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals }) {
@@ -37,6 +37,7 @@ export async function load({ locals }) {
 
 	const sites = await sql`
 		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address,
+			b.setup_phase, b.setup_message, b.provision_code, b.provision_expires_at,
 			coalesce(b.last_seen_at > now() - interval '10 minutes', false) as online,
 			extract(epoch from now() - b.last_seen_at)::int as seen_seconds_ago,
 			mem.name as member_name
@@ -47,18 +48,64 @@ export async function load({ locals }) {
 	`;
 
 	const [tenantLocation] = await sql`
-		select latitude, longitude from tenant where id = ${tenantId}
+		select latitude, longitude, slug from tenant where id = ${tenantId}
 	`;
 
 	const members = await sql`
-		select id, name from member where tenant_id = ${tenantId} order by name
+		select m.id, m.name, m.participant_number, m.address,
+			coalesce(json_agg(json_build_object('id', p.id, 'metering_point', p.metering_point, 'direction', p.direction)
+				order by p.direction, p.metering_point) filter (where p.id is not null), '[]') as points
+		from member m
+		left join measurement_point p on p.tenant_id = m.tenant_id and p.member_id = m.id
+		where m.tenant_id = ${tenantId}
+		group by m.id
+		order by m.name
+	`;
+
+	// Letzter Import-Auftrag (laufend oder abgeschlossen) fuer die Statusanzeige
+	const [sync] = await sql`
+		select id, phase, full_import, progress, error, requested_at, started_at, heartbeat_at, finished_at
+		from eegfaktura_sync_job where tenant_id = ${tenantId}
+		order by requested_at desc limit 1
+	`;
+
+	const [{ n: switchable }] = await sql`
+		select count(distinct m2.tenant_id) as n
+		from member m1 join member m2 on m2.role = 'operator'
+			and (m2.oidc_sub = m1.oidc_sub or (m1.email is not null and m2.email = m1.email))
+		where m1.tenant_id = ${tenantId} and m1.id = ${locals.user.member_id}
 	`;
 
 	return {
 		days: [...byDay.values()],
-		sites: sites.map((s) => ({ ...s })),
-		members: members.map((m) => ({ id: Number(m.id), name: String(m.name) })),
-		center: /** @type {[number, number]} */ ([tenantLocation.longitude, tenantLocation.latitude])
+		sites: sites.map((s) => ({
+			.../** @type {any} */ (s),
+			setup_percent: describePhase(s.setup_phase).percent,
+			setup_label: describePhase(s.setup_phase).label,
+			provision_expires_at: s.provision_expires_at ? /** @type {Date} */ (s.provision_expires_at).toISOString() : null
+		})),
+		demo: tenantLocation.slug === 'salzkammerstrom',
+		members: members.map((m) => ({
+			id: Number(m.id),
+			name: String(m.name),
+			participant_number: /** @type {string | null} */ (m.participant_number),
+			address: /** @type {string | null} */ (m.address),
+			points: /** @type {{ id: number, metering_point: string, direction: string }[]} */ (m.points)
+		})),
+		center: /** @type {[number, number]} */ ([tenantLocation.longitude, tenantLocation.latitude]),
+		sync: sync
+			? {
+					id: Number(sync.id),
+					phase: /** @type {string} */ (sync.phase),
+					full_import: Boolean(sync.full_import),
+					progress: /** @type {Record<string, any>} */ (sync.progress ?? {}),
+					error: /** @type {string | null} */ (sync.error),
+					requested_at: /** @type {Date} */ (sync.requested_at).toISOString(),
+					finished_at: sync.finished_at ? /** @type {Date} */ (sync.finished_at).toISOString() : null,
+					heartbeat_at: sync.heartbeat_at ? /** @type {Date} */ (sync.heartbeat_at).toISOString() : null
+				}
+			: null,
+		canSwitch: Number(switchable) > 1
 	};
 }
 
@@ -101,8 +148,9 @@ function logTs(/** @type {number} */ ms) {
 
 /** @type {import('./$types').Actions} */
 export const actions = {
-	// Einrichtungs-Assistent Schritt 3: Anlage anlegen, Token nur als Hash
-	// speichern und einmalig zurueckgeben. Die Anlage bleibt offline
+	// Einrichtungs-Assistent Schritt 2: Anlage anlegen. Einrichtungscode (60 Tage)
+	// und Linux-Passwort fuer die SD-Karte; der Anlagen-Token entsteht erst beim
+	// Erstkontakt des Gateways (nur Hash gespeichert). Die Anlage bleibt offline
 	// (last_seen_at null), bis der erste Status-Push kommt.
 	anlegen: async ({ locals, request }) => {
 		if (!locals.user) redirect(303, '/');
@@ -117,6 +165,9 @@ export const actions = {
 		const longitude = Number(form.get('longitude'));
 		const capacityKwh = Number(form.get('capacity_kwh'));
 		const pvKwp = Number(form.get('pv_kwp'));
+		const pointRaw = String(form.get('measurement_point_id') ?? '');
+		const wifiSsid = String(form.get('wifi_ssid') ?? '').trim().slice(0, 32) || null;
+		const wifiPassword = wifiSsid ? String(form.get('wifi_password') ?? '').slice(0, 63) : null;
 
 		if (!name || name.length > 80) {
 			return fail(400, { message: 'Bitte einen Namen mit höchstens 80 Zeichen angeben.' });
@@ -148,22 +199,56 @@ export const actions = {
 			memberId = member.id;
 		}
 
-		const token = randomBytes(24).toString('base64url');
-		const tokenHash = createHash('sha256').update(token).digest('hex');
+		let pointId = null;
+		if (pointRaw !== '' && memberId !== null) {
+			const [point] = await sql`
+				select id from measurement_point where tenant_id = ${tenantId} and id = ${Number(pointRaw)} and member_id = ${memberId}
+			`;
+			if (!point) {
+				return fail(400, { message: 'Zählpunkt gehört nicht zum gewählten Mitglied.' });
+			}
+			pointId = point.id;
+		}
+
+		const { hash: tokenHash } = newSiteToken(); // Platzhalter bis zum Erstkontakt des Gateways
 		const status = {
 			inverter_type: profile,
 			inverter_status: 'unknown',
 			batterie_kapazitaet: capacityKwh,
 			pv_kwp: pvKwp,
-			min_battery_charge: 20
+			min_battery_charge: 20,
+			linux_password: randomPassword(),
+			wifi_ssid: wifiSsid,
+			wifi_password: wifiPassword
 		};
+		const code = newProvisionCode();
 		const [site] = await sql`
-			insert into battery_site (tenant_id, member_id, name, inverter_profile, token_hash, status, latitude, longitude, address)
-			values (${tenantId}, ${memberId}, ${name}, ${profile}, ${tokenHash}, ${status}, ${latitude}, ${longitude}, ${address})
-			returning id
+			insert into battery_site (tenant_id, member_id, measurement_point_id, name, inverter_profile, token_hash, status,
+				latitude, longitude, address, capacity_kwh, pv_kwp, provision_code, provision_expires_at, setup_phase)
+			values (${tenantId}, ${memberId}, ${pointId}, ${name}, ${profile}, ${tokenHash}, ${status},
+				${latitude}, ${longitude}, ${address}, ${capacityKwh}, ${pvKwp}, ${code},
+				now() + make_interval(days => ${PROVISION_CODE_DAYS}), 'neu')
+			returning id, provision_expires_at
 		`;
 
-		return { id: site.id, token };
+		return { id: site.id, code, expires: /** @type {Date} */ (site.provision_expires_at).toISOString() };
+	},
+
+	// Neuen Einrichtungscode fuer eine Anlage (abgelaufen oder verloren).
+	code_erneuern: async ({ locals, request }) => {
+		if (!locals.user) redirect(303, '/');
+		const form = await request.formData();
+		const id = Number(form.get('site_id'));
+		if (!Number.isInteger(id)) return fail(400, { message: 'Anlage nicht gefunden.' });
+		const code = newProvisionCode();
+		const [site] = await sql`
+			update battery_site set provision_code = ${code}, provision_expires_at = now() + make_interval(days => ${PROVISION_CODE_DAYS}),
+				setup_phase = case when setup_phase = 'fertig' then 'neu' else setup_phase end
+			where tenant_id = ${locals.user.tenant_id} and id = ${id}
+			returning id, provision_expires_at
+		`;
+		if (!site) return fail(404, { message: 'Anlage nicht gefunden.' });
+		return { id: site.id, code, expires: /** @type {Date} */ (site.provision_expires_at).toISOString() };
 	},
 
 	// Einrichtungs-Assistent Schritt 4: simulierter erster Status-Push des

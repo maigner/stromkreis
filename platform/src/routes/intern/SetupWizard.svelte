@@ -4,10 +4,15 @@
 	import { tick } from 'svelte';
 	import { profileLabels } from './site-format.js';
 
-	/** @type {{ members: {id: number, name: string}[], center: [number, number] }} */
-	let { members, center } = $props();
+	/**
+	 * Einrichtungs-Assistent nach dem ISCHLSTROM-Modell: Anlage registrieren,
+	 * SD-Karten-Dateien (nur Einrichtungscode und Plattform-URL) herunterladen,
+	 * das Gateway holt sich beim ersten Start seine Konfiguration selbst.
+	 * @type {{ members: {id: number, name: string, participant_number?: string | null, address?: string | null, points: {id: number, metering_point: string, direction: string}[]}[], center: [number, number], demo: boolean, sites: {id: number, name: string, setup_phase: string, setup_message: string | null, setup_percent: number, setup_label: string, provision_code: string | null, provision_expires_at: string | null, online: boolean}[] }}
+	 */
+	let { members, center, demo, sites } = $props();
 
-	const steps = ['Material', 'SD-Karte', 'Registrieren', 'Verbinden', 'Fertig'];
+	const steps = ['Material', 'Registrieren', 'SD-Karte', 'Verbinden', 'Fertig'];
 	let step = $state(1);
 
 	// Schritt 1: Checkliste
@@ -21,26 +26,10 @@
 	let checked = $state(checklist.map(() => false));
 	const allChecked = $derived(checked.every(Boolean));
 
-	// Schritt 2: simuliertes Flashen der SD-Karte
-	/** @type {'idle' | 'running' | 'verify' | 'done'} */
-	let flashState = $state('idle');
-	let flashPct = $state(0);
-	function startFlash() {
-		flashState = 'running';
-		flashPct = 0;
-		const iv = setInterval(() => {
-			flashPct = Math.min(100, flashPct + 2 + Math.random() * 5);
-			if (flashPct >= 100) {
-				clearInterval(iv);
-				flashState = 'verify';
-				setTimeout(() => (flashState = 'done'), 1400);
-			}
-		}, 120);
-	}
-
-	// Schritt 3: Formular
+	// Schritt 2: Formular
 	let name = $state('');
 	let memberId = $state('');
+	let pointId = $state('');
 	let address = $state('');
 	// Startwerte bewusst einmalig vom Gemeinschafts-Mittelpunkt uebernommen
 	// svelte-ignore state_referenced_locally
@@ -50,9 +39,20 @@
 	let profile = $state('fronius-symo');
 	let capacityKwh = $state('10');
 	let pvKwp = $state('8');
+	let wifiSsid = $state('');
+	let wifiPassword = $state('');
 	let saving = $state(false);
 	let formError = $state('');
-	let created = $state(/** @type {{id: number, token: string} | null} */ (null));
+	let created = $state(/** @type {{id: number, code: string, expires: string} | null} */ (null));
+
+	const selectedMember = $derived(members.find((m) => String(m.id) === memberId));
+	$effect(() => {
+		// Adresse und Name aus dem Mitglied vorbelegen, solange nichts eingetippt wurde
+		if (selectedMember) {
+			if (!address && selectedMember.address) address = selectedMember.address;
+			if (!name) name = `Anlage ${selectedMember.name}`;
+		}
+	});
 
 	/** @returns {(input: any) => Promise<void>} */
 	function submitAnlegen() {
@@ -62,6 +62,7 @@
 			saving = false;
 			if (result.type === 'success' && result.data?.id) {
 				created = /** @type {any} */ (result.data);
+				await invalidateAll();
 			} else if (result.type === 'failure') {
 				formError = result.data?.message ?? 'Bitte die Eingaben prüfen.';
 			} else {
@@ -70,26 +71,35 @@
 		};
 	}
 
-	// Schritt 4: simulierte Erstverbindung, der Status-Push passiert am Server
+	// Demo-Mandant: Zustand der simulierten Erstverbindung
 	/** @type {'idle' | 'running' | 'done' | 'error'} */
 	let connectState = $state('idle');
+
+	// Schritt 4: Fortschritt der Einrichtung (das Gateway meldet Phasen an die Plattform)
+	const currentSite = $derived(created ? sites.find((s) => s.id === created?.id) : undefined);
+	const setupDone = $derived(currentSite?.setup_phase === 'fertig' || (demo && /** @type {string} */ (connectState) === 'done'));
+	$effect(() => {
+		if (step !== 4 || demo) return;
+		const t = setInterval(() => invalidateAll(), 15000);
+		return () => clearInterval(t);
+	});
+
+	// Demo-Mandant: simulierte Erstverbindung (Status-Push passiert am Server)
 	/** @type {{text: string, cls?: string}[]} */
 	let consoleLines = $state([]);
 	/** @type {HTMLDivElement | undefined} */
 	let termEl = $state();
-
 	const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
 	async function pushLine(/** @type {string} */ text, /** @type {string | undefined} */ cls = undefined) {
 		consoleLines.push({ text, cls });
 		await tick();
 		if (termEl) termEl.scrollTop = termEl.scrollHeight;
 	}
-
 	async function playConsole() {
-		await pushLine('$ ssh openhabian@openhabian.local', 'text-neutral-400');
+		await pushLine('[stromkreis-firstboot] Einrichtungscode gefunden, hole Konfiguration ...', 'text-neutral-400');
+		await sleep(700);
+		await pushLine(`POST /api/gateway/provision/v1 -> 200, Anlage "${name}"`);
 		await sleep(600);
-		await pushLine(`openhabian@openhabian:~$ sudo stromkreis-setup --profil ${profile}`, 'text-neutral-400');
-		await sleep(500);
 		await pushLine(`Installiere Gateway-Paket '${profile}' ...`);
 		await sleep(900);
 		await pushLine('Wechselrichter gefunden: 192.168.1.40 (Modbus TCP)');
@@ -98,10 +108,9 @@
 		await sleep(700);
 		await pushLine('Auto-Revert geprueft: Vorgabe laeuft nach 60 s automatisch ab OK', 'text-green-400');
 		await sleep(600);
-		await pushLine('Sende ersten Status-Push an https://stromkreis.net ...');
+		await pushLine('Sende ersten Status-Push ...');
 		await sleep(800);
 	}
-
 	/** @returns {(input: any) => Promise<void>} */
 	function submitAktivieren() {
 		connectState = 'running';
@@ -120,7 +129,6 @@
 		};
 	}
 
-	// Kopierhilfe
 	let copied = $state('');
 	async function copy(/** @type {string} */ text, /** @type {string} */ key) {
 		try {
@@ -133,12 +141,7 @@
 			// Zwischenablage nicht verfuegbar, kein Fehler noetig
 		}
 	}
-
-	const gatewayConf = $derived(
-		created
-			? `PLATTFORM_URL=https://stromkreis.net\nANLAGEN_TOKEN=${created.token}\nPROFIL=${profile}`
-			: ''
-	);
+	const fmtDate = (/** @type {string} */ iso) => new Date(iso).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' });
 
 	const inputCls =
 		'mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950';
@@ -156,9 +159,11 @@
 				Von der leeren SD-Karte bis zum laufenden Batteriemanagement, Schritt für Schritt
 			</p>
 		</div>
-		<span class="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-700 dark:text-amber-400">
-			Demo-Mandant: simulierter Einrichtungsablauf
-		</span>
+		{#if demo}
+			<span class="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-700 dark:text-amber-400">
+				Demo-Mandant: Erstverbindung wird simuliert
+			</span>
+		{/if}
 	</div>
 
 	<ol class="flex flex-wrap gap-2 text-xs" aria-label="Einrichtungsschritte">
@@ -201,70 +206,34 @@
 		</div>
 	{:else if step === 2}
 		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-			<h3 class="font-semibold">SD-Karte mit openHABian beschreiben</h3>
-			<ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
-				<li>
-					Raspberry Pi Imager von
-					<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-amber-600 hover:underline dark:text-amber-500">raspberrypi.com/software</a>
-					installieren und starten.
-				</li>
-				<li>Unter "Betriebssystem" wählen: Other specific-purpose OS, Home automation, openHABian (64-bit).</li>
-				<li>Die microSD-Karte als Ziel wählen und schreiben. Alle Daten auf der Karte werden gelöscht.</li>
-			</ol>
-
-			<div class="mt-5 rounded-md border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950">
-				{#if flashState === 'idle'}
-					<button class={secondaryBtn} onclick={startFlash}>Schreibvorgang ansehen (Demo)</button>
-				{:else}
-					<p class="font-mono text-xs text-neutral-600 dark:text-neutral-400">
-						{#if flashState === 'running'}
-							Schreibe openhabian-1.9.1-arm64.img auf die SD-Karte ... {Math.floor(flashPct)}%
-						{:else if flashState === 'verify'}
-							Überprüfe die geschriebenen Daten ...
-						{:else}
-							Überprüfung abgeschlossen, die SD-Karte kann entnommen werden.
-						{/if}
-					</p>
-					<div class="mt-2 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800">
-						<div
-							class="h-2 rounded-full {flashState === 'done' ? 'bg-green-500' : 'bg-amber-500'}"
-							style="width: {Math.min(100, flashPct)}%"
-						></div>
-					</div>
-				{/if}
-			</div>
-
-			{#if flashState === 'done'}
-				<p class="mt-4 text-sm text-neutral-700 dark:text-neutral-300">
-					Jetzt die SD-Karte in den Raspberry Pi stecken, Netzwerkkabel und Strom anschließen. openHABian installiert sich unbeaufsichtigt, das dauert je nach Internetanschluss 15 bis 45 Minuten. In der Zwischenzeit geht es hier weiter.
-				</p>
-			{/if}
-		</div>
-		<div class="flex justify-between">
-			<button class={secondaryBtn} onclick={() => (step = 1)}>Zurück</button>
-			<button class={primaryBtn} disabled={flashState !== 'done'} onclick={() => (step = 3)}>Weiter</button>
-		</div>
-	{:else if step === 3}
-		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
 			<h3 class="font-semibold">Anlage auf der Plattform registrieren</h3>
 			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-				Die Anlage bekommt einen eigenen Zugangstoken. Das Gateway meldet sich damit ausschließlich ausgehend per HTTPS, ein Zugriff von außen ins Heimnetz ist nie nötig.
+				Die Anlage bekommt einen Einrichtungscode. Das Gateway meldet sich damit ausschließlich ausgehend per HTTPS und holt sich seinen Zugangstoken selbst; ein Zugriff von außen ins Heimnetz ist nie nötig.
 			</p>
 
 			{#if !created}
 				<form method="POST" action="?/anlegen" use:enhance={submitAnlegen} class="mt-4 grid gap-4 sm:grid-cols-2">
-					<label class="block text-sm sm:col-span-2">
-						<span class="text-neutral-600 dark:text-neutral-400">Name der Anlage</span>
-						<input name="name" bind:value={name} required placeholder="z.B. Anlage Laakirchen" class={inputCls} />
-					</label>
 					<label class="block text-sm">
 						<span class="text-neutral-600 dark:text-neutral-400">Mitglied</span>
 						<select name="member_id" bind:value={memberId} class={inputCls}>
 							<option value="">Ohne Mitglied</option>
 							{#each members as m (m.id)}
-								<option value={m.id}>{m.name}</option>
+								<option value={m.id}>{m.participant_number ? `${m.participant_number} · ` : ''}{m.name}</option>
 							{/each}
 						</select>
+					</label>
+					<label class="block text-sm">
+						<span class="text-neutral-600 dark:text-neutral-400">Zählpunkt der Anlage</span>
+						<select name="measurement_point_id" bind:value={pointId} class={inputCls} disabled={!selectedMember}>
+							<option value="">{selectedMember ? 'Kein Zählpunkt' : 'Zuerst Mitglied wählen'}</option>
+							{#each selectedMember?.points ?? [] as p (p.id)}
+								<option value={p.id}>{p.direction === 'generation' ? 'Erzeugung' : 'Verbrauch'} · {p.metering_point}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="block text-sm sm:col-span-2">
+						<span class="text-neutral-600 dark:text-neutral-400">Name der Anlage</span>
+						<input name="name" bind:value={name} required placeholder="z.B. Anlage Huber" class={inputCls} />
 					</label>
 					<label class="block text-sm">
 						<span class="text-neutral-600 dark:text-neutral-400">Wechselrichterprofil</span>
@@ -274,7 +243,7 @@
 							{/each}
 						</select>
 					</label>
-					<label class="block text-sm sm:col-span-2">
+					<label class="block text-sm">
 						<span class="text-neutral-600 dark:text-neutral-400">Adresse</span>
 						<input name="address" bind:value={address} required placeholder="Straße Nr, PLZ Ort" class={inputCls} />
 					</label>
@@ -294,6 +263,14 @@
 						<span class="text-neutral-600 dark:text-neutral-400">PV-Leistung (kWp)</span>
 						<input name="pv_kwp" bind:value={pvKwp} required inputmode="decimal" class={inputCls} />
 					</label>
+					<label class="block text-sm">
+						<span class="text-neutral-600 dark:text-neutral-400">WLAN-Name (optional, sonst LAN)</span>
+						<input name="wifi_ssid" bind:value={wifiSsid} class={inputCls} />
+					</label>
+					<label class="block text-sm">
+						<span class="text-neutral-600 dark:text-neutral-400">WLAN-Passwort</span>
+						<input name="wifi_password" type="password" bind:value={wifiPassword} class={inputCls} disabled={!wifiSsid} />
+					</label>
 					{#if formError}
 						<p class="text-sm text-red-600 sm:col-span-2 dark:text-red-500">{formError}</p>
 					{/if}
@@ -308,74 +285,99 @@
 					<p class="font-medium text-green-800 dark:text-green-400">Anlage "{name}" ist registriert.</p>
 				</div>
 				<div class="mt-4 rounded-md border border-amber-500/40 bg-amber-50 p-4 dark:bg-amber-950/40">
-					<p class="text-sm font-medium text-amber-800 dark:text-amber-300">
-						Gateway-Token, wird nur einmal angezeigt:
-					</p>
+					<p class="text-sm font-medium text-amber-800 dark:text-amber-300">Einrichtungscode (gültig bis {fmtDate(created.expires)}):</p>
 					<div class="mt-2 flex flex-wrap items-center gap-2">
-						<code class="rounded bg-white px-2 py-1 font-mono text-xs break-all dark:bg-neutral-950">{created.token}</code>
-						<button class="text-xs font-medium text-amber-700 hover:underline dark:text-amber-400" onclick={() => created && copy(created.token, 'token')}>
-							{copied === 'token' ? 'Kopiert' : 'Kopieren'}
+						<code class="rounded bg-white px-2 py-1 font-mono text-lg tracking-widest dark:bg-neutral-950">{created.code}</code>
+						<button class="text-xs font-medium text-amber-700 hover:underline dark:text-amber-400" onclick={() => created && copy(created.code, 'code')}>
+							{copied === 'code' ? 'Kopiert' : 'Kopieren'}
 						</button>
 					</div>
 					<p class="mt-2 text-xs text-amber-800 dark:text-amber-300">
-						Auf der Plattform ist nur ein Hash gespeichert. Geht der Token verloren, muss ein neuer erzeugt werden.
+						Der Code ist kein Passwort: Das Gateway tauscht ihn beim ersten Start gegen seinen Zugangstoken. Auf der SD-Karte liegt nur der Code.
 					</p>
 				</div>
 			{/if}
 		</div>
 		<div class="flex justify-between">
+			<button class={secondaryBtn} onclick={() => (step = 1)}>Zurück</button>
+			<button class={primaryBtn} disabled={!created} onclick={() => (step = 3)}>Weiter</button>
+		</div>
+	{:else if step === 3}
+		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+			<h3 class="font-semibold">SD-Karte vorbereiten</h3>
+			<ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
+				<li>
+					Raspberry Pi Imager von
+					<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-amber-600 hover:underline dark:text-amber-500">raspberrypi.com/software</a>
+					installieren und starten.
+				</li>
+				<li>Unter "Betriebssystem" wählen: Other specific-purpose OS, Home assistants, openHABian (64-bit). Die microSD-Karte als Ziel wählen und schreiben.</li>
+				<li>
+					Die Karten-Dateien herunterladen und beide Dateien (<code class="font-mono text-xs">openhabian.conf</code>, <code class="font-mono text-xs">stromkreis-provision.conf</code>) auf die Boot-Partition der Karte kopieren, openhabian.conf dabei ersetzen.
+				</li>
+			</ol>
+			<div class="mt-5 flex flex-wrap items-center gap-3">
+				{#if created}
+					<a href="/intern/anlagen/{created.id}/sd-karte.zip" class={primaryBtn} data-sveltekit-reload>Karten-Dateien herunterladen (Zip)</a>
+				{/if}
+				<span class="text-xs text-neutral-500">Enthält Hostname, Zeitzone, WLAN (falls angegeben), Einrichtungscode und Plattform-URL. Kein Token, kein Passwort der Plattform.</span>
+			</div>
+			<p class="mt-4 text-sm text-neutral-700 dark:text-neutral-300">
+				Danach die Karte in den Raspberry Pi stecken, Netzwerk und Strom anschließen. openHABian installiert sich unbeaufsichtigt (15 bis 45 Minuten), holt dann mit dem Code seine Konfiguration von Stromkreis und meldet den Fortschritt hierher.
+			</p>
+		</div>
+		<div class="flex justify-between">
 			<button class={secondaryBtn} onclick={() => (step = 2)}>Zurück</button>
-			<button class={primaryBtn} disabled={!created} onclick={() => (step = 4)}>Weiter</button>
+			<button class={primaryBtn} onclick={() => (step = 4)}>Weiter</button>
 		</div>
 	{:else if step === 4}
 		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-			<h3 class="font-semibold">Gateway verbinden</h3>
+			<h3 class="font-semibold">Gateway verbindet sich</h3>
 			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-				Sobald der Raspberry Pi fertig installiert ist, per SSH anmelden (Benutzer und Passwort openhabian, danach gleich ändern) und die Zugangsdaten hinterlegen:
+				Sobald der Raspberry Pi mit Strom und Netzwerk verbunden ist, erscheint hier der Fortschritt. Die Einrichtung dauert etwa 30 bis 45 Minuten; diese Seite aktualisiert sich von selbst.
 			</p>
-
-			<div class="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950">
-				<div class="flex items-start justify-between gap-2">
-					<pre class="overflow-x-auto font-mono text-xs leading-relaxed text-neutral-800 dark:text-neutral-300">sudo mkdir -p /etc/stromkreis
-sudo nano /etc/stromkreis/gateway.conf</pre>
+			{#if currentSite}
+				<div class="mt-4">
+					<div class="flex items-baseline justify-between text-sm">
+						<span class="font-medium">{currentSite.setup_label}</span>
+						<span class="text-xs text-neutral-500">{currentSite.setup_percent}%</span>
+					</div>
+					<div class="mt-2 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800">
+						<div class="h-2 rounded-full {currentSite.setup_phase === 'fertig' ? 'bg-green-500' : 'bg-amber-500'}" style="width: {currentSite.setup_percent}%"></div>
+					</div>
+					{#if currentSite.setup_message}
+						<p class="mt-2 font-mono text-xs text-neutral-600 dark:text-neutral-400">{currentSite.setup_message}</p>
+					{/if}
 				</div>
-				<div class="mt-3 flex items-start justify-between gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-					<pre class="overflow-x-auto font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-neutral-800 dark:text-neutral-300">{gatewayConf}</pre>
-					<button class="shrink-0 text-xs font-medium text-amber-700 hover:underline dark:text-amber-400" onclick={() => copy(gatewayConf, 'conf')}>
-						{copied === 'conf' ? 'Kopiert' : 'Kopieren'}
-					</button>
-				</div>
-			</div>
+			{/if}
 
-			<p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-				Danach richtet <code class="font-mono text-xs">sudo stromkreis-setup --profil {profile}</code> die Steuerlogik ein, prüft Fail-Safe und Auto-Revert und schickt den ersten Status-Push.
-			</p>
-
-			{#if connectState === 'idle'}
-				<form method="POST" action="?/aktivieren" use:enhance={submitAktivieren} class="mt-4">
-					<input type="hidden" name="site_id" value={created?.id} />
-					<button class={primaryBtn}>Erstverbindung ansehen (Demo)</button>
-				</form>
-			{:else}
-				<div
-					bind:this={termEl}
-					class="mt-4 max-h-72 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-950 p-4 font-mono text-[13px] leading-relaxed text-neutral-200"
-				>
-					{#each consoleLines as line, i (i)}
-						<p class="whitespace-pre-wrap {line.cls ?? ''}">{line.text || ' '}</p>
-					{/each}
-				</div>
-				{#if connectState === 'error'}
-					<form method="POST" action="?/aktivieren" use:enhance={submitAktivieren} class="mt-3">
+			{#if demo}
+				<p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+					Im Demo-Mandanten gibt es keinen echten Raspberry Pi; die Erstverbindung wird simuliert.
+				</p>
+				{#if connectState === 'idle'}
+					<form method="POST" action="?/aktivieren" use:enhance={submitAktivieren} class="mt-4">
 						<input type="hidden" name="site_id" value={created?.id} />
-						<button class={secondaryBtn}>Erneut versuchen</button>
+						<button class={primaryBtn}>Erstverbindung ansehen (Demo)</button>
 					</form>
+				{:else}
+					<div bind:this={termEl} class="mt-4 max-h-72 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-950 p-4 font-mono text-[13px] leading-relaxed text-neutral-200">
+						{#each consoleLines as line, i (i)}
+							<p class="whitespace-pre-wrap {line.cls ?? ''}">{line.text || ' '}</p>
+						{/each}
+					</div>
+					{#if connectState === 'error'}
+						<form method="POST" action="?/aktivieren" use:enhance={submitAktivieren} class="mt-3">
+							<input type="hidden" name="site_id" value={created?.id} />
+							<button class={secondaryBtn}>Erneut versuchen</button>
+						</form>
+					{/if}
 				{/if}
 			{/if}
 		</div>
 		<div class="flex justify-between">
 			<button class={secondaryBtn} onclick={() => (step = 3)}>Zurück</button>
-			<button class={primaryBtn} disabled={connectState !== 'done'} onclick={() => (step = 5)}>Weiter</button>
+			<button class={primaryBtn} disabled={!setupDone} onclick={() => (step = 5)}>Weiter</button>
 		</div>
 	{:else}
 		<div class="rounded-lg border border-green-600/30 bg-white p-6 dark:border-green-600/30 dark:bg-neutral-900">

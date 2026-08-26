@@ -29,7 +29,7 @@ Open-Meteo  ──────────────▶    │                
 - IBM-API: Ladefenster-Endpunkte, Statusmeldungen der Gateways
 - Auth per Magic-Link (passwortlos), Autorisierung nach Rolle (Mitglied, Vorstand, Betreiber) und Mandant; jeder Mandant hat mindestens einen Betreiber-Login (wird beim Onboarding sichergestellt)
 - Login-Mechanik: Einmal-Token (`login_token`, 7 Tage gültig, nur Hash gespeichert) wird gegen eine Session (`session`, 30 Tage, HttpOnly-Cookie) eingetauscht. Bis SMTP angebunden ist, erzeugt der Plattform-Betreiber die Links per Admin-CLI und übergibt sie manuell; der E-Mail-Versand nutzt später denselben Token-Fluss
-- Später optional: Betreiber-Login per OIDC gegen die EEGFaktura-Keycloak ("Anmelden mit EEGFaktura", Authorization Code + PKCE). Setzt einen vom VFEEG-Team registrierten Client voraus (Anfrage-Entwurf: `docs/drafts/`, gitignored). Mündet in denselben Session-Fluss: Keycloak-Identität (E-Mail, beim ersten Login zusätzlich `sub` speichern) auf eine `member`-Zeile mit Rolle `operator` mappen, dann `createSession`. Kein Entwicklungsschritt hängt daran
+- Betreiber-Login per OIDC gegen die EEGFaktura-Keycloak ("Anmelden mit EEGFaktura", Authorization Code + PKCE, öffentlicher Client `net.stromkreis.platform`; gegen die Testinstanz seit 26.8. in Betrieb, für eegfaktura.at braucht es den vom VFEEG-Team registrierten Client). Mündet in denselben Session-Fluss: je RC-Nummer im `tenant`-Claim wird der Mandant beim ersten Login automatisch angelegt (`eegfaktura_source` mit `auth_mode oidc`), die Identität (`member.oidc_sub`, E-Mail) auf eine `member`-Zeile mit Rolle `operator` gemappt, dann `createSession`; bei mehreren EEGs Auswahlseite, später `/intern/eeg-wechsel`. Der Login fordert `offline_access`; das Refresh-Token liegt verschlüsselt (`TOKEN_SECRET`) in `eegfaktura_oidc_token` und speist den Hintergrund-Import (Worker der Pipeline, Aufträge in `eegfaktura_sync_job`)
 - Provider-Setup (Mandanten und Betreiber anlegen, Login-Links): `platform/scripts/admin.js`, läuft im Plattform-Container gegen `DATABASE_URL`
 - Zeitzone durchgehend Europe/Vienna; Vorsicht bei Datumslogik
 
@@ -39,7 +39,7 @@ Open-Meteo  ──────────────▶    │                
 - Erkennung unvollständiger Lieferungen (Anteil meldender Zählpunkte, vgl. `MIN_REPORTING_SHARE` in ISCHLSTROM)
 - Wetterimport Open-Meteo je Standort des Mandanten
 - Prognoselauf je Mandant; Läufe werden versioniert gespeichert und nie überschrieben, damit Prognose und Ist vergleichbar bleiben
-- Läuft als geplanter Job (eine Pipeline, Schleife über Mandanten)
+- Läuft als geplanter Job (eine Pipeline, Schleife über Mandanten) und als Worker-Container (`python -m stromkreis_pipeline worker`), der die von der Plattform beim Login eingestellten Import-Aufträge abarbeitet: erst Teilnehmer und Zählpunkte, dann Energiedaten in 30-Tage-Stücken mit Pause (bewusst langsam). Auth über die Bearer-Routen von EEG-Faktura (`/api/participant`, `/energystore/eeg/v2/{ecid}/meta|raw`) mit dem Refresh-Token des Betreibers
 
 ### gateway/ (Installation beim Mitglied)
 

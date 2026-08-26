@@ -51,3 +51,8 @@ docker run -d --rm --name pg-test -e POSTGRES_PASSWORD=postgres -p 54331:5432 po
 STROMKREIS_TEST_DATABASE_URL="postgres://postgres:postgres@127.0.0.1:54331/stromkreis_dev?sslmode=disable" .venv/bin/python -m pytest tests
 docker stop pg-test
 ```
+
+
+## Worker (Import-Auftraege der Plattform)
+
+`python -m stromkreis_pipeline worker` (Container `worker` im Testdeployment, `pipeline/Dockerfile`) arbeitet die Auftraege in `eegfaktura_sync_job` ab, die die Plattform beim "Anmelden mit EEGFaktura" einstellt. Auth: Refresh-Token des Betreibers aus `eegfaktura_oidc_token` (AES-256-GCM, `TOKEN_SECRET` wie die Plattform), Access-Token per Keycloak-Refresh (`RefreshTokenAuth`), Bearer-Routen (`bearer_routes=True`): `GET /api/participant`, `GET /energystore/eeg/v2/{ecid}/meta`, `POST /energystore/eeg/v2/{ecid}/raw {meters,start,end}`. Phasen: `masterdata` (Teilnehmer -> `member`, Zaehlpunkte -> `measurement_point` mit `member_id`), dann `energy` in 30-Tage-Stuecken mit `WORKER_PACE_SECONDS` Pause (Default 20 s); Fortschritt in `job.progress`. Umgebung: `DATABASE_URL`, `TOKEN_SECRET`, optional `WORKER_POLL_SECONDS`, `WORKER_PACE_SECONDS`.

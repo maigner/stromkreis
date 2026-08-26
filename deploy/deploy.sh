@@ -21,7 +21,7 @@ rsync -az "$REPO/deploy/docker-compose.yml" "$HOST:$DIR/docker-compose.yml"
 ssh "$HOST" "set -euo pipefail
     cd $DIR
     test -f .env || { echo 'FEHLER: $DIR/.env fehlt (POSTGRES_PASSWORD, PUBLIC_ORIGIN)'; exit 1; }
-    docker compose build platform
+    docker compose build platform worker
     docker compose run --rm migrate
     docker compose up -d
     docker compose ps"

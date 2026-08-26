@@ -49,6 +49,35 @@
 			</p>
 		{/if}
 
+		{#if site.setup_phase !== 'fertig' || site.code_valid}
+			<section class="rounded-lg border border-amber-300 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950/40">
+				<div class="flex flex-wrap items-baseline justify-between gap-2">
+					<h2 class="text-lg font-semibold">Einrichtung: {site.setup_label}</h2>
+					<span class="text-xs text-neutral-600 dark:text-neutral-400">{site.setup_percent}%{site.setup_phase_at ? ` · ${dateFmt.format(new Date(site.setup_phase_at))}` : ''}</span>
+				</div>
+				<div class="mt-2 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800">
+					<div class="h-2 rounded-full {site.setup_phase === 'fertig' ? 'bg-green-500' : 'bg-amber-500'}" style="width: {site.setup_percent}%"></div>
+				</div>
+				{#if site.setup_message}
+					<p class="mt-2 font-mono text-xs text-neutral-700 dark:text-neutral-300">{site.setup_message}</p>
+				{/if}
+				<div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
+					{#if site.code_valid}
+						<span>Einrichtungscode <code class="rounded bg-white px-2 py-0.5 font-mono tracking-widest dark:bg-neutral-950">{site.provision_code}</code> gültig bis {new Date(site.provision_expires_at).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>
+						<a href="/intern/anlagen/{site.id}/sd-karte.zip" data-sveltekit-reload class="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Karten-Dateien (Zip)</a>
+					{:else}
+						<span class="text-neutral-600 dark:text-neutral-400">Kein gültiger Einrichtungscode.</span>
+					{/if}
+					<form method="POST" action="?/code_erneuern">
+						<button class="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900">Neuer Code</button>
+					</form>
+				</div>
+				{#if site.metering_point}
+					<p class="mt-3 text-xs text-neutral-600 dark:text-neutral-400">Zählpunkt: {site.point_direction === 'generation' ? 'Erzeugung' : 'Verbrauch'} {site.metering_point}</p>
+				{/if}
+			</section>
+		{/if}
+
 		<div class="grid gap-4 md:grid-cols-2">
 			<section class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
 				<h2 class="text-lg font-semibold">Batterie</h2>

@@ -36,9 +36,30 @@ services:
       DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
       ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4000}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4000}
+      # Anmelden mit EEGFaktura (OIDC) und Hintergrund-Import; ohne diese Werte nur Einladungslinks
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-net.stromkreis.platform}
+      EEGFAKTURA_BASE_URL: ${EEGFAKTURA_BASE_URL:-https://eegfaktura.at}
+      TOKEN_SECRET: ${TOKEN_SECRET:-}
       TZ: Europe/Vienna
     ports:
       - "127.0.0.1:4000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Pipeline-Worker: arbeitet die Import-Auftraege ab, die die Plattform beim
+  # Betreiber-Login einstellt (Teilnehmer, dann Energiedaten in 30-Tage-Stuecken,
+  # Pause dazwischen). Auth per Refresh-Token aus der DB (TOKEN_SECRET wie die Plattform).
+  worker:
+    build: ./src/pipeline
+    image: stromkreis-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
+      TOKEN_SECRET: ${TOKEN_SECRET:-}
+      WORKER_PACE_SECONDS: ${WORKER_PACE_SECONDS:-20}
+      TZ: Europe/Vienna
     depends_on:
       db:
         condition: service_healthy
