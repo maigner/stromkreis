@@ -14,8 +14,11 @@
 #   Alle Ports nur auf 127.0.0.1, nach aussen geht es ausschliesslich ueber Caddy.
 # - eda, billing, postfix laufen nicht (Profil "full"): keine Netzbetreiber-
 #   Anbindung, Abrechnung ausserhalb des Stromkreis-Scopes.
+# - restart: unless-stopped fuer alle Dienste. Upstream setzt keine Restart-Policy;
+#   nach dem Server-Neustart am 24.8. blieb der ganze Stack liegen.
 
 x-kc-host: &kc-host
+  restart: unless-stopped
   extra_hosts:
     - "eegfaktura-test.stromkreis.net:host-gateway"
     - "admin.eegfaktura-test.stromkreis.net:host-gateway"
@@ -86,10 +89,15 @@ services:
     <<: *kc-host
 
   eegfaktura-postgresql:
+    restart: unless-stopped
     ports: !override
       - "127.0.0.1:26432:5432"
 
+  eegfaktura-mosquitto:
+    restart: unless-stopped
+
   eegfaktura-proxy:
+    restart: unless-stopped
     ports: !override
       - "127.0.0.1:8001:80"
       - "127.0.0.1:8002:81"

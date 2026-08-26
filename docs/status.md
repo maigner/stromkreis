@@ -1,6 +1,13 @@
-# Stand: 24. August 2026
+# Stand: 26. August 2026
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
+
+## Neu am 26.8.: Kontrolle des Testdeployments
+
+- **EEG-Faktura-Testinstanz lag seit dem Server-Neustart am 24.8. (20:55, Kernel-Update) still**: alle zehn Container "Exited", weil weder Upstream-Compose noch Override eine Restart-Policy hatten. Behoben: `restart: unless-stopped` für alle Dienste in `compose.override.yaml` (am Server eingespielt), Stack per `up -d` gestartet. Daten unversehrt (Volumes), Smoke-Test grün: SPA, Admin-Portal, OIDC-Discovery (Issuer passt), Manager-Token, ProtectApi per Basic (`metadata` 7 Zählpunkte mit Daten, `masterdata` 7 Teilnehmer). Der Stromkreis-Stack hatte die Policy schon und war durchgehend erreichbar.
+- **Plattform am Server war hinter dem Repo**: Migration `eegfaktura_community_id` vom 24.8. fehlte. `deploy/deploy.sh` gefahren, Migration angewendet, Stack neu gebaut.
+- **Zugangsdaten zum Nachschlagen**: `ZUGANGSDATEN.md` im Repo-Wurzelverzeichnis (gitignored) mit allen Test-Logins (Salzkammerstrom-Login-Link vom 26.8., gültig bis 2.9.; EEG-Faktura-Benutzer, Client-Secrets, Keycloak-Admin).
+- Nicht committet (Martin macht git): `.gitignore`, `deploy/eegfaktura-local/compose.override.yaml`, `deploy/eegfaktura-local/README.md`, diese Datei.
 
 ## Neu am 24.8.: EEG-Faktura-Testinstanz auf `server`
 

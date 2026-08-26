@@ -21,3 +21,6 @@ docs/drafts/
 
 # editors / os
 .DS_Store
+
+# lokale Zugangsdaten fuer die Test-EEGs (nie einchecken)
+ZUGANGSDATEN.md
