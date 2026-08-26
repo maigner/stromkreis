@@ -40,24 +40,24 @@
 	const fmtDate = (/** @type {string} */ iso) => new Date(iso).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' });
 
 	const inputCls =
-		'mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950';
+		'mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-950';
 	const primaryBtn =
-		'rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50';
+		'rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50';
 	const secondaryBtn =
-		'rounded-md border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900';
+		'rounded-md border border-stone-300 px-4 py-2 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900';
 </script>
 
-<div class="rounded-lg border border-amber-300 bg-white p-5 dark:border-amber-700 dark:bg-neutral-900">
+<div class="rounded-lg border border-brand-300 bg-white p-5 dark:border-brand-700 dark:bg-stone-900">
 	{#if !created}
 		<div class="flex flex-wrap items-baseline justify-between gap-2">
 			<h3 class="font-semibold">Neue Anlage für ein Mitglied</h3>
 			{#if members.length === 0}
-				<span class="text-xs text-neutral-500">Noch keine Mitglieder importiert; der EEGFaktura-Import läuft nach der Anmeldung im Hintergrund.</span>
+				<span class="text-xs text-stone-500">Noch keine Mitglieder importiert; der EEGFaktura-Import läuft nach der Anmeldung im Hintergrund.</span>
 			{/if}
 		</div>
 		<form method="POST" action="?/anlegen" use:enhance={submit} class="mt-4 grid gap-4 sm:grid-cols-2">
 			<label class="block text-sm sm:col-span-2">
-				<span class="text-neutral-600 dark:text-neutral-400">Mitglied (aus EEGFaktura)</span>
+				<span class="text-stone-600 dark:text-stone-400">Mitglied (aus EEGFaktura)</span>
 				<select name="member_id" bind:value={memberId} required class={inputCls}>
 					<option value="" disabled>Mitglied wählen</option>
 					{#each sortedMembers as m (m.id)}
@@ -68,7 +68,7 @@
 				</select>
 			</label>
 			<label class="block text-sm">
-				<span class="text-neutral-600 dark:text-neutral-400">Wechselrichtertyp</span>
+				<span class="text-stone-600 dark:text-stone-400">Wechselrichtertyp</span>
 				<select name="profile" bind:value={profile} required class={inputCls}>
 					{#each Object.entries(profileLabels) as [value, label] (value)}
 						<option {value}>{label}</option>
@@ -85,13 +85,13 @@
 				{/if}
 			</div>
 		</form>
-		<p class="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+		<p class="mt-3 text-xs text-stone-500 dark:text-stone-400">
 			Name, Adresse und Zählpunkt kommen aus den Mitgliedsdaten, der Standort vom Gemeinschafts-Mittelpunkt; alles lässt sich in der Anlage anpassen. Für den ausführlichen Ablauf (Material, SD-Karte, Verbinden) gibt es den Tab "Neue Anlage".
 		</p>
 	{:else}
 		<h3 class="font-semibold text-green-800 dark:text-green-400">Anlage für {selected?.name ?? 'das Mitglied'} ist angelegt.</h3>
-		<p class="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
-			Einrichtungscode <code class="rounded bg-neutral-100 px-2 py-0.5 font-mono tracking-widest dark:bg-neutral-950">{created.code}</code> (gültig bis {fmtDate(created.expires)}). Das fertige SD-Karten-Image mit diesem Code wird von der Plattform erstellt; das Gateway holt sich beim ersten Start seinen Zugangstoken selbst.
+		<p class="mt-2 text-sm text-stone-700 dark:text-stone-300">
+			Einrichtungscode <code class="rounded bg-stone-100 px-2 py-0.5 font-mono tracking-widest dark:bg-stone-950">{created.code}</code> (gültig bis {fmtDate(created.expires)}). Das fertige SD-Karten-Image mit diesem Code wird von der Plattform erstellt; das Gateway holt sich beim ersten Start seinen Zugangstoken selbst.
 		</p>
 		<div class="mt-4 flex flex-wrap gap-3">
 			<a href="/intern/anlagen/{created.id}" class={primaryBtn}>Zur Anlage</a>

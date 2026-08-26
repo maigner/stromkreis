@@ -1,1 +1,20 @@
 @import 'tailwindcss';
+
+/*
+ * Markenfarbe "brand": ein frisches, freundliches Grün statt des bisherigen
+ * grellen Amber. Amber bleibt nur für echte Warnungen (niedriger Ladestand,
+ * WARN-Logzeilen) reserviert.
+ */
+@theme inline {
+	--color-brand-50: var(--color-emerald-50);
+	--color-brand-100: var(--color-emerald-100);
+	--color-brand-200: var(--color-emerald-200);
+	--color-brand-300: var(--color-emerald-300);
+	--color-brand-400: var(--color-emerald-400);
+	--color-brand-500: var(--color-emerald-500);
+	--color-brand-600: var(--color-emerald-600);
+	--color-brand-700: var(--color-emerald-700);
+	--color-brand-800: var(--color-emerald-800);
+	--color-brand-900: var(--color-emerald-900);
+	--color-brand-950: var(--color-emerald-950);
+}

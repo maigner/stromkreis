@@ -42,14 +42,14 @@
 	class="rounded-lg border p-4 {job.phase === 'error'
 		? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40'
 		: running
-			? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40'
-			: 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'}"
+			? 'border-brand-300 bg-brand-50 dark:border-brand-700 dark:bg-brand-950/40'
+			: 'border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900'}"
 >
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
 		<h2 class="font-semibold">
 			EEGFaktura-Import: {labels[/** @type {keyof typeof labels} */ (job.phase)] ?? job.phase}
 		</h2>
-		<span class="text-xs text-neutral-500">
+		<span class="text-xs text-stone-500">
 			{#if job.finished_at}
 				abgeschlossen {fmtTime(job.finished_at)}
 			{:else}
@@ -58,11 +58,11 @@
 		</span>
 	</div>
 	{#if running || job.phase === 'done'}
-		<div class="mt-3 h-2 w-full overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800">
-			<div class="h-2 rounded bg-amber-500 transition-all" style="width: {percent}%"></div>
+		<div class="mt-3 h-2 w-full overflow-hidden rounded bg-stone-200 dark:bg-stone-800">
+			<div class="h-2 rounded bg-brand-500 transition-all" style="width: {percent}%"></div>
 		</div>
 	{/if}
-	<p class="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
+	<p class="mt-2 text-sm text-stone-700 dark:text-stone-300">
 		{#if job.phase === 'error'}
 			{job.error}
 		{:else if job.phase === 'queued'}

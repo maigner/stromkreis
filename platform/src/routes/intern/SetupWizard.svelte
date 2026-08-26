@@ -96,7 +96,7 @@
 		if (termEl) termEl.scrollTop = termEl.scrollHeight;
 	}
 	async function playConsole() {
-		await pushLine('[stromkreis-firstboot] Einrichtungscode gefunden, hole Konfiguration ...', 'text-neutral-400');
+		await pushLine('[stromkreis-firstboot] Einrichtungscode gefunden, hole Konfiguration ...', 'text-stone-400');
 		await sleep(700);
 		await pushLine(`POST /api/gateway/provision/v1 -> 200, Anlage "${name}"`);
 		await sleep(600);
@@ -144,23 +144,23 @@
 	const fmtDate = (/** @type {string} */ iso) => new Date(iso).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' });
 
 	const inputCls =
-		'mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950';
+		'mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-950';
 	const primaryBtn =
-		'rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50';
+		'rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50';
 	const secondaryBtn =
-		'rounded-md border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900';
+		'rounded-md border border-stone-300 px-4 py-2 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900';
 </script>
 
 <section class="flex flex-col gap-6">
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<div>
 			<h2 class="text-lg font-semibold">Neue Anlage einrichten</h2>
-			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Von der leeren SD-Karte bis zum laufenden Batteriemanagement, Schritt für Schritt
 			</p>
 		</div>
 		{#if demo}
-			<span class="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-700 dark:text-amber-400">
+			<span class="rounded-full border border-brand-500/40 bg-brand-500/10 px-2.5 py-0.5 text-xs text-brand-700 dark:text-brand-400">
 				Demo-Mandant: Erstverbindung wird simuliert
 			</span>
 		{/if}
@@ -170,10 +170,10 @@
 		{#each steps as s, i (s)}
 			<li
 				class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 {i + 1 === step
-					? 'border-amber-500 font-medium text-neutral-900 dark:text-neutral-100'
+					? 'border-brand-500 font-medium text-stone-900 dark:text-stone-100'
 					: i + 1 < step
 						? 'border-green-600/40 text-green-700 dark:text-green-500'
-						: 'border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400'}"
+						: 'border-stone-200 text-stone-500 dark:border-stone-800 dark:text-stone-400'}"
 			>
 				<span>{i + 1 < step ? '✓' : `${i + 1}.`}</span>
 				{s}
@@ -182,22 +182,22 @@
 	</ol>
 
 	{#if step === 1}
-		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+		<div class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
 			<h3 class="font-semibold">Material bereitlegen</h3>
-			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Alles da? Dann dauert die Einrichtung etwa eine Stunde, das meiste davon wartet der Raspberry Pi von selbst ab.
 			</p>
 			<ul class="mt-4 space-y-2">
 				{#each checklist as item, i (item)}
 					<li>
 						<label class="flex cursor-pointer items-start gap-3 text-sm">
-							<input type="checkbox" bind:checked={checked[i]} class="mt-0.5 h-4 w-4 accent-amber-500" />
+							<input type="checkbox" bind:checked={checked[i]} class="mt-0.5 h-4 w-4 accent-brand-500" />
 							<span>{item}</span>
 						</label>
 					</li>
 				{/each}
 			</ul>
-			<p class="mt-4 text-xs text-neutral-500 dark:text-neutral-400">
+			<p class="mt-4 text-xs text-stone-500 dark:text-stone-400">
 				Die unterschriebene Risikoaufklärung ist Startvoraussetzung: Fail-Safe und Auto-Revert sind Pflicht, das Restrisiko wird je Anlage dokumentiert.
 			</p>
 		</div>
@@ -205,16 +205,16 @@
 			<button class={primaryBtn} disabled={!allChecked} onclick={() => (step = 2)}>Weiter</button>
 		</div>
 	{:else if step === 2}
-		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+		<div class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
 			<h3 class="font-semibold">Anlage auf der Plattform registrieren</h3>
-			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Die Anlage bekommt einen Einrichtungscode. Das Gateway meldet sich damit ausschließlich ausgehend per HTTPS und holt sich seinen Zugangstoken selbst; ein Zugriff von außen ins Heimnetz ist nie nötig.
 			</p>
 
 			{#if !created}
 				<form method="POST" action="?/anlegen" use:enhance={submitAnlegen} class="mt-4 grid gap-4 sm:grid-cols-2">
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Mitglied</span>
+						<span class="text-stone-600 dark:text-stone-400">Mitglied</span>
 						<select name="member_id" bind:value={memberId} class={inputCls}>
 							<option value="">Ohne Mitglied</option>
 							{#each members as m (m.id)}
@@ -223,7 +223,7 @@
 						</select>
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Zählpunkt der Anlage</span>
+						<span class="text-stone-600 dark:text-stone-400">Zählpunkt der Anlage</span>
 						<select name="measurement_point_id" bind:value={pointId} class={inputCls} disabled={!selectedMember}>
 							<option value="">{selectedMember ? 'Kein Zählpunkt' : 'Zuerst Mitglied wählen'}</option>
 							{#each selectedMember?.points ?? [] as p (p.id)}
@@ -232,11 +232,11 @@
 						</select>
 					</label>
 					<label class="block text-sm sm:col-span-2">
-						<span class="text-neutral-600 dark:text-neutral-400">Name der Anlage</span>
+						<span class="text-stone-600 dark:text-stone-400">Name der Anlage</span>
 						<input name="name" bind:value={name} required placeholder="z.B. Anlage Huber" class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Wechselrichterprofil</span>
+						<span class="text-stone-600 dark:text-stone-400">Wechselrichterprofil</span>
 						<select name="profile" bind:value={profile} class={inputCls}>
 							{#each Object.entries(profileLabels) as [value, label] (value)}
 								<option {value}>{label}</option>
@@ -244,31 +244,31 @@
 						</select>
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Adresse</span>
+						<span class="text-stone-600 dark:text-stone-400">Adresse</span>
 						<input name="address" bind:value={address} required placeholder="Straße Nr, PLZ Ort" class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Breitengrad</span>
+						<span class="text-stone-600 dark:text-stone-400">Breitengrad</span>
 						<input name="latitude" bind:value={latitude} required inputmode="decimal" class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Längengrad</span>
+						<span class="text-stone-600 dark:text-stone-400">Längengrad</span>
 						<input name="longitude" bind:value={longitude} required inputmode="decimal" class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">Batteriekapazität (kWh)</span>
+						<span class="text-stone-600 dark:text-stone-400">Batteriekapazität (kWh)</span>
 						<input name="capacity_kwh" bind:value={capacityKwh} required inputmode="decimal" class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">PV-Leistung (kWp)</span>
+						<span class="text-stone-600 dark:text-stone-400">PV-Leistung (kWp)</span>
 						<input name="pv_kwp" bind:value={pvKwp} required inputmode="decimal" class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">WLAN-Name (optional, sonst LAN)</span>
+						<span class="text-stone-600 dark:text-stone-400">WLAN-Name (optional, sonst LAN)</span>
 						<input name="wifi_ssid" bind:value={wifiSsid} class={inputCls} />
 					</label>
 					<label class="block text-sm">
-						<span class="text-neutral-600 dark:text-neutral-400">WLAN-Passwort</span>
+						<span class="text-stone-600 dark:text-stone-400">WLAN-Passwort</span>
 						<input name="wifi_password" type="password" bind:value={wifiPassword} class={inputCls} disabled={!wifiSsid} />
 					</label>
 					{#if formError}
@@ -284,15 +284,15 @@
 				<div class="mt-4 rounded-md border border-green-600/30 bg-green-50 p-4 text-sm dark:bg-green-950/40">
 					<p class="font-medium text-green-800 dark:text-green-400">Anlage "{name}" ist registriert.</p>
 				</div>
-				<div class="mt-4 rounded-md border border-amber-500/40 bg-amber-50 p-4 dark:bg-amber-950/40">
-					<p class="text-sm font-medium text-amber-800 dark:text-amber-300">Einrichtungscode (gültig bis {fmtDate(created.expires)}):</p>
+				<div class="mt-4 rounded-md border border-brand-500/40 bg-brand-50 p-4 dark:bg-brand-950/40">
+					<p class="text-sm font-medium text-brand-800 dark:text-brand-300">Einrichtungscode (gültig bis {fmtDate(created.expires)}):</p>
 					<div class="mt-2 flex flex-wrap items-center gap-2">
-						<code class="rounded bg-white px-2 py-1 font-mono text-lg tracking-widest dark:bg-neutral-950">{created.code}</code>
-						<button class="text-xs font-medium text-amber-700 hover:underline dark:text-amber-400" onclick={() => created && copy(created.code, 'code')}>
+						<code class="rounded bg-white px-2 py-1 font-mono text-lg tracking-widest dark:bg-stone-950">{created.code}</code>
+						<button class="text-xs font-medium text-brand-700 hover:underline dark:text-brand-400" onclick={() => created && copy(created.code, 'code')}>
 							{copied === 'code' ? 'Kopiert' : 'Kopieren'}
 						</button>
 					</div>
-					<p class="mt-2 text-xs text-amber-800 dark:text-amber-300">
+					<p class="mt-2 text-xs text-brand-800 dark:text-brand-300">
 						Der Code ist kein Passwort: Das Gateway tauscht ihn beim ersten Start gegen seinen Zugangstoken. Im SD-Karten-Image liegt nur der Code.
 					</p>
 				</div>
@@ -303,19 +303,19 @@
 			<button class={primaryBtn} disabled={!created} onclick={() => (step = 3)}>Weiter</button>
 		</div>
 	{:else if step === 3}
-		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+		<div class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
 			<h3 class="font-semibold">SD-Karte schreiben</h3>
-			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Stromkreis arbeitet ausschließlich mit fertigen SD-Karten-Images: openHABian plus Hostname, Zeitzone, WLAN (falls angegeben), Einrichtungscode und Plattform-URL, fix und fertig eingebaut. Kein Token, kein Passwort der Plattform im Image.
 			</p>
-			<div class="mt-4 rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-400">
+			<div class="mt-4 rounded-md border border-dashed border-stone-300 bg-stone-50 p-4 text-sm text-stone-600 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-400">
 				Die Image-Erstellung auf der Plattform ist in Arbeit. Bis dahin: Einrichtungscode
 				{#if created}<code class="font-mono tracking-widest">{created.code}</code>{/if}
 				notieren; das Image wird demnächst hier zum Download erscheinen.
 			</div>
-			<ol class="mt-4 list-decimal space-y-2 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
+			<ol class="mt-4 list-decimal space-y-2 pl-5 text-sm text-stone-700 dark:text-stone-300">
 				<li>
-					Das Image mit dem Raspberry Pi Imager (<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-amber-600 hover:underline dark:text-amber-500">raspberrypi.com/software</a>, "Eigenes Image") auf die microSD-Karte schreiben.
+					Das Image mit dem Raspberry Pi Imager (<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-brand-600 hover:underline dark:text-brand-500">raspberrypi.com/software</a>, "Eigenes Image") auf die microSD-Karte schreiben.
 				</li>
 				<li>Karte in den Raspberry Pi stecken, Netzwerk und Strom anschließen. openHABian installiert sich unbeaufsichtigt (15 bis 45 Minuten), holt dann mit dem Code seine Konfiguration von Stromkreis und meldet den Fortschritt hierher.</li>
 			</ol>
@@ -325,28 +325,28 @@
 			<button class={primaryBtn} onclick={() => (step = 4)}>Weiter</button>
 		</div>
 	{:else if step === 4}
-		<div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+		<div class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
 			<h3 class="font-semibold">Gateway verbindet sich</h3>
-			<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Sobald der Raspberry Pi mit Strom und Netzwerk verbunden ist, erscheint hier der Fortschritt. Die Einrichtung dauert etwa 30 bis 45 Minuten; diese Seite aktualisiert sich von selbst.
 			</p>
 			{#if currentSite}
 				<div class="mt-4">
 					<div class="flex items-baseline justify-between text-sm">
 						<span class="font-medium">{currentSite.setup_label}</span>
-						<span class="text-xs text-neutral-500">{currentSite.setup_percent}%</span>
+						<span class="text-xs text-stone-500">{currentSite.setup_percent}%</span>
 					</div>
-					<div class="mt-2 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800">
-						<div class="h-2 rounded-full {currentSite.setup_phase === 'fertig' ? 'bg-green-500' : 'bg-amber-500'}" style="width: {currentSite.setup_percent}%"></div>
+					<div class="mt-2 h-2 rounded-full bg-stone-200 dark:bg-stone-800">
+						<div class="h-2 rounded-full {currentSite.setup_phase === 'fertig' ? 'bg-green-500' : 'bg-brand-500'}" style="width: {currentSite.setup_percent}%"></div>
 					</div>
 					{#if currentSite.setup_message}
-						<p class="mt-2 font-mono text-xs text-neutral-600 dark:text-neutral-400">{currentSite.setup_message}</p>
+						<p class="mt-2 font-mono text-xs text-stone-600 dark:text-stone-400">{currentSite.setup_message}</p>
 					{/if}
 				</div>
 			{/if}
 
 			{#if demo}
-				<p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+				<p class="mt-4 text-sm text-stone-600 dark:text-stone-400">
 					Im Demo-Mandanten gibt es keinen echten Raspberry Pi; die Erstverbindung wird simuliert.
 				</p>
 				{#if connectState === 'idle'}
@@ -355,7 +355,7 @@
 						<button class={primaryBtn}>Erstverbindung ansehen (Demo)</button>
 					</form>
 				{:else}
-					<div bind:this={termEl} class="mt-4 max-h-72 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-950 p-4 font-mono text-[13px] leading-relaxed text-neutral-200">
+					<div bind:this={termEl} class="mt-4 max-h-72 overflow-y-auto rounded-lg border border-stone-800 bg-stone-950 p-4 font-mono text-[13px] leading-relaxed text-stone-200">
 						{#each consoleLines as line, i (i)}
 							<p class="whitespace-pre-wrap {line.cls ?? ''}">{line.text || ' '}</p>
 						{/each}
@@ -374,17 +374,17 @@
 			<button class={primaryBtn} disabled={!setupDone} onclick={() => (step = 5)}>Weiter</button>
 		</div>
 	{:else}
-		<div class="rounded-lg border border-green-600/30 bg-white p-6 dark:border-green-600/30 dark:bg-neutral-900">
+		<div class="rounded-lg border border-green-600/30 bg-white p-6 dark:border-green-600/30 dark:bg-stone-900">
 			<div class="flex items-center gap-3">
 				<span class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-xl text-green-700 dark:bg-green-950 dark:text-green-400">✓</span>
 				<div>
 					<h3 class="text-lg font-semibold">Die Anlage läuft</h3>
-					<p class="text-sm text-neutral-600 dark:text-neutral-400">
+					<p class="text-sm text-stone-600 dark:text-stone-400">
 						Das Batteriemanagement ist aktiv: Das Gateway holt Ladefenster von der Plattform und meldet seinen Status regelmäßig zurück.
 					</p>
 				</div>
 			</div>
-			<ul class="mt-4 space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
+			<ul class="mt-4 space-y-1 text-sm text-stone-700 dark:text-stone-300">
 				<li>Status-Push alle 5 Minuten, ab 10 Minuten Funkstille gilt die Anlage als offline.</li>
 				<li>Fail-Safe: Ohne Plattform fällt die Anlage auf ihr Standardverhalten zurück.</li>
 				<li>Auto-Revert: Jede Steuerungsvorgabe läuft ohne Verlängerung automatisch ab.</li>

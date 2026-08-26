@@ -36,12 +36,12 @@
 	}
 
 	onMount(async () => {
-		await push(`$ ssh openhabian@${host}.local`, 'text-neutral-400');
+		await push(`$ ssh openhabian@${host}.local`, 'text-stone-400');
 		await sleep(400);
 		if (!site.online) {
 			await sleep(1100);
 			await push(`ssh: connect to host ${host}.local port 22: Connection timed out`, 'text-red-400');
-			await push('Die Anlage ist offline und über den Stromkreis-Tunnel nicht erreichbar.', 'text-neutral-500');
+			await push('Die Anlage ist offline und über den Stromkreis-Tunnel nicht erreichbar.', 'text-stone-500');
 			ended = true;
 			return;
 		}
@@ -52,7 +52,7 @@
 		await push('###############################################');
 		await push(`openHAB ${site.status.openhab_version ?? '4.3.3'} · openHABian ${site.status.openhabian_version ?? '1.9.1'}`);
 		await push('');
-		await push("Tipp: 'help' zeigt die verfügbaren Befehle.", 'text-neutral-500');
+		await push("Tipp: 'help' zeigt die verfügbaren Befehle.", 'text-stone-500');
 		ready = true;
 		await tick();
 		inputEl?.focus();
@@ -130,7 +130,7 @@
 		if (c === 'exit' || c === 'logout') {
 			ready = false;
 			ended = true;
-			await push('Verbindung getrennt.', 'text-neutral-500');
+			await push('Verbindung getrennt.', 'text-stone-500');
 			setTimeout(() => goto(`/intern/anlagen/${site.id}`), 800);
 			return;
 		}
@@ -147,16 +147,16 @@
 	<title>Konsole {site.name} | {data.user.tenant_name} | Stromkreis</title>
 </svelte:head>
 
-<div class="min-h-screen bg-neutral-950 text-neutral-200">
+<div class="min-h-screen bg-stone-950 text-stone-200">
 	<main class="mx-auto flex min-h-screen max-w-4xl flex-col gap-4 px-6 py-10">
 		<header class="flex flex-wrap items-center justify-between gap-2">
 			<a
 				href="/intern/anlagen/{site.id}"
-				class="text-sm text-neutral-400 hover:text-neutral-200"
+				class="text-sm text-stone-400 hover:text-stone-200"
 			>
 				&larr; Zurück zu {site.name}
 			</a>
-			<span class="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400">
+			<span class="rounded-full border border-brand-500/40 bg-brand-500/10 px-2.5 py-0.5 text-xs text-brand-400">
 				Demo-Mandant: simulierte SSH-Sitzung
 			</span>
 		</header>
@@ -165,7 +165,7 @@
 		<div
 			bind:this={termEl}
 			onclick={() => inputEl?.focus()}
-			class="max-h-[75dvh] flex-1 cursor-text overflow-y-auto rounded-lg border border-neutral-800 bg-black p-4 font-mono text-[13px] leading-relaxed"
+			class="max-h-[75dvh] flex-1 cursor-text overflow-y-auto rounded-lg border border-stone-800 bg-black p-4 font-mono text-[13px] leading-relaxed"
 		>
 			{#each lines as line, i (i)}
 				<p class="whitespace-pre-wrap {line.cls ?? ''}">{line.text || ' '}</p>

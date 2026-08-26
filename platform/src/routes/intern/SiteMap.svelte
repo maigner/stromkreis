@@ -79,7 +79,7 @@
 
 <div
 	bind:this={container}
-	class="h-[60dvh] w-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800"
+	class="h-[60dvh] w-full overflow-hidden rounded-lg border border-stone-200 dark:border-stone-800"
 ></div>
 
 <style>

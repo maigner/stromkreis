@@ -161,7 +161,8 @@ export const actions = {
 		let address = String(form.get('address') ?? '').trim();
 		const profile = String(form.get('profile') ?? '');
 		const memberRaw = String(form.get('member_id') ?? '');
-		const capacityKwh = String(form.get('capacity_kwh') ?? '').trim() === '' ? 10 : Number(form.get('capacity_kwh'));
+		// Kapazitaet ohne Angabe bleibt leer ("k.A."), bis das Gateway sie meldet
+		const capacityKwh = String(form.get('capacity_kwh') ?? '').trim() === '' ? null : Number(form.get('capacity_kwh'));
 		const pvKwp = String(form.get('pv_kwp') ?? '').trim() === '' ? 0 : Number(form.get('pv_kwp'));
 
 		// Schnellformular (Anlagen-Tab, nur Mitglied und Wechselrichtertyp): Name und Adresse
@@ -208,7 +209,7 @@ export const actions = {
 		if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
 			return fail(400, { message: 'Breiten- und Längengrad bitte als Dezimalzahlen angeben.' });
 		}
-		if (!Number.isFinite(capacityKwh) || capacityKwh <= 0 || capacityKwh > 200) {
+		if (capacityKwh != null && (!Number.isFinite(capacityKwh) || capacityKwh <= 0 || capacityKwh > 200)) {
 			return fail(400, { message: 'Batteriekapazität bitte in kWh angeben (bis 200).' });
 		}
 		if (!Number.isFinite(pvKwp) || pvKwp < 0 || pvKwp > 500) {
@@ -247,7 +248,7 @@ export const actions = {
 		const status = {
 			inverter_type: profile,
 			inverter_status: 'unknown',
-			batterie_kapazitaet: capacityKwh,
+			...(capacityKwh == null ? {} : { batterie_kapazitaet: capacityKwh }),
 			pv_kwp: pvKwp,
 			min_battery_charge: 20,
 			linux_password: randomPassword(),
