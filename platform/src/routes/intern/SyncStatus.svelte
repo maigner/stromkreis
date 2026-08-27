@@ -70,8 +70,7 @@
 		{:else if job.phase === 'masterdata'}
 			{job.progress.members ?? 0} Mitglieder, {job.progress.points ?? 0} Zählpunkte bisher.
 		{:else}
-			{job.progress.members ?? 0} Mitglieder, {job.progress.points ?? 0} Zählpunkte,
-			{Number(job.progress.rows ?? 0).toLocaleString('de-AT')} Messwerte
+			{job.progress.members ?? 0} Mitglieder, {job.progress.points ?? 0} Zählpunkte
 			{#if job.progress.period_begin}
 				· Zuletzt aktualisiert: {fmtDay(job.progress.period_begin)} bis {fmtDay(job.progress.period_end)}{job.progress.chunk_end && running ? `, geladen bis ${fmtDay(job.progress.chunk_end)}` : ''}
 			{/if}

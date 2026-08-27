@@ -78,7 +78,7 @@
 				</span>
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-2.5 w-2.5 rounded-sm bg-amber-400 dark:bg-amber-500/80"></span>
-					über den Netzbezug hinaus
+					auch mit Speicher nicht nutzbar
 				</span>
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block w-4 border-t-2 border-dashed border-stone-500 dark:border-stone-400"></span>
