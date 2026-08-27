@@ -1,6 +1,5 @@
 <script>
 	import SiteMap from './SiteMap.svelte';
-	import SetupWizard from './SetupWizard.svelte';
 	import SyncStatus from './SyncStatus.svelte';
 	import NewSiteForm from './NewSiteForm.svelte';
 	import EnergieTab from './EnergieTab.svelte';
@@ -13,8 +12,7 @@
 	const tabs = [
 		{ key: 'anlagen', label: 'Anlagen' },
 		{ key: 'standorte', label: 'Standorte' },
-		{ key: 'energie', label: 'Energie' },
-		{ key: 'einrichtung', label: 'Neue Anlage' }
+		{ key: 'energie', label: 'Energie' }
 	];
 	let showNewSite = $state(false);
 
@@ -192,8 +190,6 @@
 				<p class="text-sm text-stone-500 dark:text-stone-400">Noch keine Anlagen mit Standort.</p>
 			{/if}
 		</section>
-		{:else if tab === 'einrichtung'}
-		<SetupWizard members={data.members} center={data.center} demo={data.demo} sites={data.sites} />
 		{:else if data.energie}
 		<EnergieTab energie={data.energie} sync={data.sync} />
 		{/if}

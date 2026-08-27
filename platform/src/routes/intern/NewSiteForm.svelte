@@ -7,9 +7,9 @@
 	 * Schnellanlage einer Anlage fuer ein importiertes Mitglied (Anlagen-Tab).
 	 * Nur Mitglied und Wechselrichtertyp; Name, Adresse, Zaehlpunkt (Erzeugung des
 	 * Mitglieds) und Standort (Gemeinschafts-Mittelpunkt) setzt der Server.
-	 * Waehlbar sind nur Mitglieder ohne bestehende Anlage (has_site); wer eine
-	 * zweite Anlage braucht, nimmt den Assistenten im Tab "Neue Anlage".
-	 * Danach geht es mit dem Einrichtungscode weiter (SD-Karte, Assistent).
+	 * Waehlbar sind nur Mitglieder ohne bestehende Anlage (has_site).
+	 * Danach geht es mit dem Einrichtungscode weiter (SD-Karten-Image auf der
+	 * Anlagenseite erstellen und flashen).
 	 * @type {{ members: {id: number, name: string, participant_number?: string | null, address?: string | null, has_site?: boolean, points: {id: number, metering_point: string, direction: string}[]}[], onclose?: () => void }}
 	 */
 	let { members, onclose } = $props();
@@ -91,7 +91,7 @@
 			</div>
 		</form>
 		<p class="mt-3 text-xs text-stone-500 dark:text-stone-400">
-			Name, Adresse und Zählpunkt kommen aus den Mitgliedsdaten, der Standort vom Gemeinschafts-Mittelpunkt; alles lässt sich in der Anlage anpassen. Für den ausführlichen Ablauf (Material, SD-Karte, Verbinden) gibt es den Tab "Neue Anlage".
+			Name, Adresse und Zählpunkt kommen aus den Mitgliedsdaten, der Standort vom Gemeinschafts-Mittelpunkt; alles lässt sich in der Anlage anpassen. SD-Karten-Image erstellen und herunterladen geht danach direkt auf der Anlagenseite.
 		</p>
 	{:else}
 		<h3 class="font-semibold text-green-800 dark:text-green-400">Anlage für {selected?.name ?? 'das Mitglied'} ist angelegt.</h3>

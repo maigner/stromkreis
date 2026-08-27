@@ -4,7 +4,7 @@ import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, ran
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { loadEnergie } from '$lib/server/energie.js';
 
-const TABS = ['anlagen', 'standorte', 'energie', 'einrichtung'];
+const TABS = ['anlagen', 'standorte', 'energie'];
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, url }) {
@@ -16,7 +16,7 @@ export async function load({ locals, url }) {
 	// Aktiver Tab aus der URL (?tab=), damit die Energie-Auswertung nur bei Bedarf
 	// gerechnet wird und Tab-Links bzw. Lesezeichen funktionieren
 	const tabRaw = url.searchParams.get('tab') ?? 'anlagen';
-	const tab = /** @type {'anlagen' | 'standorte' | 'energie' | 'einrichtung'} */ (TABS.includes(tabRaw) ? tabRaw : 'anlagen');
+	const tab = /** @type {'anlagen' | 'standorte' | 'energie'} */ (TABS.includes(tabRaw) ? tabRaw : 'anlagen');
 	const energie = tab === 'energie' ? await loadEnergie(tenantId) : null;
 
 	const sites = await sql`
@@ -76,7 +76,6 @@ export async function load({ locals, url }) {
 			provision_expires_at: s.provision_expires_at ? /** @type {Date} */ (s.provision_expires_at).toISOString() : null,
 			image: await getImageStatus(/** @type {any} */ (s))
 		}))),
-		demo: tenantLocation.slug === 'salzkammerstrom',
 		members: members.map((m) => ({
 			id: Number(m.id),
 			name: String(m.name),
@@ -105,41 +104,6 @@ export async function load({ locals, url }) {
 }
 
 const PROFILES = ['fronius-symo', 'fronius-snapinverter', 'sigenergy', 'deye', 'victron'];
-
-// Lokale Stunde Europe/Vienna als Dezimalzahl
-function viennaHour() {
-	const fmt = new Intl.DateTimeFormat('en-GB', {
-		timeZone: 'Europe/Vienna',
-		hour: '2-digit',
-		minute: '2-digit',
-		hourCycle: 'h23'
-	});
-	const p = Object.fromEntries(fmt.formatToParts(new Date()).map((x) => [x.type, x.value]));
-	return Number(p.hour) + Number(p.minute) / 60;
-}
-
-// Sonnenverlauf wie im Demo-Datengenerator (grobe Glockenkurve)
-function sunFactor(/** @type {number} */ hour) {
-	if (hour < 6.2 || hour > 20.7) return 0;
-	return Math.sin((Math.PI * (hour - 6.2)) / 14.5) ** 1.35;
-}
-
-// Zeitstempel im openhab.log-Format (lokale Zeit Europe/Vienna)
-function logTs(/** @type {number} */ ms) {
-	const fmt = new Intl.DateTimeFormat('en-GB', {
-		timeZone: 'Europe/Vienna',
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
-		hourCycle: 'h23'
-	});
-	const p = Object.fromEntries(fmt.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
-	const millis = String(Math.floor(ms % 1000)).padStart(3, '0');
-	return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}.${millis}`;
-}
 
 /** @type {import('./$types').Actions} */
 export const actions = {
@@ -293,67 +257,5 @@ export const actions = {
 		`;
 		if (!site) return fail(404, { message: 'Anlage nicht gefunden.' });
 		return { id: site.id, code, expires: /** @type {Date} */ (site.provision_expires_at).toISOString() };
-	},
-
-	// Einrichtungs-Assistent Schritt 4: simulierter erster Status-Push des
-	// Gateways (Demo-Mandant), danach gilt die Anlage als online.
-	aktivieren: async ({ locals, request }) => {
-		if (!locals.user) redirect(303, '/');
-		const tenantId = locals.user.tenant_id;
-
-		const form = await request.formData();
-		const id = Number(form.get('site_id'));
-		if (!Number.isInteger(id)) {
-			return fail(400, { message: 'Anlage nicht gefunden.' });
-		}
-		const [site] = await sql`
-			select id, status from battery_site where tenant_id = ${tenantId} and id = ${id}
-		`;
-		if (!site) {
-			return fail(404, { message: 'Anlage nicht gefunden.' });
-		}
-
-		const now = Date.now();
-		const pvKwp = Number(site.status?.pv_kwp) || 5;
-		const profile = site.status?.inverter_type ?? 'fronius-symo';
-		const pv = Math.round(pvKwp * 1000 * sunFactor(viennaHour()) * 0.7);
-		const load = Math.round(500 + Math.random() * 700);
-		const soc = Math.round(45 + Math.random() * 45);
-		// Vorzeichen wie vom Wechselrichter: Batterie + = Entladen, - = Laden
-		const battery = pv > load && soc < 95 ? -Math.min(3000, pv - load) : 0;
-		const logs = [
-			['INFO', 'org.openhab.core.Activator', 'openHAB 4.3.3 started'],
-			['INFO', 'org.openhab.core.model.script.stromkreis', `Gateway-Profil '${profile}' geladen, Fail-Safe aktiv`],
-			['INFO', 'org.openhab.core.model.script.stromkreis', 'Wechselrichter verbunden (Modbus TCP)'],
-			['INFO', 'openhab.event.ItemStateChangedEvent', `Item 'Batterie_SOC' changed from NULL to ${soc}`],
-			['INFO', 'openhab.event.ItemStateChangedEvent', `Item 'PV_Leistung' changed from NULL to ${pv}`],
-			['INFO', 'org.openhab.core.model.script.stromkreis', 'Auto-Revert geprueft, Vorgabe nach 60 s abgelaufen'],
-			['INFO', 'org.openhab.core.model.script.stromkreis', 'Status-Push an stromkreis.net gesendet (HTTP 200)']
-		].map(([level, logger, msg], i, arr) => ({
-			ts: logTs(now - (arr.length - i) * 9000),
-			level,
-			logger,
-			msg
-		}));
-		const patch = {
-			inverter_status: 'running',
-			soc,
-			battery_power_w: battery,
-			pv_power_w: pv,
-			load_power_w: load,
-			grid_power_w: load - pv - battery,
-			hauptschalter: 'ON',
-			ladesperre_aktiv: 'OFF',
-			openhab_version: '4.3.3',
-			openhabian_version: '1.9.1',
-			logs
-		};
-		await sql`
-			update battery_site
-			set last_seen_at = now(), status = status || ${sql.json(patch)}
-			where tenant_id = ${tenantId} and id = ${id}
-		`;
-
-		return { online: true };
 	}
 };
