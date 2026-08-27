@@ -3,12 +3,13 @@
 	import { invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { profileLabels } from './site-format.js';
+	import SdImage from './SdImage.svelte';
 
 	/**
 	 * Einrichtungs-Assistent nach dem ISCHLSTROM-Modell: Anlage registrieren,
 	 * SD-Karten-Dateien (nur Einrichtungscode und Plattform-URL) herunterladen,
 	 * das Gateway holt sich beim ersten Start seine Konfiguration selbst.
-	 * @type {{ members: {id: number, name: string, participant_number?: string | null, address?: string | null, points: {id: number, metering_point: string, direction: string}[]}[], center: [number, number], demo: boolean, sites: {id: number, name: string, setup_phase: string, setup_message: string | null, setup_percent: number, setup_label: string, provision_code: string | null, provision_expires_at: string | null, online: boolean}[] }}
+	 * @type {{ members: {id: number, name: string, participant_number?: string | null, address?: string | null, points: {id: number, metering_point: string, direction: string}[]}[], center: [number, number], demo: boolean, sites: {id: number, name: string, setup_phase: string, setup_message: string | null, setup_percent: number, setup_label: string, provision_code: string | null, provision_expires_at: string | null, online: boolean, image: any}[] }}
 	 */
 	let { members, center, demo, sites } = $props();
 
@@ -77,6 +78,9 @@
 
 	// Schritt 4: Fortschritt der Einrichtung (das Gateway meldet Phasen an die Plattform)
 	const currentSite = $derived(created ? sites.find((s) => s.id === created?.id) : undefined);
+	const codeValid = $derived(
+		Boolean(currentSite?.provision_code && currentSite?.provision_expires_at && new Date(currentSite.provision_expires_at) > new Date())
+	);
 	const setupDone = $derived(currentSite?.setup_phase === 'fertig' || (demo && /** @type {string} */ (connectState) === 'done'));
 	$effect(() => {
 		if (step !== 4 || demo) return;
@@ -308,12 +312,13 @@
 			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Stromkreis arbeitet ausschließlich mit fertigen SD-Karten-Images: openHABian plus Hostname, Zeitzone, WLAN (falls angegeben), Einrichtungscode und Plattform-URL, fix und fertig eingebaut. Kein Token, kein Passwort der Plattform im Image.
 			</p>
-			<div class="mt-4 rounded-md border border-dashed border-stone-300 bg-stone-50 p-4 text-sm text-stone-600 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-400">
-				Die Image-Erstellung auf der Plattform ist in Arbeit. Bis dahin: Einrichtungscode
-				{#if created}<code class="font-mono tracking-widest">{created.code}</code>{/if}
-				notieren; das Image wird demnächst hier zum Download erscheinen.
-			</div>
+			{#if currentSite}
+				<div class="mt-4">
+					<SdImage siteId={currentSite.id} image={currentSite.image} {codeValid} />
+				</div>
+			{/if}
 			<ol class="mt-4 list-decimal space-y-2 pl-5 text-sm text-stone-700 dark:text-stone-300">
+				<li>Oben "Image erstellen" und das fertige Image herunterladen (Dauer einige Minuten; das Image enthält den Einrichtungscode {#if created}<code class="font-mono tracking-widest">{created.code}</code>{/if} und die Plattform-URL).</li>
 				<li>
 					Das Image mit dem Raspberry Pi Imager (<a href="https://www.raspberrypi.com/software/" target="_blank" rel="noreferrer" class="font-medium text-brand-600 hover:underline dark:text-brand-500">raspberrypi.com/software</a>, "Eigenes Image") auf die microSD-Karte schreiben.
 				</li>

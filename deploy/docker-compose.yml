@@ -41,9 +41,13 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-net.stromkreis.platform}
       EEGFAKTURA_BASE_URL: ${EEGFAKTURA_BASE_URL:-https://eegfaktura.at}
       TOKEN_SECRET: ${TOKEN_SECRET:-}
+      IMAGE_DIR: /var/lib/stromkreis/images
       TZ: Europe/Vienna
     ports:
       - "127.0.0.1:4000:3000"
+    volumes:
+      # SD-Karten-Images (gebaute site-<id>.img.gz plus openHABian-Basis-Image-Cache)
+      - ./data/images:/var/lib/stromkreis/images
     depends_on:
       db:
         condition: service_healthy

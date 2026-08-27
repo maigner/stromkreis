@@ -13,6 +13,18 @@ export const profileLabels = {
 export const de = (/** @type {number} */ x, digits = 1) =>
 	x.toLocaleString('de-AT', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
+// Verbindungszustand fuer Badges und Karte: eine Anlage ohne ersten
+// Status-Push ist nicht "Offline", sondern noch in Einrichtung.
+export function connectionState(/** @type {any} */ site) {
+	if (site.online) {
+		return { label: 'Online', offline: false, dot: 'bg-green-500', text: 'text-green-600 dark:text-green-500', marker: '#16a34a' };
+	}
+	if (site.last_seen_at == null) {
+		return { label: 'In Einrichtung', offline: false, dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-500', marker: '#d97706' };
+	}
+	return { label: 'Offline', offline: true, dot: 'bg-red-500', text: 'text-red-600 dark:text-red-500', marker: '#dc2626' };
+}
+
 export function seenLabel(/** @type {any} */ site) {
 	if (site.seen_seconds_ago == null) return 'noch nie gemeldet';
 	const min = Math.floor(site.seen_seconds_ago / 60);

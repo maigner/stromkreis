@@ -6,6 +6,8 @@ COPY . .
 RUN npm run build
 
 FROM node:24-alpine
+# xz und mtools fuer den SD-Karten-Image-Bau (gateway-image.js)
+RUN apk add --no-cache xz mtools
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./

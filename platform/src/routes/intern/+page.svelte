@@ -4,7 +4,7 @@
 	import SyncStatus from './SyncStatus.svelte';
 	import NewSiteForm from './NewSiteForm.svelte';
 	import EnergieTab from './EnergieTab.svelte';
-	import { profileLabels, de, seenLabel, watt, batteryLabel, gridLabel } from './site-format.js';
+	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from './site-format.js';
 
 	let { data } = $props();
 
@@ -96,15 +96,16 @@
 				{/if}
 				<div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 					{#each data.sites as site (site.id)}
+						{@const conn = connectionState(site)}
 						<a
 							href="/intern/anlagen/{site.id}"
-							class="block rounded-lg border border-stone-200 bg-white p-4 transition-colors hover:border-brand-500 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-brand-500 {site.online ? '' : 'opacity-75'}"
+							class="block rounded-lg border border-stone-200 bg-white p-4 transition-colors hover:border-brand-500 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-brand-500 {conn.offline ? 'opacity-75' : ''}"
 						>
 							<div class="flex items-center justify-between gap-2">
 								<h3 class="font-semibold">{site.name}</h3>
-								<span class="flex items-center gap-1.5 text-xs {site.online ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}">
-									<span class="inline-block h-2 w-2 rounded-full {site.online ? 'bg-green-500' : 'bg-red-500'}"></span>
-									{site.online ? 'Online' : 'Offline'}
+								<span class="flex items-center gap-1.5 text-xs {conn.text}">
+									<span class="inline-block h-2 w-2 rounded-full {conn.dot}"></span>
+									{conn.label}
 								</span>
 							</div>
 							<p class="mt-0.5 text-sm text-stone-600 dark:text-stone-400">
@@ -171,6 +172,10 @@
 					<span class="flex items-center gap-1.5">
 						<span class="inline-block h-2.5 w-2.5 rounded-full bg-green-600"></span>
 						Online
+					</span>
+					<span class="flex items-center gap-1.5">
+						<span class="inline-block h-2.5 w-2.5 rounded-full bg-amber-600"></span>
+						In Einrichtung
 					</span>
 					<span class="flex items-center gap-1.5">
 						<span class="inline-block h-2.5 w-2.5 rounded-full bg-red-600"></span>

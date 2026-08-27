@@ -1,10 +1,12 @@
 <script>
 	import SiteMap from '../../SiteMap.svelte';
-	import { profileLabels, de, seenLabel, watt, batteryLabel, gridLabel } from '../../site-format.js';
+	import SdImage from '../../SdImage.svelte';
+	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from '../../site-format.js';
 
 	let { data } = $props();
 
 	const site = $derived(data.site);
+	const conn = $derived(connectionState(data.site));
 	const status = $derived(data.site.status);
 	const logs = $derived(Array.isArray(data.site.status.logs) ? data.site.status.logs : []);
 
@@ -30,20 +32,24 @@
 			</a>
 			<div class="mt-2 flex flex-wrap items-center gap-3">
 				<h1 class="text-3xl font-bold tracking-tight">{site.name}</h1>
-				<span class="flex items-center gap-1.5 text-sm {site.online ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}">
-					<span class="inline-block h-2.5 w-2.5 rounded-full {site.online ? 'bg-green-500' : 'bg-red-500'}"></span>
-					{site.online ? 'Online' : 'Offline'}
+				<span class="flex items-center gap-1.5 text-sm {conn.text}">
+					<span class="inline-block h-2.5 w-2.5 rounded-full {conn.dot}"></span>
+					{conn.label}
 				</span>
 			</div>
 			<p class="mt-1 text-stone-600 dark:text-stone-400">
 				{site.member_name ?? 'Ohne Mitglied'} · {profileLabels[site.inverter_profile] ?? site.inverter_profile}{site.address ? ` · ${site.address}` : ''}
 			</p>
 			<p class="mt-1 text-sm text-stone-500 dark:text-stone-400">
-				Letzter Status-Push: {seenLabel(site)}{site.last_seen_at ? ` (${dateFmt.format(new Date(site.last_seen_at))})` : ''}
+				{#if site.last_seen_at}
+					Letzter Status-Push: {seenLabel(site)} ({dateFmt.format(new Date(site.last_seen_at))})
+				{:else}
+					Noch kein Status-Push: Die Anlage meldet sich, sobald der Raspberry Pi mit der SD-Karte startet.
+				{/if}
 			</p>
 		</header>
 
-		{#if !site.online}
+		{#if !site.online && site.last_seen_at}
 			<p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-300">
 				Keine Meldung seit über 10 Minuten. Die Werte unten stammen vom letzten Status-Push und können veraltet sein.
 			</p>
@@ -64,13 +70,15 @@
 				<div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
 					{#if site.code_valid}
 						<span>Einrichtungscode <code class="rounded bg-white px-2 py-0.5 font-mono tracking-widest dark:bg-stone-950">{site.provision_code}</code> gültig bis {new Date(site.provision_expires_at).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>
-						<span class="text-xs text-stone-600 dark:text-stone-400">SD-Karten-Image: Erstellung auf der Plattform in Arbeit</span>
 					{:else}
 						<span class="text-stone-600 dark:text-stone-400">Kein gültiger Einrichtungscode.</span>
 					{/if}
 					<form method="POST" action="?/code_erneuern">
 						<button class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900">Neuer Code</button>
 					</form>
+				</div>
+				<div class="mt-4">
+					<SdImage siteId={site.id} image={site.image} codeValid={site.code_valid} />
 				</div>
 				{#if site.metering_point}
 					<p class="mt-3 text-xs text-stone-600 dark:text-stone-400">Zählpunkt: {site.point_direction === 'generation' ? 'Erzeugung' : 'Verbrauch'} {site.metering_point}</p>

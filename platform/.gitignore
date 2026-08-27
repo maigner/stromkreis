@@ -1,6 +1,7 @@
 node_modules
 
 # Output
+/data
 .output
 .vercel
 .netlify

@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { sql } from '$lib/server/db.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode } from '$lib/server/gateway-provision.js';
+import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, params }) {
@@ -35,13 +36,25 @@ export async function load({ locals, params }) {
 			.../** @type {any} */ (site),
 			setup_label: phase.label,
 			setup_percent: phase.percent,
-			code_valid: Boolean(site.provision_code && site.provision_expires_at && site.provision_expires_at > new Date())
+			code_valid: Boolean(site.provision_code && site.provision_expires_at && site.provision_expires_at > new Date()),
+			image: await getImageStatus(/** @type {any} */ (site))
 		}
 	};
 }
 
 /** @type {import('./$types').Actions} */
 export const actions = {
+	// SD-Karten-Image bauen (dauert einige Minuten)
+	image_bauen: async ({ locals, params }) => {
+		if (!locals.user) redirect(303, '/');
+		try {
+			await startImageBuild(locals.user.tenant_id, Number(params.id));
+		} catch (e) {
+			return fail(409, { message: e instanceof Error ? e.message : 'Image-Bau fehlgeschlagen.' });
+		}
+		return { image_started: Number(params.id) };
+	},
+
 	// Neuer Einrichtungscode (abgelaufen, verloren oder Neuinstallation der SD-Karte)
 	code_erneuern: async ({ locals, params }) => {
 		if (!locals.user) redirect(303, '/');

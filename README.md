@@ -8,7 +8,7 @@ Stromkreis ist eine gemeinnützige, quelloffene Plattform für österreichische 
 
 **1. Energiedaten:** Import der Energiedaten aus EEG-Faktura, Qualitätsprüfung unvollständiger Lieferungen, Aufbereitung als Tages- und Wochenübersichten, Wetterdaten (Open-Meteo) und eine Prognose der gemeinschaftlichen Erzeugung und Deckung für die kommenden Tage. Mitglieder sehen ihre eigenen Daten, der Vorstand die Gemeinschaft als Ganzes.
 
-**2. Intelligentes Batteriemanagement (IBM):** Die Plattform berechnet aus der Prognose Ladefenster für Heimspeicher. Ein Gateway beim Mitglied (z.B. OpenHAB) holt die Ladefenster per HTTPS ab und steuert den Wechselrichter. Unterstützte Geräteprofile: Fronius SnapINverter, Fronius Symo Hybrid, Sigenergy, Deye, Victron.
+**2. Batteriemanagement:** Die Plattform berechnet aus der Prognose Ladefenster für Heimspeicher. Ein Gateway beim Mitglied (z.B. OpenHAB) holt die Ladefenster per HTTPS ab und steuert den Wechselrichter. Unterstützte Geräteprofile: Fronius SnapINverter, Fronius Symo Hybrid, Sigenergy, Deye, Victron.
 
 ## Was Stromkreis bewusst nicht ist
 

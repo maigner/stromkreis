@@ -3,6 +3,7 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { connectionState } from './site-format.js';
 
 	/** @type {{ sites: any[], center: [number, number], linked?: boolean }} */
 	let { sites, center, linked = true } = $props();
@@ -39,7 +40,8 @@
 			if (site.latitude == null || site.longitude == null) {
 				continue;
 			}
-			const marker = new maplibregl.Marker({ color: site.online ? '#16a34a' : '#dc2626' })
+			const conn = connectionState(site);
+			const marker = new maplibregl.Marker({ color: conn.marker })
 				.setLngLat([site.longitude, site.latitude])
 				.addTo(map);
 			if (linked) {
@@ -49,7 +51,7 @@
 					closeOnClick: false,
 					offset: 38
 				}).setText(
-					`${site.name}${site.address ? `, ${site.address}` : ''} (${site.online ? 'online' : 'offline'})`
+					`${site.name}${site.address ? `, ${site.address}` : ''} (${conn.label})`
 				);
 				const el = marker.getElement();
 				el.style.cursor = 'pointer';

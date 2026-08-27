@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { sql } from '$lib/server/db.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, randomPassword } from '$lib/server/gateway-provision.js';
+import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { loadEnergie } from '$lib/server/energie.js';
 
 const TABS = ['anlagen', 'standorte', 'energie', 'einrichtung'];
@@ -67,12 +68,13 @@ export async function load({ locals, url }) {
 	return {
 		tab,
 		energie,
-		sites: sites.map((s) => ({
+		sites: await Promise.all(sites.map(async (s) => ({
 			.../** @type {any} */ (s),
 			setup_percent: describePhase(s.setup_phase).percent,
 			setup_label: describePhase(s.setup_phase).label,
-			provision_expires_at: s.provision_expires_at ? /** @type {Date} */ (s.provision_expires_at).toISOString() : null
-		})),
+			provision_expires_at: s.provision_expires_at ? /** @type {Date} */ (s.provision_expires_at).toISOString() : null,
+			image: await getImageStatus(/** @type {any} */ (s))
+		}))),
 		demo: tenantLocation.slug === 'salzkammerstrom',
 		members: members.map((m) => ({
 			id: Number(m.id),
@@ -257,6 +259,21 @@ export const actions = {
 		`;
 
 		return { id: site.id, code, expires: /** @type {Date} */ (site.provision_expires_at).toISOString() };
+	},
+
+	// SD-Karten-Image einer Anlage bauen (dauert einige Minuten; Fortschritt
+	// kommt ueber die Image-Statusanzeige der Anlage).
+	image_bauen: async ({ locals, request }) => {
+		if (!locals.user) redirect(303, '/');
+		const form = await request.formData();
+		const id = Number(form.get('site_id'));
+		if (!Number.isInteger(id)) return fail(400, { message: 'Anlage nicht gefunden.' });
+		try {
+			await startImageBuild(locals.user.tenant_id, id);
+		} catch (e) {
+			return fail(409, { message: e instanceof Error ? e.message : 'Image-Bau fehlgeschlagen.' });
+		}
+		return { image_started: id };
 	},
 
 	// Neuen Einrichtungscode fuer eine Anlage (abgelaufen oder verloren).

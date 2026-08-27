@@ -3,8 +3,8 @@
 // Die Plattform vergibt je Anlage einen Einrichtungscode XXXX-XXXX (60 Tage) und
 // einen Anlagen-Token (nur Hash gespeichert). Stromkreis gibt ausschliesslich fertige
 // SD-Karten-Images aus (openHABian plus openhabian.conf mit Hostname, Benutzer, WLAN,
-// Zeitzone und stromkreis-provision.conf mit Code + Plattform-URL; Image-Builder folgt,
-// die Renderer unten liefern die Dateien dafuer). Das Gateway holt beim ersten Start per
+// Zeitzone, stromkreis-provision.conf mit Code + Plattform-URL und user-data mit dem
+// Firstboot-Autostart; gebaut von gateway-image.js). Das Gateway holt beim ersten Start per
 // POST /api/gateway/provision/v1 {code} seine Konfiguration samt Token und meldet
 // den Fortschritt per POST /api/gateway/provision/v1/result. Kein Token, kein
 // Passwort auf der Karte; der Code bleibt bis "fertig" oder Ablauf gueltig,
@@ -12,6 +12,8 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { env } from '$env/dynamic/public';
 import { sql } from './db.js';
+import firstbootScript from './gateway-firstboot/stromkreis-firstboot.sh?raw';
+import firstbootService from './gateway-firstboot/stromkreis-firstboot.service?raw';
 
 export const PROVISION_CODE_DAYS = 60;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I, O, 0, 1
@@ -95,22 +97,40 @@ export function renderProvisionConf(p) {
 	].join('\n') + '\n';
 }
 
-/** @param {{ name: string, code: string, expires: Date, tenantName: string }} p */
-export function renderReadme(p) {
-	return `Stromkreis: SD-Karte fuer Anlage ${p.name} (${p.tenantName})
-================================================================
-
-1. openHABian mit dem Raspberry Pi Imager auf die SD-Karte schreiben
-   (Other specific-purpose OS > Home assistants > openHABian, 64-bit).
-2. Nach dem Schreiben die Boot-Partition der Karte oeffnen und die beiden
-   Dateien openhabian.conf und stromkreis-provision.conf aus diesem Zip
-   dorthin kopieren (openhabian.conf ueberschreiben).
-3. Karte in den Raspberry Pi, Netzwerk (LAN oder das eingetragene WLAN)
-   und Strom anstecken. Die Einrichtung dauert 30 bis 45 Minuten und
-   erscheint im Stromkreis-Dashboard unter der Anlage als Fortschritt.
-
-Einrichtungscode: ${p.code} (gueltig bis ${p.expires.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })})
-Der Code ist kein Passwort; er kann nach Ablauf im Dashboard erneuert werden.
+/**
+ * Inhalt der user-data fuer die Boot-Partition (ersetzt die Vorlage des
+ * openHABian-Images): cloud-init (im Raspberry-Pi-OS-Image enthalten,
+ * NoCloud-Datasource liest die Boot-Partition) installiert damit beim ersten
+ * Boot die systemd-Unit stromkreis-firstboot; sie wartet die
+ * openHABian-Erstinstallation ab und startet dann die Einrichtung mit dem
+ * Code aus stromkreis-provision.conf. Inhalt ist fuer alle Anlagen gleich;
+ * die Anlage steckt in stromkreis-provision.conf.
+ */
+export function renderUserData() {
+	// YAML-Block-Scalar: jede Zeile 6 Stellen einruecken, Leerzeilen bleiben leer
+	const block = (/** @type {string} */ text) =>
+		text
+			.replace(/\n$/, '')
+			.split('\n')
+			.map((line) => (line ? '      ' + line : ''))
+			.join('\n');
+	return `#cloud-config
+# Stromkreis - Zero-Touch-Autostart der Gateway-Einrichtung.
+# cloud-init installiert beim ersten Boot die systemd-Unit stromkreis-firstboot;
+# sie wartet, bis openHABian fertig installiert ist, und richtet dann das
+# Batteriemanagement mit dem Code aus stromkreis-provision.conf ein.
+write_files:
+  - path: /usr/local/sbin/stromkreis-firstboot
+    permissions: '0755'
+    content: |
+${block(firstbootScript)}
+  - path: /etc/systemd/system/stromkreis-firstboot.service
+    permissions: '0644'
+    content: |
+${block(firstbootService)}
+runcmd:
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, stromkreis-firstboot.service]
 `;
 }
 
