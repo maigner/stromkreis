@@ -158,15 +158,7 @@
 		</div>
 
 		<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h2 class="text-lg font-semibold">Protokoll</h2>
-				<a
-					href="/intern/anlagen/{site.id}/konsole"
-					class="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-300"
-				>
-					SSH-Konsole öffnen
-				</a>
-			</div>
+			<h2 class="text-lg font-semibold">Protokoll</h2>
 			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 				Letzte Zeilen aus openhab.log, übertragen mit dem Status-Push
 			</p>
