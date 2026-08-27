@@ -1,5 +1,4 @@
 <script>
-	import SiteMap from '../../SiteMap.svelte';
 	import SdImage from '../../SdImage.svelte';
 	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from '../../site-format.js';
 
@@ -186,16 +185,5 @@
 			{/if}
 		</section>
 
-		{#if site.latitude != null && site.longitude != null}
-			<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-				<h2 class="text-lg font-semibold">Standort</h2>
-				{#if site.address}
-					<p class="mt-1 mb-4 text-sm text-stone-600 dark:text-stone-400">{site.address}</p>
-				{:else}
-					<div class="mb-4"></div>
-				{/if}
-				<SiteMap sites={[site]} center={[site.longitude, site.latitude]} />
-			</section>
-		{/if}
 	</main>
 </div>

@@ -37,6 +37,7 @@ export async function load({ locals, url }) {
 
 	const members = await sql`
 		select m.id, m.name, m.participant_number, m.address,
+			exists (select 1 from battery_site b where b.tenant_id = m.tenant_id and b.member_id = m.id) as has_site,
 			coalesce(json_agg(json_build_object('id', p.id, 'metering_point', p.metering_point, 'direction', p.direction)
 				order by p.direction, p.metering_point) filter (where p.id is not null), '[]') as points
 		from member m
@@ -81,6 +82,7 @@ export async function load({ locals, url }) {
 			name: String(m.name),
 			participant_number: /** @type {string | null} */ (m.participant_number),
 			address: /** @type {string | null} */ (m.address),
+			has_site: Boolean(m.has_site),
 			points: /** @type {{ id: number, metering_point: string, direction: string }[]} */ (m.points)
 		})),
 		center: /** @type {[number, number]} */ ([tenantLocation.longitude, tenantLocation.latitude]),

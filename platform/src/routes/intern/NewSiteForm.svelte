@@ -7,8 +7,10 @@
 	 * Schnellanlage einer Anlage fuer ein importiertes Mitglied (Anlagen-Tab).
 	 * Nur Mitglied und Wechselrichtertyp; Name, Adresse, Zaehlpunkt (Erzeugung des
 	 * Mitglieds) und Standort (Gemeinschafts-Mittelpunkt) setzt der Server.
+	 * Waehlbar sind nur Mitglieder ohne bestehende Anlage (has_site); wer eine
+	 * zweite Anlage braucht, nimmt den Assistenten im Tab "Neue Anlage".
 	 * Danach geht es mit dem Einrichtungscode weiter (SD-Karte, Assistent).
-	 * @type {{ members: {id: number, name: string, participant_number?: string | null, address?: string | null, points: {id: number, metering_point: string, direction: string}[]}[], onclose?: () => void }}
+	 * @type {{ members: {id: number, name: string, participant_number?: string | null, address?: string | null, has_site?: boolean, points: {id: number, metering_point: string, direction: string}[]}[], onclose?: () => void }}
 	 */
 	let { members, onclose } = $props();
 
@@ -19,7 +21,8 @@
 	let created = $state(/** @type {{id: number, code: string, expires: string} | null} */ (null));
 
 	const selected = $derived(members.find((m) => String(m.id) === String(memberId)));
-	const sortedMembers = $derived([...members].sort((a, b) => (a.participant_number ?? '').localeCompare(b.participant_number ?? '') || a.name.localeCompare(b.name)));
+	const withoutSite = $derived(members.filter((m) => !m.has_site));
+	const sortedMembers = $derived([...withoutSite].sort((a, b) => (a.participant_number ?? '').localeCompare(b.participant_number ?? '') || a.name.localeCompare(b.name)));
 
 	/** @returns {(input: any) => Promise<void>} */
 	function submit() {
@@ -53,6 +56,8 @@
 			<h3 class="font-semibold">Neue Anlage für ein Mitglied</h3>
 			{#if members.length === 0}
 				<span class="text-xs text-stone-500">Noch keine Mitglieder importiert; der EEGFaktura-Import läuft nach der Anmeldung im Hintergrund.</span>
+			{:else if withoutSite.length === 0}
+				<span class="text-xs text-stone-500">Alle importierten Mitglieder haben schon eine Anlage.</span>
 			{/if}
 		</div>
 		<form method="POST" action="?/anlegen" use:enhance={submit} class="mt-4 grid gap-4 sm:grid-cols-2">
