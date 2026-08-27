@@ -1,120 +1,87 @@
-// Auswertung der importierten EEG-Faktura-Energiedaten fuer den Tab "Energie".
+// Tab "Energie": Speicherpotential aus PV-Ueberschuss.
 //
-// Datenbasis: measurement_daily (Tagessummen je Zaehlpunkt und Kategorie, von der
-// Pipeline aus den 15-Minuten-Werten in measurement gepflegt).
-// Kategorien (meter_code.kind, Semantik wie ISCHLSTROM):
-//   Verbrauchszaehlpunkte: total_consumption (Gesamtverbrauch), production_share
-//     (Anteil gemeinschaftliche Erzeugung, zugeteilt), self_use (Eigendeckung,
-//     davon tatsaechlich verbraucht)
-//   Erzeugungszaehlpunkte: total_production (Gesamterzeugung), overshoot (Ueberschuss)
-// Gemeinschaftlich: Eigendeckung = Erzeugung - Ueberschuss; Netzbezug = Verbrauch - Eigendeckung.
+// Die reinen Energiezahlen (Verbrauch, Erzeugung, Eigendeckung) sehen die
+// Betreiber schon in EEG-Faktura; hier geht es um die Frage, die EEG-Faktura
+// nicht beantwortet: wie viel Ueberschuss (overshoot: gemeinschaftliche
+// Erzeugung, die nicht direkt verbraucht wurde und ins Netz ging) hatte die
+// EEG im Schnitt pro Tag in den letzten TAGE Tagen? Das ist das Potential
+// fuer einen Batteriespeicher. Nutzbar ist davon je Tag hoechstens der
+// Netzbezug (Verbrauch - Eigendeckung): mehr kann ein Speicher nicht
+// ersetzen (Wirkungsgradverluste hier nicht eingerechnet).
 //
-// Teillieferungen: EEG-Faktura liefert Tage manchmal mit Zeilen, aber fast nur
-// Nullwerten. Ein Tag gilt als unvollstaendig, wenn weniger als MIN_MELDEANTEIL der
-// Verbrauchszaehlpunkte einen Verbrauch > 0 gemeldet haben.
+// Datenbasis: Tagesaggregat measurement_daily (von der Pipeline gepflegt).
+// Teillieferungen: Tage, an denen weniger als MIN_MELDEANTEIL der
+// Verbrauchszaehlpunkte einen Verbrauch > 0 gemeldet haben, gelten als
+// unvollstaendig und bleiben aus den Durchschnitten draussen (EEG-Faktura
+// liefert solche Tage spaeter nach).
 import { sql } from '$lib/server/db.js';
 
 const TZ = 'Europe/Vienna';
 export const MIN_MELDEANTEIL = 0.5;
-
-/** @type {Record<string, {label: string, bucket: 'day' | 'month', n: number}>} */
-export const ZEITRAEUME = {
-	'30t': { label: '30 Tage', bucket: 'day', n: 30 },
-	'90t': { label: '90 Tage', bucket: 'day', n: 90 },
-	'12m': { label: '12 Monate', bucket: 'month', n: 12 },
-	'24m': { label: '24 Monate', bucket: 'month', n: 24 }
-};
-export const DEFAULT_ZEITRAUM = '30t';
-
-const KINDS = ['total_consumption', 'production_share', 'self_use', 'total_production', 'overshoot'];
+export const TAGE = 30;
 
 /**
- * @typedef {{key: string, label: string, total_consumption: number, production_share: number, self_use: number,
- *   total_production: number, overshoot: number, days: number, incomplete_days: number}} Bucket
+ * @typedef {{key: string, label: string, overshoot: number, netzbezug: number, nutzbar: number,
+ *   has_data: boolean, complete: boolean}} Tag
  */
 
-/** Lokaler Tag (YYYY-MM-DD) bzw. Monat (YYYY-MM) als Anzeige. */
-function bucketLabel(/** @type {string} */ key, /** @type {'day' | 'month'} */ bucket) {
-	if (bucket === 'day') return `${Number(key.slice(8, 10))}.${Number(key.slice(5, 7))}.`;
-	const monate = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-	return `${monate[Number(key.slice(5, 7)) - 1]} ${key.slice(2, 4)}`;
-}
-
-/** Alle Bucket-Schluessel des Zeitraums (auch ohne Daten), aeltester zuerst. */
-function bucketKeys(/** @type {string} */ startKey, /** @type {'day' | 'month'} */ bucket, /** @type {number} */ n) {
-	const keys = [];
-	const [y, m, d] = startKey.split('-').map(Number);
-	for (let i = 0; i < n; i++) {
-		const date = bucket === 'day' ? new Date(Date.UTC(y, m - 1, d + i)) : new Date(Date.UTC(y, m - 1 + i, 1));
-		const iso = date.toISOString();
-		keys.push(bucket === 'day' ? iso.slice(0, 10) : iso.slice(0, 7));
-	}
-	return keys;
-}
-
 /**
- * Energieauswertung eines Mandanten fuer einen Zeitraum.
+ * Speicherpotential eines Mandanten aus den letzten TAGE Tagen.
  * @param {number} tenantId
- * @param {string} zeitraumKey Schluessel aus ZEITRAEUME
  */
-export async function loadEnergie(tenantId, zeitraumKey) {
-	const zeitraum = ZEITRAEUME[zeitraumKey] ?? ZEITRAEUME[DEFAULT_ZEITRAUM];
-	const key = ZEITRAEUME[zeitraumKey] ? zeitraumKey : DEFAULT_ZEITRAUM;
-	// Beginn des Zeitraums in lokaler Zeit: heute - (n-1) Tage bzw. Monatserster vor (n-1) Monaten
-	const startLocal =
-		zeitraum.bucket === 'day'
-			? sql`date_trunc('day', now() at time zone ${TZ}) - make_interval(days => ${zeitraum.n - 1})`
-			: sql`date_trunc('month', now() at time zone ${TZ}) - make_interval(months => ${zeitraum.n - 1})`;
-
-	// Tagessummen je Kategorie plus Meldeanteil der Verbrauchszaehlpunkte
-	// (aus dem Tagesaggregat measurement_daily, das die Pipeline pflegt)
-	const dayRows = await sql`
-		select d.day::text as tag, mc.kind,
-			sum(d.kwh)::float as kwh,
-			count(distinct d.measurement_point_id) filter (where d.nonzero_intervals > 0) as meldend
+export async function loadEnergie(tenantId) {
+	// Tagessummen (lokale Tage, heute eingeschlossen) samt Meldeanteil
+	const rows = await sql`
+		select d.day::text as tag,
+			coalesce(sum(d.kwh) filter (where mc.kind = 'overshoot'), 0)::float as overshoot,
+			coalesce(sum(d.kwh) filter (where mc.kind = 'total_consumption'), 0)::float as consumption,
+			coalesce(sum(d.kwh) filter (where mc.kind = 'self_use'), 0)::float as self_use,
+			count(distinct d.measurement_point_id) filter (where mc.kind = 'total_consumption' and d.nonzero_intervals > 0)::int as meldend
 		from measurement_daily d
 		join meter_code mc on mc.tenant_id = d.tenant_id and mc.id = d.meter_code_id
-		where d.tenant_id = ${tenantId} and mc.kind is not null
-			and d.day >= (${startLocal})::date
-		group by 1, 2
+		where d.tenant_id = ${tenantId}
+			and d.day >= (date_trunc('day', now() at time zone ${TZ}) - make_interval(days => ${TAGE - 1}))::date
+		group by 1
 		order by 1
 	`;
 	const [{ n: consumptionPoints }] = await sql`
 		select count(*)::int as n from measurement_point where tenant_id = ${tenantId} and direction = 'consumption'
 	`;
 	const [{ start_key: startKey }] = await sql`
-		select to_char(${startLocal}, ${zeitraum.bucket === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM'}) as start_key
+		select to_char(date_trunc('day', now() at time zone ${TZ}) - make_interval(days => ${TAGE - 1}), 'YYYY-MM-DD') as start_key
 	`;
 
-	// Tage -> Buckets (Tag oder Monat), fehlende Buckets mit Nullen
-	/** @type {Map<string, Bucket>} */
-	const buckets = new Map();
-	for (const k of bucketKeys(String(startKey), zeitraum.bucket, zeitraum.n)) {
-		buckets.set(k, {
-			key: k, label: bucketLabel(k, zeitraum.bucket),
-			total_consumption: 0, production_share: 0, self_use: 0, total_production: 0, overshoot: 0,
-			days: 0, incomplete_days: 0
+	const byDay = new Map(rows.map((r) => [String(r.tag), r]));
+	const [y, m, d] = String(startKey).split('-').map(Number);
+	/** @type {Tag[]} */
+	const days = [];
+	for (let i = 0; i < TAGE; i++) {
+		const key = new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10);
+		const r = byDay.get(key);
+		const overshoot = r ? Number(r.overshoot) : 0;
+		const netzbezug = r ? Math.max(0, Number(r.consumption) - Number(r.self_use)) : 0;
+		days.push({
+			key,
+			label: `${Number(key.slice(8, 10))}.${Number(key.slice(5, 7))}.`,
+			overshoot,
+			netzbezug,
+			nutzbar: Math.min(overshoot, netzbezug),
+			has_data: r != null,
+			complete: r != null && consumptionPoints > 0 && Number(r.meldend) / consumptionPoints >= MIN_MELDEANTEIL
 		});
 	}
-	/** @type {Map<string, number>} Meldeanteil je Tag */
-	const reporting = new Map();
-	for (const r of dayRows) {
-		const tag = String(r.tag);
-		const b = buckets.get(zeitraum.bucket === 'day' ? tag : tag.slice(0, 7));
-		if (!b) continue;
-		const kind = String(r.kind);
-		if (KINDS.includes(kind)) /** @type {any} */ (b)[kind] += Number(r.kwh);
-		if (kind === 'total_consumption') {
-			reporting.set(tag, consumptionPoints > 0 ? Number(r.meldend) / consumptionPoints : 0);
-		}
-	}
-	for (const [tag, share] of reporting) {
-		const b = buckets.get(zeitraum.bucket === 'day' ? tag : tag.slice(0, 7));
-		if (!b) continue;
-		b.days += 1;
-		if (share < MIN_MELDEANTEIL) b.incomplete_days += 1;
-	}
-	const series = [...buckets.values()];
+
+	// Durchschnitte nur ueber vollstaendige Tage
+	const complete = days.filter((t) => t.complete);
+	const avg = (/** @type {(t: Tag) => number} */ f) =>
+		complete.length ? complete.reduce((a, t) => a + f(t), 0) / complete.length : 0;
+	const stats = {
+		complete_days: complete.length,
+		incomplete_days: days.filter((t) => t.has_data && !t.complete).length,
+		avg_overshoot: avg((t) => t.overshoot),
+		avg_netzbezug: avg((t) => t.netzbezug),
+		avg_nutzbar: avg((t) => t.nutzbar)
+	};
 
 	// Datenbestand insgesamt (unabhaengig vom Zeitraum)
 	const [coverage] = await sql`
@@ -122,23 +89,9 @@ export async function loadEnergie(tenantId, zeitraumKey) {
 	`;
 	const [{ n: pointCount }] = await sql`select count(*)::int as n from measurement_point where tenant_id = ${tenantId}`;
 
-	const sum = (/** @type {keyof Bucket} */ k) => series.reduce((a, b) => a + Number(b[k]), 0);
-	const totals = {
-		total_consumption: sum('total_consumption'),
-		production_share: sum('production_share'),
-		self_use: sum('self_use'),
-		total_production: sum('total_production'),
-		overshoot: sum('overshoot'),
-		days: sum('days'),
-		incomplete_days: sum('incomplete_days')
-	};
-
 	return {
-		zeitraum: key,
-		zeitraeume: Object.entries(ZEITRAEUME).map(([k, z]) => ({ key: k, label: z.label })),
-		bucket: zeitraum.bucket,
-		series,
-		totals,
+		days,
+		stats,
 		coverage: {
 			first_at: coverage?.first_at ? /** @type {Date} */ (coverage.first_at).toISOString() : null,
 			last_at: coverage?.last_at ? /** @type {Date} */ (coverage.last_at).toISOString() : null,

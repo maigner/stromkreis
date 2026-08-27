@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { sql } from '$lib/server/db.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, randomPassword } from '$lib/server/gateway-provision.js';
-import { DEFAULT_ZEITRAUM, loadEnergie } from '$lib/server/energie.js';
+import { loadEnergie } from '$lib/server/energie.js';
 
 const TABS = ['anlagen', 'standorte', 'energie', 'einrichtung'];
 
@@ -13,10 +13,10 @@ export async function load({ locals, url }) {
 	const tenantId = locals.user.tenant_id;
 
 	// Aktiver Tab aus der URL (?tab=), damit die Energie-Auswertung nur bei Bedarf
-	// gerechnet wird und Zeitraum-Links bzw. Lesezeichen funktionieren
+	// gerechnet wird und Tab-Links bzw. Lesezeichen funktionieren
 	const tabRaw = url.searchParams.get('tab') ?? 'anlagen';
 	const tab = /** @type {'anlagen' | 'standorte' | 'energie' | 'einrichtung'} */ (TABS.includes(tabRaw) ? tabRaw : 'anlagen');
-	const energie = tab === 'energie' ? await loadEnergie(tenantId, url.searchParams.get('zeitraum') ?? DEFAULT_ZEITRAUM) : null;
+	const energie = tab === 'energie' ? await loadEnergie(tenantId) : null;
 
 	const sites = await sql`
 		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address, b.last_seen_at,
