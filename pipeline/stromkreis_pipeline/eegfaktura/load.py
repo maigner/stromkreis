@@ -207,3 +207,19 @@ def link_points_to_members(conn, tenant_id, participants):
                 "update measurement_point set member_id = %s where tenant_id = %s and metering_point = any(%s)",
                 (row[0], tenant_id, [mp for mp, _ in p["points"]]),
             )
+
+
+def refresh_daily(conn, tenant_id, start, end):
+    """Tagesaggregat measurement_daily fuer den Zeitraum [start, end] neu berechnen
+    (DB-Funktion refresh_measurement_daily, lokale Tage Europe/Vienna; ein Tag Rand
+    auf beiden Seiten, weil UTC-Fenster lokale Tage anschneiden). Rueckgabe: Zeilen."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select refresh_measurement_daily(%s,
+                (%s at time zone 'Europe/Vienna')::date - 1,
+                (%s at time zone 'Europe/Vienna')::date + 1)
+            """,
+            (tenant_id, start, end),
+        )
+        return cur.fetchone()[0]

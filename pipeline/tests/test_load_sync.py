@@ -113,6 +113,21 @@ def test_sync_tenant_gegen_fake_api(db_conn, tenant_id, fake_api):
             (tenant_id,),
         )
         assert cur.fetchone()[0] == "generation"
+        # Tagesaggregat: 2026-01-01 lokal, je Zaehlpunkt und Kategorie eine Zeile
+        cur.execute(
+            """
+            select p.metering_point, c.kind, d.day::text, d.kwh::float, d.intervals, d.nonzero_intervals
+            from measurement_daily d
+            join measurement_point p on (p.tenant_id, p.id) = (d.tenant_id, d.measurement_point_id)
+            join meter_code c on (c.tenant_id, c.id) = (d.tenant_id, d.meter_code_id)
+            where d.tenant_id = %s order by 1, 2
+            """,
+            (tenant_id,),
+        )
+        daily = cur.fetchall()
+        assert len(daily) == 5
+        assert ("AT_V", "total_consumption", "2026-01-01", 0.9, 2, 2) in daily
+        assert ("AT_E", "overshoot", "2026-01-01", 0.4, 1, 1) in daily
 
     # Zweiter Lauf (inkrementell): Fenster ab letztem Wert minus Ueberlappung,
     # gleiche Daten, keine neuen Zeilen

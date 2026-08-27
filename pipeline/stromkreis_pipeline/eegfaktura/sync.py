@@ -113,6 +113,8 @@ def sync_tenant(conn, source, client, since=None, until=None, full=False, on_chu
             point_ids = load.ensure_measurement_points(conn, tenant_id, seen.values())
 
         stats.rows += load.upsert_measurements(conn, tenant_id, records, point_ids, code_ids)
+        # Tagesaggregat (measurement_daily) fuer den Chunk nachziehen, Grundlage des Tabs "Energie"
+        load.refresh_daily(conn, tenant_id, chunk_start, chunk_end)
         stats.chunks += 1
         stats.point_ids = point_ids
         conn.commit()

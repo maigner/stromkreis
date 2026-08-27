@@ -73,7 +73,7 @@
 			{job.progress.members ?? 0} Mitglieder, {job.progress.points ?? 0} Zählpunkte,
 			{Number(job.progress.rows ?? 0).toLocaleString('de-AT')} Messwerte
 			{#if job.progress.period_begin}
-				· Zeitraum {fmtDay(job.progress.period_begin)} bis {fmtDay(job.progress.period_end)}{job.progress.chunk_end && running ? `, geladen bis ${fmtDay(job.progress.chunk_end)}` : ''}
+				· Zuletzt aktualisiert: {fmtDay(job.progress.period_begin)} bis {fmtDay(job.progress.period_end)}{job.progress.chunk_end && running ? `, geladen bis ${fmtDay(job.progress.chunk_end)}` : ''}
 			{/if}
 		{/if}
 	</p>

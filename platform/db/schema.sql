@@ -16,6 +16,32 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: refresh_measurement_daily(bigint, date, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_measurement_daily(p_tenant bigint, p_from date, p_to date) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+declare
+    n integer;
+begin
+    delete from measurement_daily where tenant_id = p_tenant and day between p_from and p_to;
+    insert into measurement_daily (tenant_id, measurement_point_id, meter_code_id, day, kwh, intervals, nonzero_intervals)
+    select tenant_id, measurement_point_id, meter_code_id,
+        (measured_at at time zone 'Europe/Vienna')::date,
+        sum(value), count(*)::integer, count(*) filter (where value > 0)::integer
+    from measurement
+    where tenant_id = p_tenant
+        and measured_at >= p_from::timestamp at time zone 'Europe/Vienna'
+        and measured_at < (p_to + 1)::timestamp at time zone 'Europe/Vienna'
+    group by 1, 2, 3, 4;
+    get diagnostics n = row_count;
+    return n;
+end
+$$;
+
+
+--
 -- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -192,6 +218,42 @@ CREATE TABLE public.measurement (
     quality smallint,
     CONSTRAINT measurement_quality_check CHECK (((quality >= 0) AND (quality <= 3)))
 );
+
+
+--
+-- Name: measurement_daily; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.measurement_daily (
+    tenant_id bigint NOT NULL,
+    measurement_point_id bigint NOT NULL,
+    meter_code_id bigint NOT NULL,
+    day date NOT NULL,
+    kwh numeric(14,4) NOT NULL,
+    intervals integer NOT NULL,
+    nonzero_intervals integer NOT NULL
+);
+
+
+--
+-- Name: TABLE measurement_daily; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.measurement_daily IS 'Tagessummen (kWh) je Zaehlpunkt und Kategorie, lokaler Tag Europe/Vienna; aus measurement per refresh_measurement_daily()';
+
+
+--
+-- Name: COLUMN measurement_daily.intervals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.measurement_daily.intervals IS 'Anzahl 15-Minuten-Werte des Tages (96 = vollstaendig)';
+
+
+--
+-- Name: COLUMN measurement_daily.nonzero_intervals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.measurement_daily.nonzero_intervals IS 'davon Werte > 0 (Teillieferungen erkennen)';
 
 
 --
@@ -485,6 +547,14 @@ ALTER TABLE ONLY public.login_token
 
 
 --
+-- Name: measurement_daily measurement_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.measurement_daily
+    ADD CONSTRAINT measurement_daily_pkey PRIMARY KEY (tenant_id, measurement_point_id, meter_code_id, day);
+
+
+--
 -- Name: measurement measurement_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -638,6 +708,13 @@ CREATE INDEX eegfaktura_sync_job_tenant_idx ON public.eegfaktura_sync_job USING 
 --
 
 CREATE INDEX login_token_member_idx ON public.login_token USING btree (tenant_id, member_id);
+
+
+--
+-- Name: measurement_daily_tenant_day_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX measurement_daily_tenant_day_idx ON public.measurement_daily USING btree (tenant_id, day);
 
 
 --
@@ -826,6 +903,30 @@ ALTER TABLE ONLY public.login_token
 
 
 --
+-- Name: measurement_daily measurement_daily_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.measurement_daily
+    ADD CONSTRAINT measurement_daily_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
+-- Name: measurement_daily measurement_daily_tenant_id_measurement_point_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.measurement_daily
+    ADD CONSTRAINT measurement_daily_tenant_id_measurement_point_id_fkey FOREIGN KEY (tenant_id, measurement_point_id) REFERENCES public.measurement_point(tenant_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: measurement_daily measurement_daily_tenant_id_meter_code_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.measurement_daily
+    ADD CONSTRAINT measurement_daily_tenant_id_meter_code_id_fkey FOREIGN KEY (tenant_id, meter_code_id) REFERENCES public.meter_code(tenant_id, id);
+
+
+--
 -- Name: measurement_point measurement_point_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -929,4 +1030,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260824190000'),
     ('20260826200000'),
     ('20260826200100'),
-    ('20260826210000');
+    ('20260826210000'),
+    ('20260826220000');

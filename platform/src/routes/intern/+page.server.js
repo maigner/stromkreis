@@ -1,39 +1,22 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { sql } from '$lib/server/db.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, randomPassword } from '$lib/server/gateway-provision.js';
+import { DEFAULT_ZEITRAUM, loadEnergie } from '$lib/server/energie.js';
+
+const TABS = ['anlagen', 'standorte', 'energie', 'einrichtung'];
 
 /** @type {import('./$types').PageServerLoad} */
-export async function load({ locals }) {
+export async function load({ locals, url }) {
 	if (!locals.user) {
 		redirect(303, '/');
 	}
 	const tenantId = locals.user.tenant_id;
 
-	// Tagessummen der letzten 14 lokalen Tage (inkl. heute, unvollstaendig)
-	const dayRows = await sql`
-		select (m.measured_at at time zone 'Europe/Vienna')::date::text as day,
-			mc.kind,
-			sum(m.value)::float as kwh
-		from measurement m
-		join meter_code mc on mc.tenant_id = m.tenant_id and mc.id = m.meter_code_id
-		where m.tenant_id = ${tenantId}
-			and mc.kind is not null
-			and m.measured_at >=
-				(date_trunc('day', now() at time zone 'Europe/Vienna') - interval '13 days')
-					at time zone 'Europe/Vienna'
-		group by 1, 2
-		order by 1
-	`;
-
-	/** @type {Map<string, {day: string, total_consumption: number, total_production: number, self_use: number, overshoot: number}>} */
-	const byDay = new Map();
-	for (const r of dayRows) {
-		if (!byDay.has(r.day)) {
-			byDay.set(r.day, { day: r.day, total_consumption: 0, total_production: 0, self_use: 0, overshoot: 0 });
-		}
-		const d = /** @type {any} */ (byDay.get(r.day));
-		if (r.kind in d) d[r.kind] = r.kwh;
-	}
+	// Aktiver Tab aus der URL (?tab=), damit die Energie-Auswertung nur bei Bedarf
+	// gerechnet wird und Zeitraum-Links bzw. Lesezeichen funktionieren
+	const tabRaw = url.searchParams.get('tab') ?? 'anlagen';
+	const tab = /** @type {'anlagen' | 'standorte' | 'energie' | 'einrichtung'} */ (TABS.includes(tabRaw) ? tabRaw : 'anlagen');
+	const energie = tab === 'energie' ? await loadEnergie(tenantId, url.searchParams.get('zeitraum') ?? DEFAULT_ZEITRAUM) : null;
 
 	const sites = await sql`
 		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address, b.last_seen_at,
@@ -77,7 +60,8 @@ export async function load({ locals }) {
 	`;
 
 	return {
-		days: [...byDay.values()],
+		tab,
+		energie,
 		sites: sites.map((s) => ({
 			.../** @type {any} */ (s),
 			setup_percent: describePhase(s.setup_phase).percent,
