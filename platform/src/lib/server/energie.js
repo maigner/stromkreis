@@ -116,26 +116,6 @@ export async function loadEnergie(tenantId, zeitraumKey) {
 	}
 	const series = [...buckets.values()];
 
-	// Summen je Mitglied im Zeitraum (Verbrauchs- und Erzeugungszaehlpunkte getrennt)
-	const memberRows = await sql`
-		select p.member_id, coalesce(mem.name, 'Nicht zugeordnet') as name, mem.participant_number,
-			count(distinct p.id) filter (where p.direction = 'consumption')::int as consumption_points,
-			count(distinct p.id) filter (where p.direction = 'generation')::int as generation_points,
-			coalesce(sum(m.kwh) filter (where mc.kind = 'total_consumption'), 0)::float as total_consumption,
-			coalesce(sum(m.kwh) filter (where mc.kind = 'production_share'), 0)::float as production_share,
-			coalesce(sum(m.kwh) filter (where mc.kind = 'self_use'), 0)::float as self_use,
-			coalesce(sum(m.kwh) filter (where mc.kind = 'total_production'), 0)::float as total_production,
-			coalesce(sum(m.kwh) filter (where mc.kind = 'overshoot'), 0)::float as overshoot
-		from measurement_point p
-		left join member mem on mem.tenant_id = p.tenant_id and mem.id = p.member_id
-		left join measurement_daily m on m.tenant_id = p.tenant_id and m.measurement_point_id = p.id
-			and m.day >= (${startLocal})::date
-		left join meter_code mc on mc.tenant_id = m.tenant_id and mc.id = m.meter_code_id
-		where p.tenant_id = ${tenantId}
-		group by p.member_id, mem.name, mem.participant_number
-		order by total_consumption desc, name
-	`;
-
 	// Datenbestand insgesamt (unabhaengig vom Zeitraum)
 	const [coverage] = await sql`
 		select min(measured_at) as first_at, max(measured_at) as last_at from measurement where tenant_id = ${tenantId}
@@ -159,18 +139,6 @@ export async function loadEnergie(tenantId, zeitraumKey) {
 		bucket: zeitraum.bucket,
 		series,
 		totals,
-		members: memberRows.map((r) => ({
-			member_id: r.member_id == null ? null : Number(r.member_id),
-			name: String(r.name),
-			participant_number: /** @type {string | null} */ (r.participant_number),
-			consumption_points: Number(r.consumption_points),
-			generation_points: Number(r.generation_points),
-			total_consumption: Number(r.total_consumption),
-			production_share: Number(r.production_share),
-			self_use: Number(r.self_use),
-			total_production: Number(r.total_production),
-			overshoot: Number(r.overshoot)
-		})),
 		coverage: {
 			first_at: coverage?.first_at ? /** @type {Date} */ (coverage.first_at).toISOString() : null,
 			last_at: coverage?.last_at ? /** @type {Date} */ (coverage.last_at).toISOString() : null,

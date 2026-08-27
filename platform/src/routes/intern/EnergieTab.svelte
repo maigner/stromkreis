@@ -3,7 +3,7 @@
 
 	/**
 	 * Tab "Energie": importierte EEG-Faktura-Energiedaten des Mandanten fuer einen
-	 * waehlbaren Zeitraum (Kennzahlen, Verlauf, Mitgliedertabelle, Datenbestand).
+	 * waehlbaren Zeitraum (Kennzahlen, Verlauf, Datenbestand).
 	 * @type {{ energie: import('$lib/server/energie.js').loadEnergie extends (...a: any) => Promise<infer R> ? R : never, sync: any }}
 	 */
 	let { energie, sync } = $props();
@@ -32,10 +32,6 @@
 	const netzbezug = $derived(Math.max(0, totals.total_consumption - totals.self_use));
 
 	const cardCls = 'rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900';
-	const th = 'px-2 py-1.5 text-left text-xs font-medium text-stone-500 dark:text-stone-400';
-	const thNum = `${th} text-right`;
-	const td = 'px-2 py-1.5 whitespace-nowrap';
-	const tdNum = `${td} text-right tabular-nums`;
 </script>
 
 <section class="flex flex-wrap items-center justify-between gap-3">
@@ -137,55 +133,6 @@
 		</svg>
 		<p class="mt-2 text-xs text-stone-500 dark:text-stone-400">
 			{totals.days} Tage mit Daten im Zeitraum{#if totals.incomplete_days > 0}, davon {totals.incomplete_days} unvollständig (weniger als die Hälfte der Verbrauchszählpunkte hat gemeldet; solche Teillieferungen aus EEGFaktura werden beim nächsten Import ergänzt){/if}.
-		</p>
-	</section>
-
-	<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-		<h3 class="font-semibold">Mitglieder im Zeitraum</h3>
-		<div class="mt-3 overflow-x-auto">
-			<table class="w-full text-sm">
-				<thead>
-					<tr class="border-b border-stone-200 dark:border-stone-800">
-						<th class={th}>Nr.</th>
-						<th class={th}>Mitglied</th>
-						<th class={thNum}>ZP</th>
-						<th class={thNum}>Verbrauch</th>
-						<th class={thNum}>aus EEG</th>
-						<th class={thNum}>Deckung</th>
-						<th class={thNum}>Erzeugung</th>
-						<th class={thNum}>Überschuss</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each energie.members as m (m.member_id ?? 'none')}
-						<tr class="border-b border-stone-100 dark:border-stone-800/60">
-							<td class="{td} text-stone-500 dark:text-stone-400">{m.participant_number ?? ''}</td>
-							<td class={td}>{m.name}</td>
-							<td class="{tdNum} text-stone-500 dark:text-stone-400">{m.consumption_points + m.generation_points}</td>
-							<td class={tdNum}>{m.consumption_points ? kwh(m.total_consumption) : ''}</td>
-							<td class={tdNum}>{m.consumption_points ? kwh(m.self_use) : ''}</td>
-							<td class={tdNum}>{m.consumption_points && m.total_consumption > 0 ? `${pct(m.self_use, m.total_consumption)}%` : ''}</td>
-							<td class={tdNum}>{m.generation_points ? kwh(m.total_production) : ''}</td>
-							<td class={tdNum}>{m.generation_points ? kwh(m.overshoot) : ''}</td>
-						</tr>
-					{/each}
-				</tbody>
-				<tfoot>
-					<tr class="font-medium">
-						<td class={td}></td>
-						<td class={td}>Gemeinschaft</td>
-						<td class="{tdNum} text-stone-500 dark:text-stone-400">{energie.coverage.points}</td>
-						<td class={tdNum}>{kwh(totals.total_consumption)}</td>
-						<td class={tdNum}>{kwh(totals.self_use)}</td>
-						<td class={tdNum}>{pct(totals.self_use, totals.total_consumption)}%</td>
-						<td class={tdNum}>{kwh(totals.total_production)}</td>
-						<td class={tdNum}>{kwh(totals.overshoot)}</td>
-					</tr>
-				</tfoot>
-			</table>
-		</div>
-		<p class="mt-2 text-xs text-stone-500 dark:text-stone-400">
-			"aus EEG" ist die Eigendeckung: der Teil des Verbrauchs, der aus der gemeinschaftlichen Erzeugung gedeckt wurde. Erzeugung und Überschuss beziehen sich auf die Erzeugungszählpunkte des Mitglieds.
 		</p>
 	</section>
 {/if}

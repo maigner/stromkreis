@@ -52,6 +52,11 @@ export async function load({ locals, url }) {
 		order by requested_at desc limit 1
 	`;
 
+	// Gesamtzeitraum der vorhandenen Energiedaten (fuer die Statusanzeige)
+	const [dataRange] = sync
+		? await sql`select min(day)::text as first_day, max(day)::text as last_day from measurement_daily where tenant_id = ${tenantId}`
+		: [null];
+
 	const [{ n: switchable }] = await sql`
 		select count(distinct m2.tenant_id) as n
 		from member m1 join member m2 on m2.role = 'operator'
@@ -86,7 +91,9 @@ export async function load({ locals, url }) {
 					error: /** @type {string | null} */ (sync.error),
 					requested_at: /** @type {Date} */ (sync.requested_at).toISOString(),
 					finished_at: sync.finished_at ? /** @type {Date} */ (sync.finished_at).toISOString() : null,
-					heartbeat_at: sync.heartbeat_at ? /** @type {Date} */ (sync.heartbeat_at).toISOString() : null
+					heartbeat_at: sync.heartbeat_at ? /** @type {Date} */ (sync.heartbeat_at).toISOString() : null,
+					data_first_day: /** @type {string | null} */ (dataRange?.first_day ?? null),
+					data_last_day: /** @type {string | null} */ (dataRange?.last_day ?? null)
 				}
 			: null,
 		canSwitch: Number(switchable) > 1

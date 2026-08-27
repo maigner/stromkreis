@@ -2,7 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 
-	/** @type {{ job: { id: number, phase: string, full_import: boolean, progress: Record<string, any>, error: string | null, requested_at: string, finished_at: string | null, heartbeat_at: string | null } }} */
+	/** @type {{ job: { id: number, phase: string, full_import: boolean, progress: Record<string, any>, error: string | null, requested_at: string, finished_at: string | null, heartbeat_at: string | null, data_first_day: string | null, data_last_day: string | null } }} */
 	let { job } = $props();
 
 	const running = $derived(['queued', 'masterdata', 'energy'].includes(job.phase));
@@ -74,6 +74,9 @@
 			{Number(job.progress.rows ?? 0).toLocaleString('de-AT')} Messwerte
 			{#if job.progress.period_begin}
 				· Zuletzt aktualisiert: {fmtDay(job.progress.period_begin)} bis {fmtDay(job.progress.period_end)}{job.progress.chunk_end && running ? `, geladen bis ${fmtDay(job.progress.chunk_end)}` : ''}
+			{/if}
+			{#if job.data_first_day}
+				· Datenbestand: {fmtDay(job.data_first_day)} bis {fmtDay(job.data_last_day ?? undefined)}
 			{/if}
 		{/if}
 	</p>

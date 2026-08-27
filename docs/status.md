@@ -17,6 +17,7 @@ Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
 - Der Energie-Import teilt das Fenster nicht mehr fix in 30-Tage-Stücke, sondern mengenabhängig (`chunk_size()` in `pipeline/.../sync.py`): Ziel ~500.000 15-Minuten-Werte je Anfrage. Bis ~170 Zählpunkte bleibt es bei 30 Tagen (alle Bestandsmandanten unverändert), eine EEG mit 500 Mitgliedern (~700 Zählpunkte) bekommt 7-Tage-Stücke, Minimum 1 Tag. Damit bleiben Antwortgröße und Last je Anfrage an den energystore etwa konstant, egal wie groß die EEG ist.
 - Pausen macht jetzt `sync_tenant` selbst (Worker: `pace_seconds=WORKER_PACE_SECONDS`, CLI-Läufe Default 5 s): zwischen zwei Stücken mindestens pace_seconds, bei langsamen Antworten die doppelte Antwortzeit der letzten Anfrage (Duty-Cycle höchstens ~1/3). Banner-Text im Dashboard heißt jetzt "Zuletzt aktualisiert: von bis".
 - Rechenbeispiel 500 Mitglieder, 2 Jahre Erstimport: ~104 Stücke; bei z.B. 5 s Antwortzeit je Stück und 20 s Pause gut 45 Minuten Laufzeit, der energystore ist dabei nur je ~5 s am Stück beschäftigt.
+- Tab "Energie": Abschnitt "Mitglieder im Zeitraum" (Tabelle je Mitglied) wieder entfernt, samt zugehöriger Abfrage in `energie.js`; der Tab zeigt Kennzahlen, Verlauf und Datenbestand. Der Import-Banner (`SyncStatus.svelte`) zeigt zusätzlich zum zuletzt aktualisierten Fenster den Gesamtzeitraum der vorhandenen Energiedaten ("Datenbestand: von bis", min/max Tag aus `measurement_daily`).
 
 ## Neu am 26.8. (spät): Tab "Energie" auf Importdaten, Tagesaggregat
 
