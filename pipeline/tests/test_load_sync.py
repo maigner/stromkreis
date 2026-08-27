@@ -14,6 +14,16 @@ TS = 1767225600000  # 2026-01-01T00:00:00Z
 START = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
+def test_chunk_size_mengenabhaengig():
+    # Kleine EEGs: Kappe 30 Tage; grosse: Ziel ~500k Werte je Anfrage; Minimum 1 Tag
+    assert sync.chunk_size(0) == timedelta(days=30)
+    assert sync.chunk_size(43) == timedelta(days=30)
+    assert sync.chunk_size(173) == timedelta(days=30)   # 500000/(173*96) = 30.1
+    assert sync.chunk_size(700) == timedelta(days=7)    # ~500 Mitglieder
+    assert sync.chunk_size(2000) == timedelta(days=2)
+    assert sync.chunk_size(10000) == timedelta(days=1)
+
+
 @pytest.fixture
 def tenant_id(db_conn):
     with db_conn.cursor() as cur:
@@ -100,7 +110,7 @@ def test_sync_tenant_gegen_fake_api(db_conn, tenant_id, fake_api):
     )
     client = EegfakturaClient(source.base_url, source.rc_number, BasicAuth("u", "p"))
 
-    stats = sync.sync_tenant(db_conn, source, client, full=True)
+    stats = sync.sync_tenant(db_conn, source, client, full=True, pace_seconds=0)
     assert stats.rows == 8  # 2 Intervalle x 3 Kategorien + 1 x 2
     assert stats.chunks == 1
     assert stats.points == 2
@@ -131,7 +141,7 @@ def test_sync_tenant_gegen_fake_api(db_conn, tenant_id, fake_api):
 
     # Zweiter Lauf (inkrementell): Fenster ab letztem Wert minus Ueberlappung,
     # gleiche Daten, keine neuen Zeilen
-    stats2 = sync.sync_tenant(db_conn, source, client)
+    stats2 = sync.sync_tenant(db_conn, source, client, pace_seconds=0)
     with db_conn.cursor() as cur:
         cur.execute("select count(*) from measurement where tenant_id = %s", (tenant_id,))
         assert cur.fetchone()[0] == 8

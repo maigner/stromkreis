@@ -161,10 +161,12 @@ def run_job(conn, job):
                 "chunk_start": chunk_start, "chunk_end": chunk_end,
                 "period_begin": stats.window_start, "period_end": stats.window_end,
             })
-            time.sleep(PACE_SECONDS)
 
+        # Pausen macht sync_tenant selbst: mindestens PACE_SECONDS je Chunk,
+        # bei langsamen energystore-Antworten laenger (Lastschutz)
         source = sync.SourceInfo(tenant_id=tenant_id, slug=src["slug"])
-        stats = sync.sync_tenant(conn, source, client, full=job["full_import"], on_chunk=on_chunk, use_masterdata=False)
+        stats = sync.sync_tenant(conn, source, client, full=job["full_import"], on_chunk=on_chunk,
+                                 use_masterdata=False, pace_seconds=PACE_SECONDS)
         update_job(conn, job["id"], phase="done", finished=True, progress={
             "rows": stats.rows, "chunks": stats.chunks, "points": stats.points,
             "period_begin": stats.window_start, "period_end": stats.window_end, "chunk_end": stats.window_end,
