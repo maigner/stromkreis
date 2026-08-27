@@ -5,7 +5,9 @@ description = "Stromkreis data pipeline: EEG-Faktura import, weather import, for
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-only" }
 dependencies = [
+    "numpy",
     "pandas",
+    "scikit-learn",
     "requests",
     "psycopg[binary]",
     "cryptography",

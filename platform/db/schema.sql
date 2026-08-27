@@ -1,7 +1,7 @@
 \restrict dbmate
 
 -- Dumped from database version 17.10
--- Dumped by pg_dump version 17.10
+-- Dumped by pg_dump version 18.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -173,6 +173,62 @@ ALTER TABLE public.eegfaktura_sync_job ALTER COLUMN id ADD GENERATED ALWAYS AS I
     NO MINVALUE
     NO MAXVALUE
     CACHE 1
+);
+
+
+--
+-- Name: forecast_run; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.forecast_run (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    model_version text NOT NULL,
+    data_until date NOT NULL,
+    horizon_start timestamp with time zone NOT NULL,
+    horizon_end timestamp with time zone NOT NULL,
+    training_intervals integer DEFAULT 0 NOT NULL,
+    parameters jsonb
+);
+
+
+--
+-- Name: forecast_run_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.forecast_run ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.forecast_run_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: forecast_value; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.forecast_value (
+    tenant_id bigint NOT NULL,
+    run_id bigint NOT NULL,
+    "time" timestamp with time zone NOT NULL,
+    consumption_kwh double precision NOT NULL,
+    consumption_kwh_p10 double precision,
+    consumption_kwh_p90 double precision,
+    generation_kwh double precision NOT NULL,
+    generation_kwh_p10 double precision,
+    generation_kwh_p90 double precision,
+    self_coverage_kwh double precision NOT NULL,
+    self_coverage_kwh_p10 double precision,
+    self_coverage_kwh_p90 double precision,
+    surplus_kwh double precision NOT NULL,
+    surplus_kwh_p10 double precision,
+    surplus_kwh_p90 double precision,
+    n_consumption_points integer NOT NULL,
+    n_generation_points integer NOT NULL
 );
 
 
@@ -531,6 +587,30 @@ ALTER TABLE ONLY public.eegfaktura_sync_job
 
 
 --
+-- Name: forecast_run forecast_run_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.forecast_run
+    ADD CONSTRAINT forecast_run_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: forecast_run forecast_run_tenant_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.forecast_run
+    ADD CONSTRAINT forecast_run_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: forecast_value forecast_value_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.forecast_value
+    ADD CONSTRAINT forecast_value_pkey PRIMARY KEY (tenant_id, run_id, "time");
+
+
+--
 -- Name: login_token login_token_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -701,6 +781,13 @@ CREATE INDEX eegfaktura_sync_job_queue_idx ON public.eegfaktura_sync_job USING b
 --
 
 CREATE INDEX eegfaktura_sync_job_tenant_idx ON public.eegfaktura_sync_job USING btree (tenant_id, requested_at DESC);
+
+
+--
+-- Name: forecast_run_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX forecast_run_tenant_created_idx ON public.forecast_run USING btree (tenant_id, created_at DESC);
 
 
 --
@@ -887,6 +974,22 @@ ALTER TABLE ONLY public.eegfaktura_sync_job
 
 
 --
+-- Name: forecast_run forecast_run_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.forecast_run
+    ADD CONSTRAINT forecast_run_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id) ON DELETE CASCADE;
+
+
+--
+-- Name: forecast_value forecast_value_tenant_id_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.forecast_value
+    ADD CONSTRAINT forecast_value_tenant_id_run_id_fkey FOREIGN KEY (tenant_id, run_id) REFERENCES public.forecast_run(tenant_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: login_token login_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1031,4 +1134,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260826200000'),
     ('20260826200100'),
     ('20260826210000'),
-    ('20260826220000');
+    ('20260826220000'),
+    ('20260827100000');

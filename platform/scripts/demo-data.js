@@ -358,6 +358,12 @@ async function seed(slug) {
 			await sql`insert into measurement ${sql(rows.slice(i, i + 3000))}`;
 		}
 
+		// Tagesaggregat nachziehen (pflegt sonst nur die Pipeline); Energie-Tab
+		// und Prognose lesen measurement_daily statt der Rohdaten
+		await sql`select refresh_measurement_daily(${tenant.id},
+			(${new Date(start)} at time zone 'Europe/Vienna')::date - 1,
+			(${new Date(end)} at time zone 'Europe/Vienna')::date + 1)`;
+
 		// Stundenwetter passend zur Bewoelkung
 		const weather = [];
 		const hourStart = Math.ceil(start / 3600000) * 3600000;

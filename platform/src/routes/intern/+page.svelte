@@ -3,6 +3,7 @@
 	import SyncStatus from './SyncStatus.svelte';
 	import NewSiteForm from './NewSiteForm.svelte';
 	import EnergieTab from './EnergieTab.svelte';
+	import PrognoseTab from './PrognoseTab.svelte';
 	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from './site-format.js';
 
 	let { data } = $props();
@@ -12,7 +13,8 @@
 	const tabs = [
 		{ key: 'anlagen', label: 'Anlagen' },
 		{ key: 'standorte', label: 'Standorte' },
-		{ key: 'energie', label: 'Energie' }
+		{ key: 'energie', label: 'Energie' },
+		{ key: 'prognose', label: 'Prognose' }
 	];
 	let showNewSite = $state(false);
 
@@ -190,8 +192,10 @@
 				<p class="text-sm text-stone-500 dark:text-stone-400">Noch keine Anlagen mit Standort.</p>
 			{/if}
 		</section>
-		{:else if data.energie}
+		{:else if tab === 'energie' && data.energie}
 		<EnergieTab energie={data.energie} sync={data.sync} />
+		{:else if tab === 'prognose' && data.prognose}
+		<PrognoseTab prognose={data.prognose} sync={data.sync} />
 		{/if}
 	</main>
 </div>

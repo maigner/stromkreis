@@ -4,7 +4,9 @@ Version: 0.1.0
 Summary: Stromkreis data pipeline: EEG-Faktura import, weather import, forecast runs
 License: AGPL-3.0-only
 Requires-Python: >=3.11
+Requires-Dist: numpy
 Requires-Dist: pandas
+Requires-Dist: scikit-learn
 Requires-Dist: requests
 Requires-Dist: psycopg[binary]
 Requires-Dist: cryptography

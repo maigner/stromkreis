@@ -3,8 +3,9 @@ import { sql } from '$lib/server/db.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, randomPassword } from '$lib/server/gateway-provision.js';
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { loadEnergie } from '$lib/server/energie.js';
+import { loadPrognose } from '$lib/server/prognose.js';
 
-const TABS = ['anlagen', 'standorte', 'energie'];
+const TABS = ['anlagen', 'standorte', 'energie', 'prognose'];
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, url }) {
@@ -16,8 +17,9 @@ export async function load({ locals, url }) {
 	// Aktiver Tab aus der URL (?tab=), damit die Energie-Auswertung nur bei Bedarf
 	// gerechnet wird und Tab-Links bzw. Lesezeichen funktionieren
 	const tabRaw = url.searchParams.get('tab') ?? 'anlagen';
-	const tab = /** @type {'anlagen' | 'standorte' | 'energie'} */ (TABS.includes(tabRaw) ? tabRaw : 'anlagen');
+	const tab = /** @type {'anlagen' | 'standorte' | 'energie' | 'prognose'} */ (TABS.includes(tabRaw) ? tabRaw : 'anlagen');
 	const energie = tab === 'energie' ? await loadEnergie(tenantId) : null;
+	const prognose = tab === 'prognose' ? await loadPrognose(tenantId) : null;
 
 	const sites = await sql`
 		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address, b.last_seen_at,
@@ -69,6 +71,7 @@ export async function load({ locals, url }) {
 	return {
 		tab,
 		energie,
+		prognose,
 		sites: await Promise.all(sites.map(async (s) => ({
 			.../** @type {any} */ (s),
 			setup_percent: describePhase(s.setup_phase).percent,

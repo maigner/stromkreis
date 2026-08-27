@@ -3,7 +3,14 @@
     python -m stromkreis_pipeline eegfaktura-probe --tenant <slug>
     python -m stromkreis_pipeline eegfaktura-sync [--tenant <slug>]
         [--since JJJJ-MM-TT] [--until JJJJ-MM-TT] [--full]
+    python -m stromkreis_pipeline weather-import [--tenant <slug>]
+    python -m stromkreis_pipeline forecast [--tenant <slug>] [--days N]
     python -m stromkreis_pipeline worker
+
+weather-import holt das Open-Meteo-Wetter (Archiv-Erstbefuellung plus
+Vorhersage) fuer den Standort jedes Mandanten; forecast rechnet und speichert
+einen versionierten Prognoselauf je Mandant (der Worker macht beides auch
+selbst: nach jedem Energie-Import und periodisch).
 
 worker arbeitet die von der Plattform beim Betreiber-Login eingestellten
 Import-Auftraege ab (eegfaktura_sync_job, Auth per Refresh-Token; Endlosschleife,
@@ -21,7 +28,7 @@ import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from . import db
+from . import db, forecast, weather
 from .eegfaktura import config, sync
 from .eegfaktura.client import EegfakturaClient, EegfakturaError
 
@@ -80,6 +87,39 @@ def cmd_sync(args):
     return 1 if failures else 0
 
 
+def cmd_weather(args):
+    failures = 0
+    with db.connect() as conn:
+        for tenant in weather.load_tenants(conn, slug=args.tenant):
+            try:
+                written = weather.import_weather(conn, tenant)
+                print(f"{tenant['slug']}: {written} Wetterstunden geschrieben")
+            except Exception as err:  # noqa: BLE001 - Fehler je Mandant isolieren
+                failures += 1
+                conn.rollback()
+                log.exception("%s: Wetterimport fehlgeschlagen", tenant["slug"])
+                print(f"{tenant['slug']}: FEHLER: {err}", file=sys.stderr)
+    return 1 if failures else 0
+
+
+def cmd_forecast(args):
+    failures = 0
+    with db.connect() as conn:
+        for tenant in weather.load_tenants(conn, slug=args.tenant):
+            try:
+                run_id, reason = forecast.run_forecast(conn, tenant, days=args.days)
+                if run_id is not None:
+                    print(f"{tenant['slug']}: Prognoselauf {run_id} gespeichert")
+                else:
+                    print(f"{tenant['slug']}: uebersprungen: {reason}")
+            except Exception as err:  # noqa: BLE001 - Fehler je Mandant isolieren
+                failures += 1
+                conn.rollback()
+                log.exception("%s: Prognoselauf fehlgeschlagen", tenant["slug"])
+                print(f"{tenant['slug']}: FEHLER: {err}", file=sys.stderr)
+    return 1 if failures else 0
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(prog="stromkreis_pipeline")
@@ -95,6 +135,15 @@ def main(argv=None):
     run.add_argument("--until", help="Fensterende JJJJ-MM-TT (inklusive)")
     run.add_argument("--full", action="store_true", help="kompletten Zeitraum ab periodBegin importieren")
     run.set_defaults(func=cmd_sync)
+
+    wetter = commands.add_parser("weather-import", help="Open-Meteo-Wetter je Mandant importieren")
+    wetter.add_argument("--tenant", help="Tenant-Slug; ohne Angabe alle")
+    wetter.set_defaults(func=cmd_weather)
+
+    prognose = commands.add_parser("forecast", help="Prognoselauf je Mandant rechnen und speichern")
+    prognose.add_argument("--tenant", help="Tenant-Slug; ohne Angabe alle")
+    prognose.add_argument("--days", type=int, help="Horizont in Tagen ab dem letzten vollstaendigen Messtag (Standard: bis heute plus 16)")
+    prognose.set_defaults(func=cmd_forecast)
 
     worker = commands.add_parser("worker", help="Import-Auftraege der Plattform abarbeiten (Endlosschleife)")
     worker.set_defaults(func=lambda args: __import__("stromkreis_pipeline.worker", fromlist=["main_loop"]).main_loop())

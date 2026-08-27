@@ -23,7 +23,7 @@ import os
 import time
 from datetime import datetime, timezone
 
-from . import db, geocode, secrets
+from . import db, forecast, geocode, secrets, weather
 from .eegfaktura import load, sync
 from .eegfaktura.client import EegfakturaClient, EegfakturaError, RefreshTokenAuth
 from .eegfaktura.normalize import normalize_participants
@@ -33,6 +33,10 @@ log = logging.getLogger(__name__)
 POLL_SECONDS = int(os.environ.get("WORKER_POLL_SECONDS", "15"))
 PACE_SECONDS = float(os.environ.get("WORKER_PACE_SECONDS", "20"))
 STALE_MINUTES = 30
+# Wetter je Mandant regelmaessig nachziehen (Open-Meteo-Prognose aendert sich
+# laufend) und Prognosen neu rechnen, wenn der letzte Lauf zu alt ist
+WEATHER_REFRESH_HOURS = float(os.environ.get("WEATHER_REFRESH_HOURS", "6"))
+FORECAST_MAX_AGE_HOURS = float(os.environ.get("FORECAST_MAX_AGE_HOURS", "24"))
 ACTIVE = ("queued", "masterdata", "energy")
 
 
@@ -167,12 +171,72 @@ def run_job(conn, job):
         source = sync.SourceInfo(tenant_id=tenant_id, slug=src["slug"])
         stats = sync.sync_tenant(conn, source, client, full=job["full_import"], on_chunk=on_chunk,
                                  use_masterdata=False, pace_seconds=PACE_SECONDS)
+        # Direkt nach dem Import: Wetter fuer den EEG-Standort aktualisieren
+        # und einen neuen Prognoselauf rechnen. Fehler dabei lassen den
+        # Import-Auftrag nicht scheitern, sie landen als Hinweis in progress.
+        forecast_note = refresh_forecast(conn, tenant_id, src["slug"])
         update_job(conn, job["id"], phase="done", finished=True, progress={
             "rows": stats.rows, "chunks": stats.chunks, "points": stats.points,
             "period_begin": stats.window_start, "period_end": stats.window_end, "chunk_end": stats.window_end,
-            "warnings": stats.warnings,
+            "warnings": stats.warnings, "forecast": forecast_note,
         })
         log.info("%s: Auftrag %s fertig, %d Zeilen in %d Stuecken", src["slug"], job["id"], stats.rows, stats.chunks)
+
+
+def refresh_forecast(conn, tenant_id, slug):
+    """Wetterimport und Prognoselauf fuer einen Mandanten; Fehler werden nur
+    gemeldet (Rueckgabe fuer job.progress), nie geworfen."""
+    note = {}
+    tenants = weather.load_tenants(conn, tenant_id=tenant_id)
+    if not tenants:
+        return {"error": "Mandant nicht gefunden"}
+    tenant = tenants[0]
+    try:
+        note["weather_hours"] = weather.import_weather(conn, tenant)
+    except Exception as err:  # noqa: BLE001
+        conn.rollback()
+        log.exception("%s: Wetterimport fehlgeschlagen", slug)
+        note["weather_error"] = str(err)[:300]
+    try:
+        run_id, reason = forecast.run_forecast(conn, tenant)
+        if run_id is not None:
+            note["run_id"] = run_id
+        else:
+            note["skipped"] = reason
+            log.info("%s: Prognoselauf uebersprungen: %s", slug, reason)
+    except Exception as err:  # noqa: BLE001
+        conn.rollback()
+        log.exception("%s: Prognoselauf fehlgeschlagen", slug)
+        note["error"] = str(err)[:300]
+    return note
+
+
+def maintenance(conn):
+    """Alle Mandanten: Wetter aktuell halten und veraltete Prognosen neu
+    rechnen (Schleife ueber Mandanten, laeuft nur bei leerer Auftragsschlange)."""
+    for tenant in weather.load_tenants(conn):
+        try:
+            weather.import_weather(conn, tenant)
+        except Exception:  # noqa: BLE001
+            conn.rollback()
+            log.exception("%s: Wetterimport fehlgeschlagen", tenant["slug"])
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "select max(created_at) < now() - make_interval(secs => %s) "
+                    "from forecast_run where tenant_id = %s",
+                    (FORECAST_MAX_AGE_HOURS * 3600.0, tenant["id"]),
+                )
+                stale = cur.fetchone()[0]
+            if stale is None or stale:
+                run_id, reason = forecast.run_forecast(conn, tenant)
+                if run_id is not None:
+                    log.info("%s: Prognose aufgefrischt (Lauf %s)", tenant["slug"], run_id)
+                elif stale is None:
+                    log.info("%s: Prognoselauf uebersprungen: %s", tenant["slug"], reason)
+        except Exception:  # noqa: BLE001
+            conn.rollback()
+            log.exception("%s: Prognoselauf fehlgeschlagen", tenant["slug"])
 
 
 def run_once(conn):
@@ -190,11 +254,15 @@ def run_once(conn):
 
 def main_loop():
     log.info("Worker gestartet (Poll %ss, Pause je Stueck %ss)", POLL_SECONDS, PACE_SECONDS)
+    last_maintenance = None
     while True:
         try:
             with db.connect() as conn:
                 while run_once(conn):
                     pass
+                if last_maintenance is None or time.monotonic() - last_maintenance >= WEATHER_REFRESH_HOURS * 3600:
+                    maintenance(conn)
+                    last_maintenance = time.monotonic()
         except Exception:  # noqa: BLE001 - z.B. DB nicht erreichbar: warten und neu verbinden
             log.exception("Worker-Schleife: Fehler, neuer Versuch in %ss", POLL_SECONDS)
         time.sleep(POLL_SECONDS)

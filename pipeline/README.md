@@ -37,6 +37,17 @@ Testgegenstelle: die EEG-Faktura-Testinstanz auf `server` (`deploy/eegfaktura-lo
 
 Modulaufbau (`stromkreis_pipeline/eegfaktura/`): `client.py` (HTTP, beide Auth-Wege, Millisekunden nur an der HTTP-Grenze), `normalize.py` (Slot-zu-kind-Mapping auf das quellenneutrale Zwischenformat, gleiche Kategorien wie der Demo-Generator), `load.py` (COPY-Upsert in `measurement`, Abgleich `meter_code`/`measurement_point`, `daily_reporting_share` als Vertrauens-Gate), `sync.py` (Fensterlogik, mengenabhaengiges Chunking mit Lastschutz-Pausen, Fehler je Mandant isoliert), `config.py` (Quellen + Secrets).
 
+## Wetterimport und Prognose
+
+`weather.py` holt Open-Meteo-Stundenwetter je Mandant fuer den Standort `tenant.latitude/longitude` in die Tabelle `weather`: Erstbefuellung aus dem ERA5-Archiv ab dem ersten Messwert (180-Tage-Stuecke), danach je Lauf der Forecast-Endpunkt (`past_days=92` korrigiert die juengste Vergangenheit, 16 Tage Vorhersage). `forecast.py` ist die Portierung des ISCHLSTROM-Modells gbt-1.1 (`notebooks/forecast/eeg_forecast.py`): drei `HistGradientBoostingRegressor` je Mandant (Verbrauch, Erzeugung, Eigendeckung je aktivem Zaehlpunkt und 15 Minuten, plus q10/q90-Quantilmodelle), rein exogene Merkmale (Kalender samt Feiertagen/Schulferien, Sonnenstand, Wetter), Ueberschuss abgeleitet, Energiebilanz geschlossen, Niveau-Rekalibrierung auf den letzten 14 vollstaendigen Tagen. Laeufe landen versioniert in `forecast_run`/`forecast_value` (nie ueberschrieben); die Prognose beginnt am Tag nach dem letzten vollstaendigen Messtag und fuellt die Luecke bis heute plus 16 Tage. Teillieferungs-Gate: `FORECAST_MIN_REPORTING_SHARE` (0.85), `FORECAST_MIN_POINTS` (5), `FORECAST_MIN_TRAIN_DAYS` (14).
+
+Der Worker macht beides selbst: direkt nach jedem Energie-Import (Ergebnis in `job.progress.forecast`) und periodisch fuer alle Mandanten (`WEATHER_REFRESH_HOURS`, Default 6 h; neuer Prognoselauf, wenn der letzte aelter als `FORECAST_MAX_AGE_HOURS` ist, Default 24 h). Manuell:
+
+```bash
+.venv/bin/python -m stromkreis_pipeline weather-import [--tenant <slug>]
+.venv/bin/python -m stromkreis_pipeline forecast [--tenant <slug>] [--days N]
+```
+
 ## Tests
 
 ```bash
