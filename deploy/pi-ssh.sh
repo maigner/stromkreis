@@ -29,6 +29,8 @@ argv = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
         "-o", "ConnectTimeout=10", "-o", "PreferredAuthentications=password",
         f"openhabian@{host}"]
 if cmd:
+    # TTY erzwingen, damit sudo im Befehl nach dem Passwort fragen kann.
+    argv.insert(0, "-tt")
     argv.append(cmd)
 
 for pw in passwords:
@@ -39,9 +41,15 @@ for pw in passwords:
         print(f"FEHLER: keine Passwortabfrage von {host}.", file=sys.stderr)
         sys.exit(1)
     child.sendline(pw)
-    # Kommt gleich wieder eine Passwortabfrage, war das Passwort falsch.
-    i = child.expect(["assword:", pexpect.EOF, pexpect.TIMEOUT], timeout=600 if cmd else 5)
-    if i == 0:
+    # Kommt gleich wieder eine Login-Passwortabfrage, war das Passwort falsch;
+    # eine sudo-Abfrage im laufenden Befehl bekommt dagegen dasselbe Passwort.
+    while True:
+        i = child.expect([r"\[sudo\] [Pp]assword", "assword:", pexpect.EOF, pexpect.TIMEOUT],
+                         timeout=600 if cmd else 5)
+        if i != 0:
+            break
+        child.sendline(pw)
+    if i == 1:
         child.close()
         continue
     if cmd:

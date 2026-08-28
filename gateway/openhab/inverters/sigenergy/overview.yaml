@@ -234,9 +234,8 @@ pages:
                                 Zwischen diesen Zeiten erzeugt die Gemeinschaft
                                 mehr Strom, als sie verbraucht - dann lädt die
                                 Batterie aus der eigenen PV. Danach speist sie
-                                ein, höchstens das Nachtbudget - was über dem
-                                Eigenbedarf des Hauses bis zum nächsten
-                                Überschuss liegt.
+                                ein; der Eigenbedarf des Hauses bis zum nächsten
+                                Überschuss bleibt im Speicher.
                             slots:
                               default:
                                 - component: oh-label-item
@@ -251,13 +250,6 @@ pages:
                                     icon: f7:sunset_fill
                                     iconColor: deeporange
                                     item: Stromkreis_Crossover_Ende
-                                - component: oh-label-item
-                                  config:
-                                    title: Nachtbudget
-                                    icon: f7:moon_fill
-                                    iconColor: deeppurple
-                                    item: Stromkreis_NACHTBUDGET
-                                    after: "=Number.isNaN(Number.parseFloat(items.Stromkreis_NACHTBUDGET.state)) ? '-' : Number.parseFloat(items.Stromkreis_NACHTBUDGET.state).toFixed(1).replace('.', ',') + ' kWh'"
 
         # Hauptschalter und Navigation zu den Unterseiten; Badges zeigen den
         # Zustand der Funktionen, ohne dass man die Seite oeffnen muss.
@@ -509,15 +501,9 @@ pages:
                                 tagesaktuelle Zeit: eine Stunde nach dem
                                 Abend-Crossover), bis die Gemeinschaft am
                                 Morgen wieder mehr erzeugt als verbraucht.
-                                Nachtbudget: höchstens so viel kWh gehen noch
-                                ins Netz - der Rest bleibt als Reserve und
-                                Eigenbedarf (Hauslast mal Stunden bis zum
-                                nächsten Überschuss, bei Schlechtwetter bis
-                                zum nächsten Abend) im Haus; "-" heißt noch
-                                keine Schätzung, es gilt nur der
-                                Reserve-Ladestand. Hauslast: nächtlicher
-                                Verbrauch des Hauses, gelernt aus dem
-                                Ladestandsabfall ohne Einspeisung.
+                                Hauslast: nächtlicher Verbrauch des Hauses,
+                                gelernt aus dem Ladestandsabfall ohne
+                                Einspeisung.
                             slots:
                               default:
                                 - component: oh-label-item
@@ -533,13 +519,6 @@ pages:
                                     icon: f7:sunrise_fill
                                     iconColor: orange
                                     item: Stromkreis_Crossover_Start
-                                - component: oh-label-item
-                                  config:
-                                    title: Nachtbudget
-                                    icon: f7:moon_fill
-                                    iconColor: deeppurple
-                                    item: Stromkreis_NACHTBUDGET
-                                    after: "=Number.isNaN(Number.parseFloat(items.Stromkreis_NACHTBUDGET.state)) ? '-' : Number.parseFloat(items.Stromkreis_NACHTBUDGET.state).toFixed(1).replace('.', ',') + ' kWh'"
                                 - component: oh-label-item
                                   config:
                                     title: Geschätzte Hauslast

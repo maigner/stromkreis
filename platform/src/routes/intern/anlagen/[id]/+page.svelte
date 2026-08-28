@@ -7,6 +7,19 @@
 
 	let sshOpen = $state(false);
 	let tab = $state('uebersicht');
+	let pwCopied = $state(false);
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let pwCopiedTimer;
+
+	async function copyCloudPassword() {
+		if (!site.cloud_password) return;
+		try {
+			await navigator.clipboard.writeText(site.cloud_password);
+			pwCopied = true;
+			clearTimeout(pwCopiedTimer);
+			pwCopiedTimer = setTimeout(() => (pwCopied = false), 2000);
+		} catch {}
+	}
 
 	const tabs = [
 		{ id: 'uebersicht', label: 'Übersicht' },
@@ -231,10 +244,16 @@
 					<div class="mt-4 border-t border-stone-200 pt-4 dark:border-stone-800">
 						<h3 class="font-medium">Cloud-Konto</h3>
 						{#if site.cloud_username}
-							<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+							<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-600 dark:text-stone-400">
 								<code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono dark:bg-stone-800">{site.cloud_username}</code>
 								{#if site.cloud_password}
-									· Passwort <code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono dark:bg-stone-800">{site.cloud_password}</code>
+									<button
+										type="button"
+										class="rounded-md border border-stone-300 px-2 py-0.5 text-xs hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
+										onclick={copyCloudPassword}
+									>
+										{pwCopied ? 'Kopiert' : 'Passwort kopieren'}
+									</button>
 								{/if}
 							</p>
 							<p class="mt-1 text-xs text-stone-500 dark:text-stone-400">

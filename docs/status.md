@@ -2,6 +2,15 @@
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
 
+## Neu am 28.8. (Tag 2): Detailseite mit Tabs, Cloud-Passwort nur kopieren, Nachtbudget aus der Main UI, Updater-Fix
+
+- **Anlagen-Detailseite in zwei Tabs**: "Übersicht" (Einrichtung, Wechselrichter-Zugang, Batterie, Leistung, Gateway samt Cloud-Konto) und "Fernwartung" (SSH-Konsole samt Tunnel-Info, openhab.log-Protokoll). Beide Tab-Inhalte bleiben gemountet (nur per CSS versteckt), damit eine offene SSH-Sitzung den Tab-Wechsel uebersteht.
+- **Cloud-Passwort wird nicht mehr angezeigt**: statt Klartext ein Knopf "Passwort kopieren" (Clipboard-API, 2 s Bestaetigung "Kopiert"). Das Passwort geht weiterhin an den Browser (noetig fuers Kopieren), steht aber nicht mehr auf dem Bildschirm.
+- **Nachtbudget aus der Main UI entfernt** (alle 5 Wechselrichter-Profile, `overview.yaml`): die beiden Listenzeilen ("Heute in der Gemeinschaft", "Heute Nacht") samt Erwaehnungen in den Footer-Texten. Item `Stromkreis_NACHTBUDGET`, Regel-Logik und `nachtbudget_kwh` im Status-Push bleiben unveraendert.
+- **Updater-Bug behoben (Selbstueberschreibung)**: `stromkreis-update` ruft install.sh auf, das das laufende Skript per `install_file` in-place ueberschreibt; bash las danach am alten Offset weiter und brach mit Syntaxfehler ab (Update selbst war da schon durch). Der Skriptrumpf steckt jetzt in `main()` und wird komplett eingelesen, bevor etwas laeuft.
+- **pi-ssh.sh kann jetzt sudo**: Befehlsmodus erzwingt ein TTY (`-tt`) und beantwortet `[sudo] password`-Abfragen mit dem Anlagen-Passwort.
+- Verteilung: neue Gateways bekommen die UI beim Setup; bestehende ziehen das Paket naechtens (03-05 Uhr, Pruefsummen-Abgleich) per `stromkreis-update`. Pi 71 wurde von Hand aktualisiert (`sudo stromkreis-update --now`) und ist verifiziert Nachtbudget-frei (JSONDB der Main UI: 0 Treffer). Der plattformseitige "Paket aktualisieren"-Knopf (Antwortfeld `update:true` im Status-Push) ist gateway-seitig vorbereitet, aber noch nicht gebaut.
+
 ## Neu am 28.8. (nachts): SSH-Konsole auf der Anlagen-Detailseite
 
 - **Echtes SSH aus dem Browser** auf jedes Gateway mit stehendem Tunnel: auf der Anlagen-Detailseite unter Fernwartung "SSH-Konsole öffnen" (Knopf erscheint, sobald das Gateway seinen Tunnel-Schluessel gemeldet hat). Im Browser laeuft xterm.js; die eigentliche SSH-Verbindung (Protokoll, Passwort-Anmeldung als openhabian mit dem Anlagen-Passwort aus status.linux_password) haelt die Plattform serverseitig - das Passwort verlaesst den Server nie.

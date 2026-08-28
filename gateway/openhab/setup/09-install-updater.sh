@@ -48,6 +48,13 @@ install_file "$UPDATER" <<'UPD'
 #   stromkreis-update --now      sofort aktualisieren (von Hand)
 set -uo pipefail
 
+# Der gesamte Ablauf steckt in einer Funktion: so liest bash die komplette
+# Datei ein, bevor etwas laeuft. Noetig, weil install.sh dieses Skript
+# waehrend des Updates in-place ueberschreibt - ohne Funktion liest bash
+# danach am alten Datei-Offset weiter und stolpert mitten in einer Zeile
+# (Syntaxfehler nach eigentlich fertigem Update).
+main() {
+
 CONF=@GW_CONF@
 FLAG=@GW_UPDATE_FLAG@
 STAMP=@GW_REQUEST_DIR@/last-check
@@ -108,6 +115,8 @@ else
   log "Update fehlgeschlagen (Exit $rc) - Details oben in $LOG."
 fi
 exit "$rc"
+}
+main "$@"
 UPD
 sed -i -e "s|@GW_CONF@|$GATEWAY_CONF|g" \
        -e "s|@GW_UPDATE_FLAG@|$GW_UPDATE_FLAG|g" \
