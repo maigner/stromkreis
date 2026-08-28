@@ -47,6 +47,9 @@ services:
       WG_ENDPOINT: ${WG_ENDPOINT:-stromkreis.net:51820}
       WG_SUBNET_PREFIX: ${WG_SUBNET_PREFIX:-10.88.0}
       WG_PUBLIC_KEY_FILE: /var/lib/stromkreis/wireguard/server.pub
+      # SSH-Konsole der Anlagen-Detailseite: SOCKS-Durchgang im WireGuard-Container
+      WG_SOCKS_HOST: wireguard
+      WG_SOCKS_PORT: "1080"
       CLOUD_BASE_URL: ${CLOUD_BASE_URL:-}
       TZ: Europe/Vienna
     ports:

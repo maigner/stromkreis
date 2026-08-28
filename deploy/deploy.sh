@@ -30,7 +30,7 @@ ssh "$HOST" "set -euo pipefail
     # root (Docker), daher Anlage notfalls ueber einen kurzlebigen Container
     test -d data/images || mkdir -p data/images 2>/dev/null \
         || docker run --rm -v $DIR/data:/d alpine sh -c 'mkdir -p /d/images && chown 1000:1000 /d/images'
-    docker compose build platform worker
+    docker compose build platform worker wireguard
     docker compose run --rm migrate
     docker compose up -d
     docker compose ps"

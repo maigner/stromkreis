@@ -40,7 +40,16 @@ ip addr add "${SUBNET_PREFIX}.1/24" dev "$WG_IF"
 ip link set "$WG_IF" up
 log "wg0 laeuft (${SUBNET_PREFIX}.1/24, UDP 51820)."
 
-trap 'ip link del "$WG_IF" 2>/dev/null || true; exit 0' INT TERM
+# --- SOCKS-Durchgang fuer die SSH-Konsole der Plattform ----------------------
+# Das Wartungsnetz existiert nur in diesem Container; microsocks reicht der
+# Plattform TCP-Verbindungen zu den Gateways durch (Anlagen-Detailseite,
+# "SSH-Konsole oeffnen"). Der Port ist nirgends veroeffentlicht und nur aus
+# dem Compose-Netz erreichbar.
+microsocks -i 0.0.0.0 -p "${WG_SOCKS_PORT:-1080}" &
+SOCKS_PID=$!
+log "SOCKS-Durchgang laeuft (Port ${WG_SOCKS_PORT:-1080}, nur stack-intern)."
+
+trap 'kill "$SOCKS_PID" 2>/dev/null || true; ip link del "$WG_IF" 2>/dev/null || true; exit 0' INT TERM
 
 # --- Peer-Abgleich -----------------------------------------------------------
 while :; do

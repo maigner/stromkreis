@@ -1,8 +1,11 @@
 <script>
 	import SdImage from '../../SdImage.svelte';
+	import SshTerminal from './SshTerminal.svelte';
 	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from '../../site-format.js';
 
 	let { data, form } = $props();
+
+	let sshOpen = $state(false);
 
 	const site = $derived(data.site);
 	const conn = $derived(connectionState(data.site));
@@ -212,6 +215,15 @@
 							<p class="mt-1 text-xs text-stone-500 dark:text-stone-400">
 								Zugriff vom Server: <code class="font-mono">deploy/wg-ssh.sh {site.wg_address}</code> (Anmeldung als openhabian mit dem Anlagen-Passwort)
 							</p>
+							{#if site.wg_key_reported && !sshOpen}
+								<button
+									type="button"
+									class="mt-2 rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
+									onclick={() => (sshOpen = true)}
+								>
+									SSH-Konsole öffnen
+								</button>
+							{/if}
 						{:else}
 							<p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Noch keine Tunnel-IP: wird bei der Einrichtung zugeteilt.</p>
 						{/if}
@@ -251,6 +263,11 @@
 						{/if}
 					</div>
 				</div>
+				{#if sshOpen}
+					<div class="mt-4">
+						<SshTerminal siteId={site.id} onclose={() => (sshOpen = false)} />
+					</div>
+				{/if}
 			</section>
 		</div>
 

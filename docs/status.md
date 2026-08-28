@@ -2,6 +2,14 @@
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
 
+## Neu am 28.8. (nachts): SSH-Konsole auf der Anlagen-Detailseite
+
+- **Echtes SSH aus dem Browser** auf jedes Gateway mit stehendem Tunnel: auf der Anlagen-Detailseite unter Fernwartung "SSH-Konsole öffnen" (Knopf erscheint, sobald das Gateway seinen Tunnel-Schluessel gemeldet hat). Im Browser laeuft xterm.js; die eigentliche SSH-Verbindung (Protokoll, Passwort-Anmeldung als openhabian mit dem Anlagen-Passwort aus status.linux_password) haelt die Plattform serverseitig - das Passwort verlaesst den Server nie.
+- **Weg ins Wartungsnetz:** das existiert nur im Namensraum des WireGuard-Containers; dort laeuft jetzt zusaetzlich **microsocks** (SOCKS5, Port 1080, nirgends veroeffentlicht, nur im Compose-Netz erreichbar). Alpine 3.20 hat kein microsocks-Paket, das Dockerfile baut es aus den Quellen (gepinnt v1.0.5, statisch). Die Plattform (`gateway-ssh.js`) verbindet sich mit eigenem Mini-SOCKS5-Client (keine Extra-Abhaengigkeit) durch den Durchgang zu `<wg_address>:22` und spricht darueber ssh2 (npm, einzige neue Laufzeit-Abhaengigkeit). Ohne Host-Key-Pruefung (wie accept-new bei wg-ssh.sh) - Restrisiko dokumentiert im Modulkopf.
+- **Transport Browser<->Plattform:** SSE fuer die Ausgabe (Base64-Chunks, Puffer 256 KB fuer Reconnect), POST fuer Eingabe und Terminalgroesse (Eingaben gebuendelt ~15 ms), kein WebSocket noetig (adapter-node). Endpunkte unter `/intern/anlagen/[id]/ssh{,/stream,/input}`, alle nur angemeldet und mandanten-/anlagengebunden; Sitzungen (max. 20, Leerlauf-Timeout 30 min) leben im Plattform-Prozess.
+- **Verifiziert lokal:** kompletter Roundtrip durch echten microsocks auf echten sshd (Login, `echo` ueber SSE zurueck), 401 ohne Login, 404 fuer fremde Anlage/Sitzung, klare Fehlertexte (keine Tunnel-IP, kein Passwort, Gateway nicht erreichbar mit 15-s-Deadline statt Minuten-Haenger). `npm run check` 395 Dateien, 0 Fehler; Produktions-Build ok (ssh2 extern, xterm gebundelt).
+- **Compose:** Plattform bekommt `WG_SOCKS_HOST=wireguard`/`WG_SOCKS_PORT=1080`; echter Test auf dem Pi steht noch aus (braucht die Router-Weiterleitung UDP 51820).
+
 ## Neu am 28.8. (spaet): WireGuard-Fernwartung und Stromkreis-eigene openHAB-Cloud (beides als Container)
 
 - **Entscheidung:** Fernwartung und Cloud kommen doch (Wunsch Martin), aber anders als bei ISCHLSTROM (WireGuard nativ auf s1) laeuft bei Stromkreis beides als Container im Compose-Stack.
