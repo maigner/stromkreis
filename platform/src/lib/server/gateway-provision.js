@@ -24,13 +24,15 @@ export const SETUP_PHASES = /** @type {Record<string, { label: string, percent: 
 	konfiguration: { label: 'Konfiguration geladen', percent: 10 },
 	wechselrichter_suche: { label: 'Wechselrichter wird gesucht', percent: 15 },
 	wechselrichter_unklar: { label: 'Wechselrichter nicht eindeutig, bitte Profil setzen', percent: 15 },
-	tunnel: { label: 'Fernwartung', percent: 25 },
 	passwoerter: { label: 'Passwörter', percent: 30 },
 	addons: { label: 'openHAB-Erweiterungen', percent: 45 },
 	wechselrichter: { label: 'Wechselrichter wird eingebunden', percent: 60 },
+	wartet_auf_passwort: { label: 'Wartet auf das Passwort des Wechselrichters', percent: 60 },
+	wartet_auf_wechselrichter: { label: 'Wartet auf den Wechselrichter im Netz', percent: 60 },
 	items: { label: 'Datenpunkte', percent: 70 },
 	regeln: { label: 'Steuerung', percent: 80 },
 	overview: { label: 'Oberfläche', percent: 90 },
+	updater: { label: 'Selbst-Update wird eingerichtet', percent: 92 },
 	unvollstaendig: { label: 'Wartet, wird automatisch fortgesetzt', percent: 95 },
 	fertig: { label: 'Einrichtung abgeschlossen', percent: 100 }
 });
@@ -155,8 +157,20 @@ export async function consumeProvisionCode(code) {
 		from tenant t
 		where b.tenant_id = t.id and b.provision_code = ${normalized}
 			and b.provision_expires_at > now() and b.setup_phase <> 'fertig'
-		returning b.id, b.tenant_id, b.name, b.inverter_profile, b.status, b.capacity_kwh, b.pv_kwp, t.slug as tenant_slug, t.name as tenant_name`;
+		returning b.id, b.tenant_id, b.name, b.inverter_profile, b.status, b.capacity_kwh, b.pv_kwp, t.slug as tenant_slug, t.name as tenant_name,
+			(select m.name from member m where m.tenant_id = b.tenant_id and m.id = b.member_id) as member_name`;
 	if (!site) return null;
+	// openHAB-Admin-Konto: gleiches Passwort wie der Linux-Benutzer (steht in
+	// der openhabian.conf des Images und in der Anlagen-Detailansicht).
+	// Aeltere Anlagen ohne linux_password bekommen hier eines.
+	let linuxPassword = site.status?.linux_password;
+	if (!linuxPassword) {
+		linuxPassword = randomPassword();
+		await sql`
+			update battery_site set status = status || ${sql.json({ linux_password: linuxPassword })}
+			where tenant_id = ${site.tenant_id} and id = ${site.id}`;
+	}
+	const firstname = typeof site.member_name === 'string' ? site.member_name.trim().split(/\s+/)[0] : '';
 	return {
 		site,
 		config: {
@@ -165,12 +179,15 @@ export async function consumeProvisionCode(code) {
 			STROMKREIS_SITE_ID: String(site.id),
 			STROMKREIS_ANLAGE_NAME: site.name,
 			STROMKREIS_TENANT: site.tenant_slug,
+			STROMKREIS_VORNAME: firstname,
 			INVERTER_PROFILE: site.inverter_profile,
 			BATTERIE_KAPAZITAET_KWH: site.capacity_kwh == null ? '' : String(site.capacity_kwh),
 			PV_KWP: site.pv_kwp == null ? '' : String(site.pv_kwp),
 			MIN_BATTERY_CHARGE: String(site.status?.min_battery_charge ?? 20),
 			DEFAULT_MAIN_SWITCH: 'ON',
-			STATUS_INTERVAL_S: '300'
+			STATUS_INTERVAL_S: '300',
+			OH_ADMIN_USER: 'admin',
+			OH_ADMIN_PASSWORD: linuxPassword
 		}
 	};
 }

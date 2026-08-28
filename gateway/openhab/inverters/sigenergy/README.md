@@ -1,0 +1,213 @@
+# Sigenergy SigenStor (Modbus)
+
+Profil fuer Sigenergy-SigenStor-Anlagen (modularer Hybrid-Wechselrichter mit
+Batteriestack). Gesteuert wird ueber **Modbus TCP** und den **Remote
+EMS**-Modus des Sigenergy-Modbus-Protokolls - eine proprietaere
+Registerkarte auf Anlagenebene (Slave-Adresse 247), kein SunSpec:
+
+| Stromkreis-Aktion | Umsetzung |
+| --- | --- |
+| Reset (Werksverhalten) | `Remote EMS enable (40029) = 0` - die Anlage folgt wieder ihrem konfigurierten EMS-Modus |
+| Ladesperre | Modus 5 (Entladung, PV zuerst) + `ESS max discharging limit (40034) = 0` |
+| Laderegelung | KEIN `gwLimitCharge` - die Command-Charging-Modi koennten aus dem Netz laden und das Ladelimit-Register ist nicht verifiziert (Spike-Punkt); der Kern nutzt die PWM ueber die Ladesperre |
+| Forcierte Entladung | Modus 6 (Entladung, Batterie zuerst) + Entladelimit in Watt |
+| Fail-Safe | KEIN geraeteseitiges Auto-Revert bekannt - siehe Fail-Safe-Analyse |
+
+Besonderheiten gegenueber den SunSpec-Profilen:
+
+- Leistungslimits werden **direkt in Watt** geschrieben (Registerwert = W,
+  da Gain 1000 auf kW) - `appliedW` ist exakt, keine Prozent-Quantisierung.
+- Alle Reads laufen ueber **FC04** (Input-Register), auch fuer die
+  beschreibbaren Halteregister; geschrieben wird mit FC06/FC16. Die Poller
+  des Profils stehen deshalb auf `type: input`.
+- Sigenergy adressiert **literal**: Registeradresse 30014 heisst Adresse
+  30014 im Request (kein 30001er-Offset).
+- Das **PV-Limit (40036) wirkt in allen Kommando-Modi 3 bis 6**. Der
+  Adapter setzt es vor jedem Steuerbefehl auf das Anlagenmaximum (30010),
+  damit ein Altwert im Register die PV-Erzeugung nicht begrenzt.
+
+Quelle der Registerkarte: Sigenergy Modbus Protocol V1.7 (2024-04-09);
+aktuell ist V2.x - Abweichungen im Spike pruefen.
+
+## Voraussetzungen an der Anlage
+
+In der mySigen-App (teils nur mit Installateur-Zugang):
+
+1. **"ModBus TCP Server Enable"** aktivieren - Port 502
+2. **"Remote EMS Scheduling Enable"** aktivieren - ohne das ignoriert die
+   Anlage die Remote-EMS-Register
+
+Die Steuerung laeuft auf **Anlagenebene** (Slave 247): bei Anlagen mit
+mehreren SigenStor-Tuermen wird der gesamte Verbund kommandiert, nicht ein
+einzelner Wechselrichter.
+
+## Spike: Registerkarte am Geraet verifizieren (VOR der ersten Installation)
+
+Die Adressen in `profile.sh` und die Konstanten in `adapter.js` folgen dem
+offiziellen Sigenergy-Modbus-Protokoll (V1.7), sind aber noch **nicht am
+Geraet verifiziert**. Desk-Check gegen Protokoll V2.5 (2025-02-19):
+Registerkarte, Modi (Appendix 6), Vorzeichen (30037: > 0 laden) und
+Zugriffsarten (RO = FC04, RW = FC04/06/16) unveraendert; der Abschnitt
+"Interaction timeout" beschreibt weiterhin nur Request-Timing (min. 1 s
+Abstand), kein Auto-Revert.
+
+Werkzeug: `tools/spike_sigenstor.py` arbeitet die Punkte 2-9 direkt gegen
+die Anlage ab (nur Standardbibliothek, laeuft am Laptop wie am Pi) -
+read-only per `reads`/`watch`, steuernd per `toggle`/`prevent`/`discharge`/
+`failsafe` (mit Bestaetigung, Sicherheits-Reset bei Ctrl+C), Aufraeumen per
+`reset`; alles landet in `spike_sigenstor.log`. Zum Testen ohne Anlage
+siehe `tools/sim_sigenstor.py`:
+
+    python3 tools/sim_sigenstor.py --port 5020 &
+    python3 tools/spike_sigenstor.py 127.0.0.1 --port 5020 --yes reads toggle
+
+Checkliste (Ergebnis in die Tabelle unten eintragen, danach `profile.sh`/
+`adapter.js` anpassen):
+
+1. mySigen-App: beide Schalter (Modbus TCP, Remote EMS Scheduling)
+   aktivieren; Firmwarestand und Protokollversion der Anlage dokumentieren.
+2. Reads an Slave 247 verifizieren: `EMS work mode` (30003), `Plant ESS
+   SoC` (30014, Erwartung: Wert = % * 10, gegen die App-Anzeige pruefen ->
+   `MODBUS_SOC_GAIN`), `ESS power` (30037, Vorzeichen: > 0 = laden ->
+   `MODBUS_ESS_POWER_GAIN`), Nennleistungen (30068/30070).
+3. U32-Wortreihenfolge pruefen (Erwartung: Big Endian, High-Word zuerst -
+   sonst `uint32`/`int32` im Thing-Manifest gegen die `_swap`-Varianten
+   tauschen).
+4. Remote EMS einschalten (`40029 = 1`) und pruefen, dass `EMS work mode`
+   (30003) auf 7 springt; wieder ausschalten, Modus faellt zurueck.
+5. Modus-Wertetabelle (Appendix 6) bestaetigen: 3/4 = kommandiertes Laden,
+   5/6 = kommandierte Entladung -> `SIGEN_MODE_*` in `adapter.js`.
+6. Ladesperre testen: Modus 5 + Entladelimit 0. Pruefen: Batterie laedt
+   NICHT (auch bei PV-Ueberschuss), Batterie entlaedt nicht, PV versorgt
+   Haushalt und Netz normal weiter. Falls PV dabei einbricht oder die
+   Anlage den Zustand nicht annimmt: Alternative Modus 1 (Standby) testen
+   und `SIGEN_MODE_PREVENT_CHARGE` anpassen.
+7. **PV-Limit (40036)**: Default-Wert nach Werksreset lesen; Verhalten
+   pruefen, wenn es beim Eintritt in einen Kommando-Modus 0 oder klein ist.
+   Bestaetigen, dass das Setzen auf das Anlagenmaximum (30010) die
+   PV-Erzeugung freigibt.
+8. Forcierte Entladung testen: Modus 6 + Entladelimit x W; AC-Leistung
+   gegen die App/einen Zaehler messen (Erwartung: Registerwert = W).
+   Verhalten bei Limit > Nennleistung dokumentieren (Fehlercode oder
+   stilles Klemmen?).
+9. **Fail-Safe (Go/No-Go)**: Remote EMS mit aktiver Entladung stehen
+   lassen und den Modbus-Master trennen (openHAB stoppen). Faellt die
+   Anlage nach einem Timeout von selbst in den Normalbetrieb zurueck?
+   Ergebnis -> `SIGEN_HAS_AUTO_REVERT` in `adapter.js` (nur Doku) und
+   Abschnitt Fail-Safe-Analyse unten. Auch klaeren: beschreibt die
+   aktuelle Protokollversion (V2.x, "interaction timeout") ein solches
+   Verhalten?
+10. Dauerverhalten: bleibt der kommandierte Zustand ueber Stunden stehen
+    oder muss er zyklisch erneuert werden? (Stromkreis kommandiert ohnehin alle
+    5 Minuten neu.)
+
+### Spike-Protokoll 2026-08-25 (Mitglied 223, EC 10.0, abgebrochen)
+
+Erster Anlauf vor Ort, Anlage im WLAN (192.168.7.107). Ergebnis: **Port 502
+blieb geschlossen** (connection refused, kein einziger offener TCP-Port),
+obwohl in der mySigen-App "ModBus TCP Server aktivieren" gesetzt, der
+Betriebsmodus auf Fern-EMS gestellt und die Anlage per App neu gestartet
+wurde. Gelernt dabei:
+
+- App-"Neustart"/"Ausschalten" betrifft nur den Leistungsteil - das
+  Kommunikationsmodul (und damit der Modbus-Server) startet dabei NICHT
+  neu; die IP der Anlage bleibt durchgehend online.
+- Community-Befunde (Home-Assistant-Integrationen): gleiches Muster ueber
+  WLAN mehrfach berichtet und dort nie geloest - funktionierende Setups
+  laufen ueber den Ethernet-Port; teils musste der Installateur/der
+  Sigenergy-Support Modbus TCP aus der Ferne freischalten.
+- mySigen-Pfade (Endkunden-App): Modbus unter Geraet -> Einstellungen ->
+  ModBus-Parameter; Betriebsmodus (inkl. Fern-EMS) am Home-Screen unter
+  "Modus". "Remote EMS Scheduling Enable" war in der Endkunden-App nicht
+  sichtbar (Installer-Manual Kap. 2.3.1.5).
+
+Nach dem Abbruch wurde der Betriebsmodus in der App wieder auf
+Eigenverbrauch zurueckgesetzt (im Fern-EMS-Modus ohne Master wuerde die
+Anlage sonst auf Kommandos warten). Wichtig fuer den naechsten Anlauf:
+sobald Port 502 offen ist, findet der Pi die Anlage beim naechsten
+10-Minuten-Lauf und beginnt mit der unverifizierten Registerkarte zu
+schreiben. Deshalb steht auf pi-223 der Hauptschalter
+`Stromkreis_Aktiv` seit 2026-08-25 auf OFF: der Kern
+bricht dann vor dem zyklischen Reset ab (`control/core.js`, "Toggle=OFF -
+Tue nichts"), der Adapter schreibt nichts, das Bridge-Thing pollt nur
+(FC04). Die Init-Regel setzt den Schalter nur bei NULL/UNDEF auf ON, mapdb
+haelt den Zustand ueber Neustarts.
+
+Ablauf, sobald der Elektriker Modbus TCP freigeschaltet hat:
+
+1. Am Dashboard pruefen, dass `hauptschalter` im Status-Push noch OFF ist.
+2. Pi laufen lassen - `02b` findet die Anlage von selbst, das Thing geht
+   ONLINE, die Reads laufen bereits.
+3. Spike ueber den Pi fahren (`tools/spike_sigenstor.py`, per WireGuard
+   von s1 aus; Punkte 2 bis 10 der Checkliste), Registertabelle und
+   `SIGEN_HAS_AUTO_REVERT` befuellen, `profile.sh`/`adapter.js` anpassen
+   und auf den Pi bringen.
+4. Erst danach den Hauptschalter in der Main UI auf ON.
+
+Naechste Schritte: Elektriker/Installateur wegen Modbus-TCP-Freigabe
+kontaktieren (dabei Firmware-Stand erfragen); LAN-Kabel an den Energy
+Controller als Alternative zum WLAN. Werkzeug fuer den naechsten Anlauf:
+`tools/spike_sigenstor.py <ip> reads` (siehe oben).
+
+### Registertabelle (im Spike ausfuellen)
+
+| Register | Adresse | Typ | Gain | Gelesen/verifiziert |
+| --- | --- | --- | --- | --- |
+| EMS work mode | 30003 | uint16 | - | AUSSTEHEND |
+| Max active power | 30010 | uint32 | 1000 (kW -> W) | AUSSTEHEND |
+| Plant ESS SoC | 30014 | uint16 | 10 (-> % * 10) | AUSSTEHEND |
+| ESS power | 30037 | int32 | 1000 (kW -> W) | AUSSTEHEND |
+| Rated ESS charging power | 30068 | uint32 | 1000 | AUSSTEHEND |
+| Rated ESS discharging power | 30070 | uint32 | 1000 | AUSSTEHEND |
+| Remote EMS enable | 40029 | uint16 | - | AUSSTEHEND |
+| Remote EMS control mode | 40031 | uint16 | - | AUSSTEHEND |
+| ESS max charging limit | 40032 | uint32 | 1000 | AUSSTEHEND |
+| ESS max discharging limit | 40034 | uint32 | 1000 | AUSSTEHEND |
+| PV max power limit | 40036 | uint32 | 1000 | AUSSTEHEND |
+
+Firmwarestand: AUSSTEHEND | Protokollversion: AUSSTEHEND |
+Auto-Revert bei Kommunikationsverlust: AUSSTEHEND
+
+## Fail-Safe-Analyse
+
+Modbus-Writes **bleiben stehen**, wenn openHAB ausfaellt - und Sigenergy
+kennt (Stand Protokoll V1.7) kein geraeteseitiges Auto-Revert wie das
+SunSpec-`InOutWRte_RvrtTms`. Der Abschnitt "Interaction timeout" des
+Protokolls beschreibt nur Request-Timing, kein Steuerungs-Fallback.
+
+- Der Kern setzt die Steuerung in jedem 5-Minuten-Zyklus neu auf (Reset +
+  aktuelles Fenster) - haengengebliebene Zustaende ueberleben keinen
+  Zyklus, **solange openHAB laeuft**.
+- Restrisiko bei openHAB-Ausfall im Fenster: die Anlage bleibt im
+  kommandierten Zustand stehen. Bei aktiver Ladesperre laedt die Batterie
+  nicht mehr (Komfortverlust); bei aktiver forcierter Entladung entlaedt
+  sie mit dem zuletzt kommandierten Limit weiter, bis die Anlage an ihrer
+  eigenen Entladeuntergrenze stoppt. Das MUSS dem Mitglied kommuniziert
+  werden, solange Spike-Punkt 9 kein Auto-Revert nachweist.
+- Zusaetzlich moeglich (bisher nicht umgesetzt): ein systemd-Timer am Pi,
+  der `Remote EMS enable = 0` schreibt, wenn openHAB nicht laeuft.
+
+## Bekannte Grenzen
+
+- Die Netzwerksuche (Scan und Watchdog-Rediscover) erkennt eine SigenStor
+  nur an einer Modbus-Antwort auf Slave 247 - eine Seriennummer ist auf
+  Anlagenebene nicht lesbar. Stehen mehrere Modbus-TCP-Geraete mit Slave
+  247 im selben Netz, muss die IP von Hand gepflegt werden.
+- Gesteuert wird der gesamte Anlagenverbund (Slave 247), nicht einzelne
+  Wechselrichter oder Batterietuerme.
+- Die Registerkarte gilt fuer Protokoll V1.7; neuere Firmwarestaende im
+  Spike gegenpruefen.
+
+## Simulator (Tests ohne Anlage)
+
+`tools/sim_sigenstor.py` stellt einen Modbus-TCP-Server mit den
+Plant-Registern bereit (SoC 55%, Nennentladeleistung 8000 W) und
+protokolliert jeden Schreibzugriff - damit laesst sich die komplette
+Installation inklusive Steuerlogik gegen einen leeren openHAB testen
+(nur Standardbibliothek, kein pip noetig):
+
+    python3 tools/sim_sigenstor.py --port 5020
+
+Im Assistenten dann als Adresse `127.0.0.1` angeben. Port 502 braucht
+root; der Parameter `--port` erlaubt einen unprivilegierten Port, der dann
+im Bridge-Thing einzutragen ist.

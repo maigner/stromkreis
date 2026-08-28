@@ -24,3 +24,8 @@ docs/drafts/
 
 # lokale Zugangsdaten fuer die Test-EEGs (nie einchecken)
 ZUGANGSDATEN.md
+
+# Gateway-Paket (Build-Artefakte, erzeugt von gateway/openhab/setup/build-dist.sh)
+platform/static/gateway/stromkreis-gateway.tgz
+platform/static/gateway/stromkreis-gateway.tgz.sha256
+platform/static/gateway/VERSION

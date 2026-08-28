@@ -17,7 +17,9 @@ export async function load({ locals, params }) {
 	const [site] = await sql`
 		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address,
 			b.last_seen_at, b.setup_phase, b.setup_message, b.setup_phase_at, b.provision_code, b.provision_expires_at,
-			b.provisioned_at, b.capacity_kwh, b.pv_kwp, p.metering_point, p.direction as point_direction,
+			b.provisioned_at, b.capacity_kwh, b.pv_kwp, b.inverter_username,
+			(b.inverter_secret is not null) as has_inverter_secret,
+			p.metering_point, p.direction as point_direction,
 			coalesce(b.last_seen_at > now() - interval '10 minutes', false) as online,
 			extract(epoch from now() - b.last_seen_at)::int as seen_seconds_ago,
 			mem.name as member_name
@@ -67,5 +69,25 @@ export const actions = {
 		`;
 		if (!site) return fail(404, { message: 'Anlage nicht gefunden.' });
 		return { code };
+	},
+
+	// Zugangsdaten des Wechselrichters hinterlegen (z. B. Fronius GEN24,
+	// Benutzer "customer"): das Gateway holt sie einmalig ab, danach wird
+	// das Passwort hier geloescht - es liegt dann nur noch am Gateway.
+	wechselrichter_zugang: async ({ locals, params, request }) => {
+		if (!locals.user) redirect(303, '/');
+		const form = await request.formData();
+		const username = String(form.get('username') ?? '').trim().slice(0, 100);
+		const password = String(form.get('password') ?? '');
+		if (!password || password.length > 200) {
+			return fail(400, { message: 'Bitte das Passwort des Wechselrichters eingeben.' });
+		}
+		const [site] = await sql`
+			update battery_site set inverter_username = ${username || null}, inverter_secret = ${password}
+			where tenant_id = ${locals.user.tenant_id} and id = ${Number(params.id)}
+			returning id
+		`;
+		if (!site) return fail(404, { message: 'Anlage nicht gefunden.' });
+		return { secret_saved: true };
 	}
 };

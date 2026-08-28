@@ -7,6 +7,11 @@ HOST=server
 DIR=/home/martin/Container/stromkreis
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Gateway-Paket bauen (platform/static/gateway/stromkreis-gateway.tgz):
+# die Artefakte sind nicht eingecheckt und wandern mit dem rsync auf den
+# Server, wo die Plattform sie unter /gateway/ ausliefert.
+"$REPO/gateway/openhab/setup/build-dist.sh"
+
 rsync -az --delete \
     --exclude .git \
     --exclude node_modules \

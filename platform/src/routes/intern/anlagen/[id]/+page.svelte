@@ -2,7 +2,7 @@
 	import SdImage from '../../SdImage.svelte';
 	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from '../../site-format.js';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const site = $derived(data.site);
 	const conn = $derived(connectionState(data.site));
@@ -82,6 +82,46 @@
 				{#if site.metering_point}
 					<p class="mt-3 text-xs text-stone-600 dark:text-stone-400">Zählpunkt: {site.point_direction === 'generation' ? 'Erzeugung' : 'Verbrauch'} {site.metering_point}</p>
 				{/if}
+			</section>
+		{/if}
+
+		{#if site.setup_phase !== 'fertig' || site.has_inverter_secret}
+			<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900 {site.setup_phase === 'wartet_auf_passwort' ? 'border-amber-400 dark:border-amber-600' : ''}">
+				<h2 class="text-lg font-semibold">Zugang zum Wechselrichter</h2>
+				<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+					Manche Wechselrichter (z. B. Fronius GEN24) brauchen für die Batteriesteuerung Benutzer und Passwort.
+					Das Gateway holt die Angaben einmalig ab; danach wird das Passwort hier gelöscht und liegt nur noch auf dem Gateway.
+				</p>
+				{#if site.setup_phase === 'wartet_auf_passwort'}
+					<p class="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+						Die Einrichtung wartet gerade auf dieses Passwort.
+					</p>
+				{/if}
+				{#if form?.secret_saved}
+					<p class="mt-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-300">
+						Gespeichert. Das Gateway holt das Passwort innerhalb weniger Minuten ab.
+					</p>
+				{:else if site.has_inverter_secret}
+					<p class="mt-2 text-sm text-stone-600 dark:text-stone-400">Ein Passwort ist hinterlegt und wartet auf die Abholung durch das Gateway.</p>
+				{/if}
+				{#if form?.message}
+					<p class="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-300">{form.message}</p>
+				{/if}
+				<form method="POST" action="?/wechselrichter_zugang" class="mt-3 flex flex-wrap items-end gap-3">
+					<label class="block text-sm">
+						<span class="text-stone-600 dark:text-stone-400">Benutzer</span>
+						<input name="username" value={site.inverter_username ?? 'customer'} autocomplete="off"
+							class="mt-1 block rounded-md border border-stone-300 bg-white px-3 py-1.5 dark:border-stone-700 dark:bg-stone-950" />
+					</label>
+					<label class="block text-sm">
+						<span class="text-stone-600 dark:text-stone-400">Passwort</span>
+						<input name="password" type="password" autocomplete="new-password"
+							class="mt-1 block rounded-md border border-stone-300 bg-white px-3 py-1.5 dark:border-stone-700 dark:bg-stone-950" />
+					</label>
+					<button class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+						Speichern
+					</button>
+				</form>
 			</section>
 		{/if}
 

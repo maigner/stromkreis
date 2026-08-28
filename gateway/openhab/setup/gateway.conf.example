@@ -1,0 +1,64 @@
+# ============================================================================
+# Konfiguration des Stromkreis-Gateways (/etc/stromkreis/gateway.conf)
+#
+# Diese Datei entsteht automatisch: der Bootstrap
+# (https://stromkreis.net/gateway/install.sh) loest den Einrichtungscode der
+# SD-Karte bei der Plattform ein und schreibt die Antwort hierher;
+# 00-provision.sh ergaenzt die profilabhaengigen Werte. Von Hand editieren
+# ist nur fuer Sonderfaelle noetig. Enthaelt den Anlagen-Token - nur fuer
+# root lesbar (chmod 600).
+# ============================================================================
+
+# --- Von der Plattform (Bootstrap) ------------------------------------------
+STROMKREIS_BASE_URL="https://stromkreis.net"
+STROMKREIS_SITE_TOKEN="geheim"          # authentifiziert Status-Push und Datenabrufe
+STROMKREIS_SITE_ID="1"
+STROMKREIS_ANLAGE_NAME="Beispielanlage"
+STROMKREIS_TENANT="salzkammerstrom"
+STROMKREIS_VORNAME=""                   # Begruessung auf der Overview-Seite
+INVERTER_PROFILE="fronius-symo"         # Verzeichnisname unter inverters/
+BATTERIE_KAPAZITAET_KWH=""
+PV_KWP=""
+MIN_BATTERY_CHARGE="20"
+DEFAULT_MAIN_SWITCH="ON"                # Hauptschalter nach der Installation
+STATUS_INTERVAL_S="300"
+OH_ADMIN_USER="admin"                   # openHAB-Admin-Konto (legt 02b an)
+OH_ADMIN_PASSWORD="geheim"
+
+# --- Von 00-provision.sh (aus dem Wechselrichter-Profil) --------------------
+INVERTER_THING_UID="fronius:powerinverter:stromkreis:inverter1"
+SOC_ITEM="Fronius_Symo_Inverter_Battery_State_of_Charge"
+BATTERY_POWER_ITEM="Fronius_Symo_Inverter_Battery_Power"
+GRID_POWER_ITEM="Fronius_Symo_Inverter_Grid_Power"
+PV_POWER_ITEM="Fronius_Symo_Inverter_Solar_Plant_Power"
+AUTO_CREATE_THING="1"
+INVERTER_HOST=""                        # Adresse des Wechselrichters (Netzsuche)
+INVERTER_USERNAME="customer"
+INVERTER_PASSWORD=""                    # kommt einmalig von der Plattform (02b)
+INVERTER_HOST_THING_UID="fronius:bridge:stromkreis"
+INSTALL_STATUS_PUSH="1"
+STROMKREIS_PROVISIONED="1"
+
+# --- Optional (Vorgaben aus lib/common.sh, hier nur bei Abweichung) ---------
+# OH_API_TOKEN="auto"          # openHAB-API-Token; "auto" erzeugt eines selbst
+# INSTALL_ADDONS="1"
+# INSTALL_PERSISTENCE="1"
+# INSTALL_OVERVIEW="1"         # Main-UI-Seiten installieren
+# INSTALL_WATCHDOG="1"         # Netzwerk-Watchdog (findet neue IP des Wechselrichters)
+# INSTALL_PASSWORD_CHANGE="1"  # Standardpasswoerter pruefen/aendern
+# INSTALL_AUTO_UPDATE="1"      # Selbst-Update des Pakets (stromkreis-update.timer)
+# CRON_BATTERY="0 */5 * * * ?"       # Batteriesteuerung
+# CRON_CLOUD="0 40 * * * ?"          # Wolkenvorschau abholen
+# CRON_CROSSOVER="0 5 4 * * ?"       # Crossover-Zeiten abholen
+# CRON_LADESPERRE="0 50 * * * ?"     # Ladesperre-Fenster abholen
+# CRON_STATUS="0 * * * * ?"          # Status-Push
+# DEFAULT_MIN_BATTERY_CHARGE="20"
+# DEFAULT_MIN_DISCHARGE_W="1000"
+# DEFAULT_MAX_DISCHARGE_W="3000"
+# DEFAULT_LADESPERRE_AKTIV="ON"
+# DEFAULT_WOLKEN_SCHWELLE="75"
+# DEFAULT_ENTLADUNG_AKTIV="ON"
+# DEFAULT_DYNAMISCHE_LEISTUNG="ON"
+# DEFAULT_LADESPERRE_LOKAL="ON"
+# DEFAULT_LADEREGELUNG="ON"
+# DEFAULT_NETZLADESCHUTZ="ON"

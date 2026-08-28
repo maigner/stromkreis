@@ -86,6 +86,8 @@ CREATE TABLE public.battery_site (
     measurement_point_id bigint,
     capacity_kwh numeric(8,2),
     pv_kwp numeric(8,2),
+    inverter_username text,
+    inverter_secret text,
     CONSTRAINT battery_site_provision_code_format CHECK (((provision_code IS NULL) OR (provision_code ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$'::text)))
 );
 
@@ -1135,4 +1137,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260826200100'),
     ('20260826210000'),
     ('20260826220000'),
-    ('20260827100000');
+    ('20260827100000'),
+    ('20260828120000');

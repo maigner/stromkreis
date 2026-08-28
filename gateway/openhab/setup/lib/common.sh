@@ -1,0 +1,1000 @@
+#!/usr/bin/env bash
+# ============================================================================
+# Gemeinsame Helfer fuer die Gateway-Setup-Skripte.
+# Wird von den nummerierten Skripten per `. lib/common.sh` eingebunden.
+# ============================================================================
+
+# openHAB-Pfade einer paketbasierten Installation (openHABian).
+# Ueber Umgebungsvariablen ueberschreibbar.
+OPENHAB_CONF="${OPENHAB_CONF:-/etc/openhab}"
+OPENHAB_USERDATA="${OPENHAB_USERDATA:-/var/lib/openhab}"
+OPENHAB_LOGDIR="${OPENHAB_LOGDIR:-/var/log/openhab}"
+OPENHAB_USER="${OPENHAB_USER:-openhab}"
+# Anforderungen des Dashboards an den Pi (Status-Push legt Marker ab, der
+# root-Timer stromkreis-update wertet sie aus - siehe 09-install-updater.sh).
+GW_REQUEST_DIR="${GW_REQUEST_DIR:-/var/lib/stromkreis/requests}"
+GW_UPDATE_FLAG="$GW_REQUEST_DIR/update-requested"
+OPENHAB_GROUP="${OPENHAB_GROUP:-openhab}"
+
+# Verzeichnis, in dem die Setup-Skripte liegen
+GW_SETUP_DIR="${GW_SETUP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+# Verzeichnis mit den openHAB-Skripten (eine Ebene ueber setup/)
+GW_SCRIPT_DIR="${GW_SCRIPT_DIR:-$(cd "$GW_SETUP_DIR/.." && pwd)}"
+
+# Verzeichnis mit den Wechselrichter-Profilen
+GW_INVERTER_DIR="${GW_INVERTER_DIR:-$GW_SCRIPT_DIR/inverters}"
+
+# Konfiguration der Anlage: schreibt der Bootstrap (platform/static/gateway/
+# install.sh) beim Einloesen des Einrichtungscodes; 00-provision.sh ergaenzt
+# die profilabhaengigen Werte.
+GATEWAY_CONF="${GATEWAY_CONF:-/etc/stromkreis/gateway.conf}"
+
+log()  { echo "[Stromkreis] $*"; }
+warn() { echo "[Stromkreis] WARNUNG: $*" >&2; }
+die()  { echo "[Stromkreis] FEHLER: $*" >&2; exit 1; }
+
+require_root() {
+  [ "$(id -u)" -eq 0 ] || die "Bitte mit sudo ausfuehren: sudo $0"
+}
+
+require_openhab() {
+  [ -d "$OPENHAB_CONF" ] || die "$OPENHAB_CONF nicht gefunden - ist openHAB installiert?"
+}
+
+# ---------------------------------------------------------------------------
+# Eingaben
+#
+# Liest bevorzugt von /dev/tty, damit die Abfragen auch dann funktionieren,
+# wenn das Skript ueber eine Pipe gestartet wurde (curl ... | sudo bash).
+# ---------------------------------------------------------------------------
+has_tty() { [ -r /dev/tty ]; }
+
+# ask VARNAME "Frage" ["Vorgabe"]
+ask() {
+  local __var="$1" __question="$2" __default="${3:-}" __input="" __prompt
+
+  if [ -n "$__default" ]; then
+    __prompt="[Stromkreis] ${__question} [${__default}]: "
+  else
+    __prompt="[Stromkreis] ${__question}: "
+  fi
+
+  if [ "${STROMKREIS_ASSUME_YES:-0}" = "1" ]; then
+    printf -v "$__var" '%s' "$__default"
+    log "${__question} -> ${__default} (STROMKREIS_ASSUME_YES=1)"
+    return 0
+  fi
+
+  if has_tty; then
+    read -r -p "$__prompt" __input < /dev/tty || true
+  else
+    read -r -p "$__prompt" __input || true
+  fi
+
+  [ -z "$__input" ] && __input="$__default"
+  printf -v "$__var" '%s' "$__input"
+}
+
+# ask_secret VARNAME "Frage" - verdeckte Eingabe mit Wiederholung.
+# Laesst leere Eingabe zu (Aufrufer entscheidet, was dann passiert).
+# Ohne Terminal oder mit STROMKREIS_ASSUME_YES=1 bleibt die Variable leer.
+ask_secret() {
+  local __var="$1" __question="$2" __p1="" __p2="" __tries=0
+  printf -v "$__var" '%s' ""
+  if [ "${STROMKREIS_ASSUME_YES:-0}" = "1" ] || ! has_tty; then
+    return 0
+  fi
+  while [ "$__tries" -lt 3 ]; do
+    read -rs -p "[Stromkreis] ${__question}: " __p1 < /dev/tty || true
+    echo
+    [ -z "$__p1" ] && return 0
+    read -rs -p "[Stromkreis] Wiederholung: " __p2 < /dev/tty || true
+    echo
+    if [ "$__p1" = "$__p2" ]; then
+      printf -v "$__var" '%s' "$__p1"
+      return 0
+    fi
+    warn "Die Eingaben stimmen nicht ueberein."
+    __tries=$((__tries + 1))
+  done
+  return 0
+}
+
+# Rueckfrage vor heiklen Schritten. Mit STROMKREIS_ASSUME_YES=1 uebersprungen.
+confirm() {
+  local prompt="$1" answer=""
+  if [ "${STROMKREIS_ASSUME_YES:-0}" = "1" ]; then
+    log "$prompt -> automatisch bestaetigt (STROMKREIS_ASSUME_YES=1)"
+    return 0
+  fi
+  if has_tty; then
+    read -r -p "[Stromkreis] $prompt [j/N] " answer < /dev/tty || true
+  else
+    read -r -p "[Stromkreis] $prompt [j/N] " answer || true
+  fi
+  case "$answer" in
+    [jJ]|[jJ][aA]|[yY]|[yY][eE][sS]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# Konfiguration und Wechselrichter-Profil
+# ---------------------------------------------------------------------------
+
+# Liste der verfuegbaren Wechselrichter-Profile (Verzeichnisnamen).
+list_inverters() {
+  local d
+  for d in "$GW_INVERTER_DIR"/*/; do
+    [ -f "${d}profile.sh" ] || continue
+    basename "$d"
+  done
+}
+
+# Laedt inverters/<typ>/profile.sh und prueft die Pflichtfelder.
+load_profile() {
+  local type="${1:-${INVERTER_PROFILE:-fronius}}"
+  local profile="$GW_INVERTER_DIR/$type/profile.sh"
+
+  [ -f "$profile" ] || die "Unbekannter Wechselrichter-Typ '$type'. Verfuegbar: $(list_inverters | tr '\n' ' ')"
+
+  # Werte und Funktionen eines eventuell vorher geladenen Profils verwerfen -
+  # sie duerfen nicht in ein anderes Profil "durchsickern". (Keine dieser
+  # Variablen steht in gateway.conf; dort stehen nur INVERTER_PROFILE, die
+  # anlagenspezifischen UIDs/Items und die Zugangsdaten.)
+  unset INVERTER_LABEL INVERTER_BINDING INVERTER_BINDINGS \
+        INVERTER_THING_PREFIX INVERTER_SOC_CHANNEL \
+        INVERTER_ADAPTER_SCRIPT INVERTER_CONTROL_SCRIPT \
+        INVERTER_SOC_PLACEHOLDER INVERTER_BATTERY_POWER_CHANNEL \
+        INVERTER_BATTERY_POWER_PLACEHOLDER INVERTER_GRID_POWER_CHANNEL \
+        INVERTER_GRID_POWER_PLACEHOLDER INVERTER_PV_POWER_CHANNEL \
+        INVERTER_PV_POWER_PLACEHOLDER INVERTER_NOTES \
+        INVERTER_HOST_THING_PREFIX INVERTER_HOST_PARAM \
+        INVERTER_REDISCOVER_SCRIPT INVERTER_DEFAULT_USERNAME \
+        INVERTER_USER_PARAM INVERTER_PASSWORD_PARAM \
+        INVERTER_THING_EXTRA_CONFIG INVERTER_AUTO_THING_UID 2>/dev/null || true
+  unset -f inverter_scan_hosts inverter_things_json inverter_battery_items inverter_verify 2>/dev/null || true
+
+  # shellcheck disable=SC1090
+  . "$profile"
+  INVERTER_PROFILE="$type"
+
+  # Bindings: INVERTER_BINDINGS (Leerzeichen-getrennte Liste) oder das
+  # aeltere INVERTER_BINDING (ein Addon). INVERTER_BINDING bleibt fuer
+  # Anzeigen/Meldungen auf das erste Binding gesetzt.
+  INVERTER_BINDINGS="${INVERTER_BINDINGS:-${INVERTER_BINDING:-}}"
+  [ -n "$INVERTER_BINDINGS" ] || die "INVERTER_BINDINGS (oder INVERTER_BINDING) fehlt in $profile"
+  INVERTER_BINDING="${INVERTER_BINDING:-${INVERTER_BINDINGS%% *}}"
+
+  : "${INVERTER_THING_PREFIX:?INVERTER_THING_PREFIX fehlt in $profile}"
+  : "${INVERTER_SOC_PLACEHOLDER:?INVERTER_SOC_PLACEHOLDER fehlt in $profile}"
+
+  # Steuerung: entweder Adapter + gemeinsamer Kern (control/core.js) oder -
+  # als Rueckfall fuer aeltere/fremde Profile - ein eigenstaendiges
+  # Steuerungsskript, das den ganzen Kern selbst mitbringt.
+  INVERTER_ADAPTER_SCRIPT="${INVERTER_ADAPTER_SCRIPT:-}"
+  INVERTER_CONTROL_SCRIPT="${INVERTER_CONTROL_SCRIPT:-}"
+  if [ -n "$INVERTER_ADAPTER_SCRIPT" ]; then
+    GW_CONTROL_MODE="adapter"
+  elif [ -n "$INVERTER_CONTROL_SCRIPT" ]; then
+    GW_CONTROL_MODE="legacy"
+  else
+    die "INVERTER_ADAPTER_SCRIPT (oder INVERTER_CONTROL_SCRIPT) fehlt in $profile"
+  fi
+
+  INVERTER_LABEL="${INVERTER_LABEL:-$type}"
+  INVERTER_SOC_CHANNEL="${INVERTER_SOC_CHANNEL:-soc}"
+  INVERTER_NOTES="${INVERTER_NOTES:-}"
+
+  # Optional: Batterieleistung fuer die Overview-Seite (nur wenn das Profil
+  # Channel und Platzhalter kennt)
+  INVERTER_BATTERY_POWER_CHANNEL="${INVERTER_BATTERY_POWER_CHANNEL:-}"
+  INVERTER_BATTERY_POWER_PLACEHOLDER="${INVERTER_BATTERY_POWER_PLACEHOLDER:-}"
+  INVERTER_GRID_POWER_CHANNEL="${INVERTER_GRID_POWER_CHANNEL:-}"
+  INVERTER_GRID_POWER_PLACEHOLDER="${INVERTER_GRID_POWER_PLACEHOLDER:-}"
+  INVERTER_PV_POWER_CHANNEL="${INVERTER_PV_POWER_CHANNEL:-}"
+  INVERTER_PV_POWER_PLACEHOLDER="${INVERTER_PV_POWER_PLACEHOLDER:-}"
+
+  # Optional: Netzwerk-Watchdog (nur wenn das Profil eine Netzwerksuche hat)
+  INVERTER_HOST_THING_PREFIX="${INVERTER_HOST_THING_PREFIX:-}"
+  INVERTER_HOST_PARAM="${INVERTER_HOST_PARAM:-hostname}"
+  INVERTER_REDISCOVER_SCRIPT="${INVERTER_REDISCOVER_SCRIPT:-}"
+
+  # Optional: automatisches Anlegen der Things (02b-install-things.sh);
+  # braucht INVERTER_HOST_THING_PREFIX als Bridge-Thing-Typ
+  INVERTER_DEFAULT_USERNAME="${INVERTER_DEFAULT_USERNAME:-}"
+  INVERTER_USER_PARAM="${INVERTER_USER_PARAM:-}"
+  INVERTER_PASSWORD_PARAM="${INVERTER_PASSWORD_PARAM:-}"
+  INVERTER_THING_EXTRA_CONFIG="${INVERTER_THING_EXTRA_CONFIG:-}"
+
+  # Thing-UID, die der Assistent beim automatischen Anlegen vergibt. Profile
+  # mit eigenem Thing-Baum (inverter_things_json) setzen hier ihr Haupt-Thing
+  # - das Segmentmuster *:stromkreis:* markiert es als "von Stromkreis verwaltet" (03).
+  INVERTER_AUTO_THING_UID="${INVERTER_AUTO_THING_UID:-${INVERTER_THING_PREFIX}:stromkreis:inverter1}"
+
+  # Optionale Profilfunktionen (Kontrakt siehe inverters/README.md):
+  #   inverter_scan_hosts    - Netzsuche, eine IP je Zeile
+  #   inverter_things_json   - geordnetes JSON-Array der anzulegenden Things
+  #   inverter_battery_items - .items-Zeilen der Batterie-/Steuer-Items
+  #   inverter_verify        - zusaetzliche Pruefungen fuer 06-verify.sh
+
+  log "Wechselrichter-Profil geladen: $INVERTER_LABEL ($type)"
+}
+
+# Konfiguration laden, Pflichtfelder pruefen, Profil einbinden.
+load_config() {
+  [ -f "$GATEWAY_CONF" ] || die "$GATEWAY_CONF fehlt - zuerst den Bootstrap laufen lassen (curl -fsSL <plattform>/gateway/install.sh | sudo bash)."
+  # shellcheck disable=SC1090
+  . "$GATEWAY_CONF"
+  log "Konfiguration geladen: $GATEWAY_CONF"
+
+  : "${INVERTER_THING_UID:?INVERTER_THING_UID fehlt in gateway.conf}"
+  : "${SOC_ITEM:?SOC_ITEM fehlt in gateway.conf}"
+  : "${STROMKREIS_BASE_URL:?STROMKREIS_BASE_URL fehlt in gateway.conf}"
+
+  # Defaults, falls eine aeltere gateway.conf noch nicht alles kennt
+  INVERTER_PROFILE="${INVERTER_PROFILE:-fronius-symo}"
+  BATTERY_POWER_ITEM="${BATTERY_POWER_ITEM:-}"
+  GRID_POWER_ITEM="${GRID_POWER_ITEM:-}"
+  PV_POWER_ITEM="${PV_POWER_ITEM:-}"
+  CRON_BATTERY="${CRON_BATTERY:-0 */5 * * * ?}"
+  CRON_CLOUD="${CRON_CLOUD:-0 40 * * * ?}"
+  CRON_CROSSOVER="${CRON_CROSSOVER:-0 5 4 * * ?}"
+  CRON_LADESPERRE="${CRON_LADESPERRE:-0 50 * * * ?}"
+  CRON_INIT="${CRON_INIT:-0 */10 * * * ?}"
+  CRON_PAUSE="${CRON_PAUSE:-0 30 0 * * ?}"
+  DEFAULT_MIN_BATTERY_CHARGE="${DEFAULT_MIN_BATTERY_CHARGE:-20}"
+  DEFAULT_MIN_DISCHARGE_W="${DEFAULT_MIN_DISCHARGE_W:-1000}"
+  DEFAULT_MAX_DISCHARGE_W="${DEFAULT_MAX_DISCHARGE_W:-3000}"
+  DEFAULT_LADESPERRE_AKTIV="${DEFAULT_LADESPERRE_AKTIV:-ON}"
+  DEFAULT_WOLKEN_SCHWELLE="${DEFAULT_WOLKEN_SCHWELLE:-75}"
+  DEFAULT_ENTLADUNG_AKTIV="${DEFAULT_ENTLADUNG_AKTIV:-ON}"
+  DEFAULT_DYNAMISCHE_LEISTUNG="${DEFAULT_DYNAMISCHE_LEISTUNG:-ON}"
+  DEFAULT_LADESPERRE_LOKAL="${DEFAULT_LADESPERRE_LOKAL:-ON}"
+  DEFAULT_LADEREGELUNG="${DEFAULT_LADEREGELUNG:-ON}"
+  DEFAULT_NETZLADESCHUTZ="${DEFAULT_NETZLADESCHUTZ:-ON}"
+  INSTALL_ADDONS="${INSTALL_ADDONS:-1}"
+  INSTALL_PERSISTENCE="${INSTALL_PERSISTENCE:-1}"
+  # Stromkreis-Gateways werden immer provisioniert - die Main-UI-Seiten,
+  # der Watchdog, die Passwort-Pruefung und das API-Token sind Standard.
+  INSTALL_OVERVIEW="${INSTALL_OVERVIEW:-1}"
+  INSTALL_WATCHDOG="${INSTALL_WATCHDOG:-1}"
+  INSTALL_AUTO_UPDATE="${INSTALL_AUTO_UPDATE:-1}"
+  INVERTER_HOST_THING_UID="${INVERTER_HOST_THING_UID:-}"
+  OH_API_TOKEN="${OH_API_TOKEN:-auto}"
+  CRON_WATCHDOG="${CRON_WATCHDOG:-0 7/15 * * * ?}"
+  WATCHDOG_COOLDOWN_MIN="${WATCHDOG_COOLDOWN_MIN:-10}"
+  INSTALL_PASSWORD_CHANGE="${INSTALL_PASSWORD_CHANGE:-1}"
+
+  # Automatisches Anlegen des Wechselrichter-Things (02b-install-things.sh)
+  AUTO_CREATE_THING="${AUTO_CREATE_THING:-0}"
+  INVERTER_HOST="${INVERTER_HOST:-}"
+  INVERTER_USERNAME="${INVERTER_USERNAME:-}"
+  INVERTER_PASSWORD="${INVERTER_PASSWORD:-}"
+
+  # Hauptschalter nach der Installation: die Plattform gibt ihn vor
+  # (DEFAULT_MAIN_SWITCH in der Provisionierungsantwort, Standard ON).
+  DEFAULT_MAIN_SWITCH="${DEFAULT_MAIN_SWITCH:-ON}"
+
+  # Zero-Touch-Provisionierung (00-provision.sh): das openHAB-Admin-Konto
+  # kommt von der Plattform statt aus der Main UI.
+  STROMKREIS_PROVISIONED="${STROMKREIS_PROVISIONED:-0}"
+  OH_ADMIN_USER="${OH_ADMIN_USER:-}"
+  OH_ADMIN_PASSWORD="${OH_ADMIN_PASSWORD:-}"
+  STROMKREIS_SITE_TOKEN="${STROMKREIS_SITE_TOKEN:-}"
+
+  load_profile "$INVERTER_PROFILE"
+
+  migrate_config
+}
+
+# ---------------------------------------------------------------------------
+# Konfig-Migration
+#
+# Bringt eine aeltere gateway.conf nach einem Paket-Update automatisch auf den
+# aktuellen Stand - ein Paket-Update genuegt, manuelles Editieren der
+# gateway.conf ist nicht noetig. Massstab ist die Datei, nicht die Variable:
+# nur Schluessel, die in der gateway.conf noch gar nicht vorkommen (die Datei
+# stammt also von vor dem jeweiligen Feature), werden mit dem Wert ergaenzt,
+# den der Assistent heute vorgeben wuerde. Ein vorhandener, bewusst leer
+# gesetzter Schluessel bleibt unangetastet. Laeuft bei jedem load_config
+# und ist idempotent.
+#
+# Interaktive Nachruestungen (Status-Push-Token) bleiben Sache der
+# Einzelschritte - hier wird nur ergaenzt, was ohne Rueckfrage entscheidbar
+# ist.
+# ---------------------------------------------------------------------------
+
+# Ergaenzt ein fehlendes Leistungs-Item: bei der automatischen Einrichtung
+# der Standardname aus dem Profil (wie im Assistenten); am klassischen Weg
+# das bereits verknuepfte Item, ersatzweise ebenfalls der Standardname.
+#   $1 Schluessel  $2 Profil-Standardname  $3 detect-Funktion
+migrate_config_item() {
+  local key="$1" placeholder="$2" detect="$3" value=""
+  [ -n "$placeholder" ] || return 0
+  grep -qE "^${key}=" "$GATEWAY_CONF" && return 0
+  if [ "$AUTO_CREATE_THING" = "1" ]; then
+    value="$placeholder"
+  else
+    value="$("$detect" "$INVERTER_THING_UID" | head -n 1)"
+    value="${value:-$placeholder}"
+  fi
+  conf_set "$key" "$value"
+  printf -v "$key" '%s' "$value"
+  migrated_keys="${migrated_keys} ${key}"
+}
+
+# Ersetzt den ALTEN Vorgabewert eines Schluessels durch den neuen: nur wenn
+# der Schluessel exakt auf dem frueheren Standard steht (der Betreiber ihn
+# also nie angepasst hat), wird der neue Standard eingetragen. Ein bewusst
+# gesetzter eigener Wert bleibt unangetastet.
+#   $1 Schluessel  $2 alter Standardwert  $3 neuer Standardwert
+migrate_config_default() {
+  local key="$1" old="$2" new="$3" current
+  current="$(sed -n "s/^${key}=\"\{0,1\}\([^\"]*\)\"\{0,1\}\$/\1/p" "$GATEWAY_CONF" | head -n 1)"
+  [ "$current" = "$old" ] || return 0
+  conf_set "$key" "$new"
+  printf -v "$key" '%s' "$new"
+  migrated_keys="${migrated_keys} ${key}"
+}
+
+migrate_config() {
+  # Ohne Schreibrecht (z. B. Aufruf ohne root) nichts anfassen - der
+  # naechste Lauf mit sudo holt die Migration nach.
+  [ -w "$GATEWAY_CONF" ] || return 0
+
+  migrated_keys=""
+  migrate_config_item BATTERY_POWER_ITEM "$INVERTER_BATTERY_POWER_PLACEHOLDER" detect_battery_power_items
+  migrate_config_item GRID_POWER_ITEM "$INVERTER_GRID_POWER_PLACEHOLDER" detect_grid_power_items
+  migrate_config_item PV_POWER_ITEM "$INVERTER_PV_POWER_PLACEHOLDER" detect_pv_power_items
+  # Status-Push seit 2026-08 minuetlich (voller Zustand weiterhin alle
+  # 5 Minuten); aeltere Installationen tragen noch den 5-Minuten-Cron.
+  migrate_config_default CRON_STATUS "0 2/5 * * * ?" "0 * * * * ?"
+
+  if [ -n "$migrated_keys" ]; then
+    log "gateway.conf um neue Schluessel ergaenzt (Paket-Update):${migrated_keys}"
+  fi
+  unset migrated_keys
+}
+
+# Setzt einen Schluessel in der bestehenden gateway.conf (Wert in Anfuehrungs-
+# zeichen). Beliebige Werte erlaubt - Sonderzeichen (\ " $ `) werden fuer
+# die Bash-Doppelquotes entschaerft; der Rest der Datei bleibt unangetastet.
+conf_set() {
+  local key="$1" value="$2"
+  [ -f "$GATEWAY_CONF" ] || die "conf_set: $GATEWAY_CONF fehlt."
+  GW_CS_KEY="$key" GW_CS_VALUE="$value" GW_CS_FILE="$GATEWAY_CONF" python3 - <<'PY'
+import os, re
+key, value, path = os.environ["GW_CS_KEY"], os.environ["GW_CS_VALUE"], os.environ["GW_CS_FILE"]
+esc = re.sub(r'([\\"$`])', r'\\\1', value)
+line = f'{key}="{esc}"'
+with open(path) as f:
+    lines = f.read().split("\n")
+pat = re.compile(r'^' + re.escape(key) + r'=')
+found = False
+for i, l in enumerate(lines):
+    if pat.match(l):
+        lines[i] = line
+        found = True
+if not found:
+    if lines and lines[-1] == "":
+        lines.insert(len(lines) - 1, line)
+    else:
+        lines.append(line)
+with open(path, "w") as f:
+    f.write("\n".join(lines))
+PY
+}
+
+# ---------------------------------------------------------------------------
+# Thing-Manifest
+#
+# inverter_things_json() liefert ein geordnetes JSON-Array der anzulegenden
+# Things: [{"UID","thingTypeUID","bridgeUID"?,"label","configuration"},...].
+# Diese Helfer zerlegen es fuer 02b-install-things.sh und purge-gateway.sh.
+# ---------------------------------------------------------------------------
+
+# Manifest (stdin) -> "UID<TAB>kompaktes JSON" je Thing, in Array-Reihenfolge.
+things_manifest_lines() {
+  python3 -c '
+import json, sys
+for t in json.load(sys.stdin):
+    print(t["UID"] + "\t" + json.dumps(t))
+'
+}
+
+# Manifest (stdin) -> nur die UIDs, in umgekehrter Reihenfolge (Kinder vor
+# ihren Bridges - so loescht purge-gateway.sh von unten nach oben).
+things_manifest_uids_reverse() {
+  python3 -c '
+import json, sys
+for t in reversed(json.load(sys.stdin)):
+    print(t["UID"])
+'
+}
+
+# ---------------------------------------------------------------------------
+# Erkennung in der openHAB-JSONDB (Best effort - der Assistent laesst die
+# Werte immer bestaetigen oder ueberschreiben)
+# ---------------------------------------------------------------------------
+
+# Kandidaten fuer die Thing-UID des Wechselrichters.
+# Optionales Argument: abweichendes UID-Praefix (z. B. die Bridge).
+detect_thing_uids() {
+  local prefix="${1:-$INVERTER_THING_PREFIX}"
+  local db="$OPENHAB_USERDATA/jsondb/org.openhab.core.thing.Thing.json"
+  [ -f "$db" ] || return 0
+  # Thing-UIDs haben 3 bis 5 Segmente (5 bei genesteten Bridges wie
+  # modbus:data:<bridge>:<poller>:<id>); alles Laengere ist eine Channel-UID.
+  # "|| true": ohne Treffer beendet grep sich mit 1, und unter dem
+  # "set -euo pipefail" der Aufrufer wuerde das die Funktion abbrechen.
+  grep -o "\"${prefix}:[^\"]*\"" "$db" 2>/dev/null \
+    | tr -d '"' \
+    | awk -F: 'NF>=3 && NF<=5' \
+    | sort -u || true
+}
+
+# Kandidaten fuer das SoC-Item. Zuerst ueber die Channel-Verknuepfung,
+# ersatzweise ueber Itemnamen, die nach Ladestand aussehen.
+detect_soc_items() {
+  local thing_uid="${1:-}"
+  local linkdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.thing.link.ItemChannelLink.json"
+  local itemdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.items.Item.json"
+  local found=""
+
+  # In der JSONDB heissen die Link-Schluessel "<Item> -> <channelUID>".
+  # "|| true" jeweils: ohne Treffer beendet grep sich mit 1, und unter dem
+  # "set -euo pipefail" der Aufrufer wuerde das die Funktion abbrechen,
+  # bevor die Ersatzsuchen laufen.
+  if [ -n "$thing_uid" ] && [ -f "$linkdb" ]; then
+    found="$(grep -o "\"[^\"]* -> ${thing_uid}:${INVERTER_SOC_CHANNEL}\"" "$linkdb" 2>/dev/null \
+             | sed -e 's/^"//' -e 's/ ->.*//' | sort -u || true)"
+  fi
+
+  # Ersatzweise andere Channels desselben Things, die nach Ladestand
+  # aussehen - die Channel-ID variiert je nach Binding-Version.
+  if [ -z "$found" ] && [ -n "$thing_uid" ] && [ -f "$linkdb" ]; then
+    found="$(grep -ioE "\"[^\"]+ -> ${thing_uid}:[^\"]*(soc|charge|ladestand|akku)[^\"]*\"" "$linkdb" 2>/dev/null \
+             | sed -e 's/^"//' -e 's/ ->.*//' | sort -u || true)"
+  fi
+
+  # Datei-Items: bei der automatischen Einrichtung schreibt
+  # 03-install-items.sh das SoC-Item mit Channel-Verknuepfung in stromkreis.items.
+  if [ -z "$found" ] && [ -f "$OPENHAB_CONF/items/stromkreis.items" ]; then
+    found="$(grep -E "channel=\"[^\"]*:${INVERTER_SOC_CHANNEL}\"" "$OPENHAB_CONF/items/stromkreis.items" 2>/dev/null \
+             | awk '{print $2}' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -f "$itemdb" ]; then
+    found="$(grep -o '"[A-Za-z0-9_]*"' "$itemdb" 2>/dev/null \
+             | tr -d '"' \
+             | grep -Ei 'soc|state_?of_?charge|ladestand' \
+             | sort -u || true)"
+  fi
+
+  printf '%s' "$found"
+}
+
+# Kandidaten fuer das Batterieleistungs-Item (Overview-Seite). Zuerst ueber
+# die Channel-Verknuepfung, ersatzweise ueber Itemnamen.
+detect_battery_power_items() {
+  local thing_uid="${1:-}"
+  local linkdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.thing.link.ItemChannelLink.json"
+  local itemdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.items.Item.json"
+  local found=""
+
+  # "|| true" jeweils: siehe detect_soc_items.
+  if [ -n "$thing_uid" ] && [ -n "$INVERTER_BATTERY_POWER_CHANNEL" ] && [ -f "$linkdb" ]; then
+    found="$(grep -o "\"[^\"]* -> ${thing_uid}:${INVERTER_BATTERY_POWER_CHANNEL}\"" "$linkdb" 2>/dev/null \
+             | sed -e 's/^"//' -e 's/ ->.*//' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -n "$INVERTER_BATTERY_POWER_CHANNEL" ] && [ -f "$OPENHAB_CONF/items/stromkreis.items" ]; then
+    found="$(grep -E "channel=\"[^\"]*:${INVERTER_BATTERY_POWER_CHANNEL}\"" "$OPENHAB_CONF/items/stromkreis.items" 2>/dev/null \
+             | awk '{print $2}' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -f "$itemdb" ]; then
+    found="$(grep -o '"[A-Za-z0-9_]*"' "$itemdb" 2>/dev/null \
+             | tr -d '"' \
+             | grep -Ei 'battery_?power|batterieleistung|pakku' \
+             | sort -u || true)"
+  fi
+
+  printf '%s' "$found"
+}
+
+# Kandidaten fuer das Netzleistungs-Item (berechnete Netzeinspeisung aus der
+# Batterie). Gleiche Suchreihenfolge wie beim Batterieleistungs-Item.
+detect_grid_power_items() {
+  local thing_uid="${1:-}"
+  local linkdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.thing.link.ItemChannelLink.json"
+  local itemdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.items.Item.json"
+  local found=""
+
+  # "|| true" jeweils: siehe detect_soc_items.
+  if [ -n "$thing_uid" ] && [ -n "$INVERTER_GRID_POWER_CHANNEL" ] && [ -f "$linkdb" ]; then
+    found="$(grep -o "\"[^\"]* -> ${thing_uid}:${INVERTER_GRID_POWER_CHANNEL}\"" "$linkdb" 2>/dev/null \
+             | sed -e 's/^"//' -e 's/ ->.*//' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -n "$INVERTER_GRID_POWER_CHANNEL" ] && [ -f "$OPENHAB_CONF/items/stromkreis.items" ]; then
+    found="$(grep -E "channel=\"[^\"]*:${INVERTER_GRID_POWER_CHANNEL}\"" "$OPENHAB_CONF/items/stromkreis.items" 2>/dev/null \
+             | awk '{print $2}' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -f "$itemdb" ]; then
+    found="$(grep -o '"[A-Za-z0-9_]*"' "$itemdb" 2>/dev/null \
+             | tr -d '"' \
+             | grep -Ei 'grid_?power|netzleistung|pgrid' \
+             | sort -u || true)"
+  fi
+
+  printf '%s' "$found"
+}
+
+# Kandidaten fuer das PV-Leistungs-Item (Anzeige am Betreiber-Dashboard).
+# Gleiche Suchreihenfolge wie beim Batterieleistungs-Item.
+detect_pv_power_items() {
+  local thing_uid="${1:-}"
+  local linkdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.thing.link.ItemChannelLink.json"
+  local itemdb="$OPENHAB_USERDATA/jsondb/org.openhab.core.items.Item.json"
+  local found=""
+
+  # "|| true" jeweils: siehe detect_soc_items.
+  if [ -n "$thing_uid" ] && [ -n "$INVERTER_PV_POWER_CHANNEL" ] && [ -f "$linkdb" ]; then
+    found="$(grep -o "\"[^\"]* -> ${thing_uid}:${INVERTER_PV_POWER_CHANNEL}\"" "$linkdb" 2>/dev/null \
+             | sed -e 's/^"//' -e 's/ ->.*//' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -n "$INVERTER_PV_POWER_CHANNEL" ] && [ -f "$OPENHAB_CONF/items/stromkreis.items" ]; then
+    found="$(grep -E "channel=\"[^\"]*:${INVERTER_PV_POWER_CHANNEL}\"" "$OPENHAB_CONF/items/stromkreis.items" 2>/dev/null \
+             | awk '{print $2}' | sort -u || true)"
+  fi
+
+  if [ -z "$found" ] && [ -f "$itemdb" ]; then
+    found="$(grep -o '"[A-Za-z0-9_]*"' "$itemdb" 2>/dev/null \
+             | tr -d '"' \
+             | grep -Ei 'pv_?power|solar_?plant|ppv' \
+             | sort -u || true)"
+  fi
+
+  printf '%s' "$found"
+}
+
+# ---------------------------------------------------------------------------
+# Addons (addons.cfg)
+#
+# ACHTUNG: Sobald in addons.cfg eine Kategorie gesetzt ist, ist die Datei
+# fuer diese Kategorie massgeblich - siehe Warnung in README.md.
+# ---------------------------------------------------------------------------
+ADDONS_CFG="${ADDONS_CFG:-$OPENHAB_CONF/services/addons.cfg}"
+
+# Legt addons.cfg an bzw. sichert die bestehende Datei.
+addons_cfg_prepare() {
+  mkdir -p "$(dirname "$ADDONS_CFG")"
+  if [ ! -f "$ADDONS_CFG" ]; then
+    log "addons.cfg existiert nicht und wird angelegt: $ADDONS_CFG"
+    : > "$ADDONS_CFG"
+    chown "$OPENHAB_USER:$OPENHAB_GROUP" "$ADDONS_CFG" 2>/dev/null || true
+  else
+    cp -a "$ADDONS_CFG" "$ADDONS_CFG.bak-$(date +%Y%m%d%H%M%S)"
+    log "Backup angelegt: $ADDONS_CFG.bak-*"
+  fi
+}
+
+# Steht der Wert bereits in der kommaseparierten Liste der Kategorie?
+addons_cfg_has() {
+  local key="$1" value="$2" current
+  [ -f "$ADDONS_CFG" ] || return 1
+  current="$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$ADDONS_CFG" 2>/dev/null | head -n1 | cut -d= -f2- | tr -d '[:space:]')"
+  case ",${current}," in
+    *",${value},"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Haengt einen Wert an die kommaseparierte Liste einer Kategorie an, ohne
+# Duplikate und ohne bestehende Werte zu ueberschreiben.
+addons_cfg_add() {
+  local key="$1" value="$2" current merged
+  if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$ADDONS_CFG"; then
+    if addons_cfg_has "$key" "$value"; then
+      log "${key}: '${value}' bereits eingetragen."
+      return 0
+    fi
+    current="$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$ADDONS_CFG" | head -n1 | cut -d= -f2- | tr -d '[:space:]')"
+    merged="${current:+${current},}${value}"
+    sed -i -E "s|^[[:space:]]*${key}[[:space:]]*=.*|${key} = ${merged}|" "$ADDONS_CFG"
+    log "${key}: '${value}' ergaenzt -> ${merged}"
+  else
+    printf '%s = %s\n' "$key" "$value" >> "$ADDONS_CFG"
+    log "${key}: '${value}' neu eingetragen."
+  fi
+}
+
+# Wartet, bis openHAB das Karaf-Feature installiert hat (Meldung des
+# FeatureInstallers in openhab.log), z. B. openhab-binding-fronius.
+wait_for_addon() {
+  local feature="$1" timeout="${2:-300}" waited=0
+  local logfile="$OPENHAB_LOGDIR/openhab.log"
+  log "Warte auf die Installation von '${feature}' (max. $((timeout / 60)) Minuten) ..."
+  while [ "$waited" -lt "$timeout" ]; do
+    if grep -q "Installed '${feature}'" "$logfile" 2>/dev/null; then
+      log "'${feature}' ist installiert."
+      return 0
+    fi
+    sleep 5
+    waited=$((waited + 5))
+  done
+  warn "Keine Installationsbestaetigung fuer '${feature}' im Log gefunden -"
+  warn "Status in der Main UI pruefen: Settings -> Add-ons."
+  return 1
+}
+
+# Liefert 0, wenn openHAB eine Persistence-Konfiguration fuer den Dienst
+# geladen hat. Braucht OH_API_TOKEN (der Endpunkt verlangt Admin-Rechte);
+# ohne Token 1 - Aufrufer behandeln das als "unbekannt".
+persistence_config_loaded() {
+  local svc="$1" code
+  case "${OH_API_TOKEN:-}" in oh.*) ;; *) return 1 ;; esac
+  code="$(curl -s -o /dev/null -w '%{http_code}' -m 5 \
+    -H "Authorization: Bearer $OH_API_TOKEN" \
+    "http://127.0.0.1:8080/rest/persistence/$svc" || true)"
+  [ "$code" = "200" ]
+}
+
+# Stellt sicher, dass openHAB geschriebene .persist-Modelle wirklich anwendet.
+# 02 traegt die Persistence-Addons nur in addons.cfg ein und openHAB
+# installiert sie asynchron - ein .persist, das vor dem Dienst geschrieben
+# wurde, bleibt sonst stumm wirkungslos: kein restoreOnStartup, keine
+# Diagramme, und /rest/persistence/<dienst> liefert 404 (beobachtet auf
+# openHAB 5.2). Deshalb: auf die Feature-Installation warten und die Datei
+# per touch neu einlesen lassen, sobald der Dienst da ist. Mit OH_API_TOKEN
+# wird zum Schluss geprueft, ob die Konfiguration angekommen ist.
+persistence_activate() {
+  local svc pfile waited
+  for svc in "$@"; do
+    pfile="$OPENHAB_CONF/persistence/${svc}.persist"
+    [ -f "$pfile" ] || continue
+
+    if persistence_config_loaded "$svc"; then
+      log "Persistence-Konfiguration '${svc}' ist aktiv."
+      continue
+    fi
+
+    wait_for_addon "openhab-persistence-${svc}" || true
+    touch "$pfile"
+    log "${svc}.persist neu eingelesen lassen (touch)."
+
+    case "${OH_API_TOKEN:-}" in
+      oh.*)
+        waited=0
+        until persistence_config_loaded "$svc"; do
+          if [ "$waited" -ge 60 ]; then
+            warn "openHAB meldet keine Persistence-Konfiguration fuer '${svc}'."
+            warn "openHAB neu starten (sudo systemctl restart openhab.service)"
+            warn "und danach pruefen: sudo $GW_SETUP_DIR/06-verify.sh"
+            break
+          fi
+          sleep 5
+          waited=$((waited + 5))
+        done
+        [ "$waited" -lt 60 ] && log "Persistence-Konfiguration '${svc}' ist aktiv."
+        ;;
+      *)
+        log "Kein API-Token - ob '${svc}' die Konfiguration geladen hat, prueft 06-verify.sh."
+        ;;
+    esac
+  done
+  # Probleme wurden bereits als Warnung gemeldet - den Installationslauf
+  # brechen sie nicht ab.
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Karaf-Konsole und openHAB REST API
+# ---------------------------------------------------------------------------
+
+sha256_upper() { printf '%s' "$1" | sha256sum | cut -d' ' -f1 | tr 'a-z' 'A-Z'; }
+
+# Wie muss ein Konsolen-Passwort in users.properties abgelegt werden?
+# Gibt den Speicherwert aus: gehasht ({CRYPT}SHA-256{CRYPT}), wenn die
+# Verschluesselung an ist, sonst Klartext.
+karaf_stored_password() {
+  local password="$1" jaas_cfg="$OPENHAB_USERDATA/etc/org.apache.karaf.jaas.cfg"
+  if grep -qE '^[[:space:]]*encryption\.enabled[[:space:]]*=[[:space:]]*true' "$jaas_cfg" 2>/dev/null \
+     && grep -qE '^[[:space:]]*encryption\.algorithm[[:space:]]*=[[:space:]]*SHA-256' "$jaas_cfg" 2>/dev/null; then
+    printf '{CRYPT}%s{CRYPT}' "$(sha256_upper "$password")"
+  else
+    printf '%s' "$password"
+  fi
+}
+
+# Fuehrt ein Kommando auf der Karaf-Konsole aus, ohne das Konsolen-Passwort
+# zu kennen: als root wird in users.properties voruebergehend ein zufaelliges
+# Passwort gesetzt und danach der alte Eintrag unveraendert wiederhergestellt.
+# Die Konsole ist nur von localhost erreichbar; root kann den Eintrag ohnehin
+# jederzeit aendern - das hier ist also keine Rechteausweitung.
+console_exec() {
+  local cmd="$1" up="$OPENHAB_USERDATA/etc/users.properties"
+  local tmppw stored out rc
+  [ -f "$up" ] || { warn "users.properties nicht gefunden: $up"; return 1; }
+  command -v openhab-cli >/dev/null 2>&1 || { warn "openhab-cli nicht gefunden."; return 1; }
+
+  tmppw="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
+  stored="$(karaf_stored_password "$tmppw")"
+
+  cp -a "$up" "$up.stromkreis-console-tmp"
+  sed -i -E "s|^([[:space:]]*openhab[[:space:]]*=[[:space:]]*)[^,]*|\1${stored}|" "$up"
+
+  # Das Kommando ueber stdin in eine Konsolensitzung geben statt als
+  # Argument: im Exec-Modus verschluckt der Karaf-Client die Ausgabe
+  # mancher Kommandos (z. B. 'openhab:users addApiToken' - das Token wird
+  # dann zwar erzeugt, aber nie angezeigt). Die Sitzung liefert alles
+  # zuverlaessig; Farbcodes und Prompts werden herausgefiltert.
+  out="$(printf '%s\nlogout\n' "$cmd" | timeout 120 openhab-cli console -p "$tmppw" 2>&1)"
+  rc=$?
+
+  mv "$up.stromkreis-console-tmp" "$up"
+  printf '%s\n' "$out" | sed -e 's/\x1b\[[0-9;]*m//g'
+  return "$rc"
+}
+
+# Sorgt fuer ein brauchbares openHAB-API-Token in OH_API_TOKEN und gateway.conf.
+# Steht dort bereits ein echtes Token, passiert nichts. Bei "auto" oder leer
+# wird ueber die Karaf-Konsole ein Token des ersten Admin-Benutzers erzeugt
+# (Name "stromkreis"; ein vorhandenes Token dieses Namens wird ersetzt).
+ensure_api_token() {
+  case "${OH_API_TOKEN:-}" in
+    oh.*) return 0 ;;
+    ""|auto) ;;
+    *) return 0 ;;
+  esac
+
+  local out admin_user token
+  out="$(console_exec "openhab:users list")" \
+    || { warn "Karaf-Konsole nicht erreichbar - kein API-Token erzeugt."; return 1; }
+  admin_user="$(printf '%s\n' "$out" | grep -i 'administrator' | head -n1 | awk '{print $1}')"
+  if [ -z "$admin_user" ]; then
+    warn "Kein Admin-Benutzer in openHAB gefunden. Zuerst in der Main UI"
+    warn "(http://<pi>:8080) das Admin-Konto anlegen, dann erneut ausfuehren."
+    return 1
+  fi
+
+  console_exec "openhab:users rmApiToken $admin_user stromkreis" >/dev/null 2>&1 || true
+  out="$(console_exec "openhab:users addApiToken $admin_user stromkreis admin")" || true
+  token="$(printf '%s\n' "$out" | grep -oE 'oh\.[A-Za-z0-9._~/+-]+' | head -n1)"
+  if [ -z "$token" ]; then
+    warn "API-Token konnte nicht erzeugt werden. Konsolen-Ausgabe:"
+    printf '%s\n' "$out" | sed 's/^/[Stromkreis]   /' >&2
+    warn "Ersatzweise in der Main UI ein Token erzeugen (Benutzername links"
+    warn "unten -> 'Create new API token') und als OH_API_TOKEN in gateway.conf"
+    warn "eintragen."
+    return 1
+  fi
+
+  OH_API_TOKEN="$token"
+  conf_set OH_API_TOKEN "$token"
+  chmod 600 "$GATEWAY_CONF" 2>/dev/null || true
+  log "openHAB-API-Token 'stromkreis' fuer Benutzer '$admin_user' erzeugt und in gateway.conf eingetragen."
+}
+
+# ---------------------------------------------------------------------------
+# Provisionierung (Zero-Touch-Einrichtung)
+#
+# Der Pi meldet Einrichtungsphasen an die Plattform; das Dashboard des
+# Betreibers zeigt sie an. Die Meldung braucht nur das
+# Status-Token (STROMKREIS_SITE_TOKEN) und STROMKREIS_BASE_URL; ohne beides ist sie
+# ein No-op. Fehler beim Melden brechen die Installation nie ab.
+# ---------------------------------------------------------------------------
+
+# JSON-String-Literal aus einem Bash-Wert (ohne python-Abhaengigkeit).
+json_str() {
+  local s="$1"
+  s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}"; s="${s//$'\t'/\\t}"; s="${s//$'\r'/}"
+  printf '"%s"' "$s"
+}
+
+# POST an <STROMKREIS_BASE_URL>/api/gateway/provision/v1<pfad> mit JSON-Body; Antwort
+# auf stdout. Rueckgabe 1 bei Netz-/HTTP-Fehler.
+provision_api() {
+  local path="$1" body="$2" base="${STROMKREIS_BASE_URL:-${STROMKREIS_BASE_URL:-https://stromkreis.net}}"
+  curl -fsS -m 20 -X POST -H 'Content-Type: application/json' \
+    -d "$body" "${base}/api/gateway/provision/v1${path}" 2>/dev/null
+}
+
+# report_phase <phase> [meldung] [zusatz-json-felder]
+# Phasen: konfiguration wechselrichter_suche wechselrichter_unklar tunnel
+# passwoerter cloud addons wartet_auf_passwort wechselrichter
+# wartet_auf_wechselrichter items regeln overview unvollstaendig fertig
+# fehler:<schritt>
+report_phase() {
+  local phase="$1" message="${2:-}" extra="${3:-}" body
+  [ -n "${STROMKREIS_SITE_TOKEN:-}" ] || return 0
+  body="{\"token\":$(json_str "$STROMKREIS_SITE_TOKEN"),\"phase\":$(json_str "$phase"),\"message\":$(json_str "$message"),\"hostname\":$(json_str "$(hostname)")${extra:+,$extra}}"
+  GW_LAST_REPORT="$(provision_api /result "$body" || true)"
+  [ -n "$GW_LAST_REPORT" ] || warn "Phase '$phase' konnte nicht an den Server gemeldet werden (kein Abbruch)."
+  return 0
+}
+
+# Liest ein Feld aus der letzten Server-Antwort (GW_LAST_REPORT), z. B.
+# inverter_type oder inverter_password_set. Leer, wenn nicht vorhanden.
+report_field() {
+  local field="$1"
+  printf '%s' "${GW_LAST_REPORT:-}" | python3 -c '
+import json, sys
+try:
+    v = json.load(sys.stdin).get(sys.argv[1], "")
+except Exception:
+    v = ""
+print("" if v is None else (str(v).lower() if isinstance(v, bool) else v))
+' "$field" 2>/dev/null || true
+}
+
+# Wartet, bis die openHAB REST API antwortet (max. Sekunden als Argument).
+wait_for_openhab_rest() {
+  local timeout="${1:-600}" waited=0 code
+  while [ "$waited" -lt "$timeout" ]; do
+    code="$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:8080/rest/ || true)"
+    [ "$code" = "200" ] && return 0
+    sleep 5; waited=$((waited + 5))
+  done
+  return 1
+}
+
+# Legt den openHAB-Admin-Benutzer ueber die Karaf-Konsole an, falls noch
+# keiner existiert - der einzige Schritt, fuer den sonst die Main UI vor
+# dem Setup gebraucht wuerde. Braucht OH_ADMIN_USER und OH_ADMIN_PASSWORD
+# (aus der Provisionierung). Idempotent: existiert ein Administrator, wird
+# nichts geaendert.
+ensure_admin_user() {
+  [ -n "${OH_ADMIN_USER:-}" ] && [ -n "${OH_ADMIN_PASSWORD:-}" ] || return 0
+  case "$OH_ADMIN_PASSWORD" in *[!A-Za-z0-9._-]*)
+    warn "OH_ADMIN_PASSWORD enthaelt Zeichen, die die Karaf-Konsole nicht vertraegt - Admin-Konto nicht angelegt."; return 1 ;;
+  esac
+  local out
+  out="$(console_exec "openhab:users list")" \
+    || { warn "Karaf-Konsole nicht erreichbar - Admin-Konto nicht angelegt."; return 1; }
+  if printf '%s\n' "$out" | grep -qi 'administrator'; then
+    log "openHAB-Admin-Konto existiert bereits."
+    return 0
+  fi
+  out="$(console_exec "openhab:users add $OH_ADMIN_USER $OH_ADMIN_PASSWORD administrator")" || true
+  if console_exec "openhab:users list" | grep -qi 'administrator'; then
+    log "openHAB-Admin-Konto '$OH_ADMIN_USER' angelegt."
+    return 0
+  fi
+  warn "Admin-Konto konnte nicht angelegt werden. Konsolen-Ausgabe:"
+  printf '%s\n' "$out" | sed 's/^/[Stromkreis]   /' >&2
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# System
+# ---------------------------------------------------------------------------
+
+# Setzt einen Schluessel in einer Datei unter services/. Idempotent;
+# geaenderte Datei wird gesichert.
+services_cfg_set() {
+  local cfg="$1" key="$2" value="$3"
+  if [ -f "$cfg" ] && grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$cfg"; then
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*${value}[[:space:]]*$" "$cfg"; then
+      log "${key} bereits ${value} ($cfg)."
+    else
+      cp -a "$cfg" "$cfg.bak-$(date +%Y%m%d%H%M%S)"
+      sed -i -E "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${value}|" "$cfg"
+      log "${key}=${value} gesetzt ($cfg)."
+    fi
+  else
+    mkdir -p "$(dirname "$cfg")"
+    [ -f "$cfg" ] || : > "$cfg"
+    printf '%s=%s\n' "$key" "$value" >> "$cfg"
+    chown "$OPENHAB_USER:$OPENHAB_GROUP" "$cfg" 2>/dev/null || true
+    log "${key}=${value} gesetzt ($cfg)."
+  fi
+}
+
+# Setzt einen Schluessel in services/runtime.cfg. Eintraege dort gehen der
+# Main-UI-Einstellung vor.
+runtime_cfg_set() {
+  services_cfg_set "$OPENHAB_CONF/services/runtime.cfg" "$1" "$2"
+}
+
+# Setzt System- und openHAB-Zeitzone, damit die zeitgesteuerten Regeln in
+# lokaler Zeit laufen. Idempotent; Vorgabe ueberschreibbar mit GW_TIMEZONE.
+ensure_timezone() {
+  local tz="${1:-${GW_TIMEZONE:-Europe/Vienna}}"
+
+  # Systemzeitzone (timedatectl fehlt z. B. in Containern)
+  if command -v timedatectl >/dev/null 2>&1; then
+    local current
+    current="$(timedatectl show --property=Timezone --value 2>/dev/null || true)"
+    if [ "$current" = "$tz" ]; then
+      log "Systemzeitzone bereits $tz."
+    else
+      timedatectl set-timezone "$tz" \
+        && log "Systemzeitzone gesetzt: $tz (war: ${current:-unbekannt})" \
+        || warn "Systemzeitzone konnte nicht gesetzt werden."
+    fi
+  else
+    warn "timedatectl nicht gefunden - Systemzeitzone nicht gesetzt."
+  fi
+
+  runtime_cfg_set "org.openhab.i18n:timezone" "$tz"
+
+  # JVM-Zeitzone des openHAB-Dienstes: das openHABian-Image liefert in
+  # /etc/default/openhab ein hartes -Duser.timezone=Europe/London mit.
+  # Damit laufen Logs und zeitgesteuerte Regeln eine Stunde daneben, egal
+  # was Systemzeitzone und org.openhab.i18n sagen - deshalb hier ersetzen.
+  local defaults="/etc/default/openhab"
+  if [ -f "$defaults" ] && grep -qE '^[^#]*-Duser\.timezone=' "$defaults"; then
+    if grep -qE "^[^#]*-Duser\.timezone=$tz([\" ]|\$)" "$defaults"; then
+      log "JVM-Zeitzone bereits $tz ($defaults)."
+    else
+      cp -a "$defaults" "$defaults.bak-$(date +%Y%m%d%H%M%S)"
+      sed -i -E "/^[^#]*EXTRA_JAVA_OPTS=/ s#-Duser\.timezone=[^\" ]+#-Duser.timezone=$tz#" "$defaults"
+      log "JVM-Zeitzone in $defaults auf $tz gesetzt."
+      if systemctl is-active --quiet openhab.service 2>/dev/null; then
+        systemctl restart openhab.service \
+          && log "openHAB neu gestartet, damit die JVM-Zeitzone greift." \
+          || warn "openHAB-Neustart fehlgeschlagen - bitte manuell: sudo systemctl restart openhab.service"
+      fi
+    fi
+  fi
+}
+
+# Setzt Zeitzone, Sprache, Region und Masssystem - das, was sonst der
+# Ersteinrichtungs-Assistent der Main UI erledigt; der kann damit einfach
+# uebersprungen werden. Vorgaben ueberschreibbar mit GW_TIMEZONE,
+# GW_LANGUAGE und GW_REGION.
+ensure_regional_settings() {
+  ensure_timezone
+  runtime_cfg_set "org.openhab.i18n:language" "${GW_LANGUAGE:-de}"
+  runtime_cfg_set "org.openhab.i18n:region" "${GW_REGION:-AT}"
+  runtime_cfg_set "org.openhab.i18n:measurementSystem" "SI"
+}
+
+# ---------------------------------------------------------------------------
+# Dateien
+# ---------------------------------------------------------------------------
+
+# Datei aus stdin schreiben - idempotent, mit Backup und korrekten Rechten.
+# Verwendung:  irgendwas | install_file /pfad/zur/datei
+install_file() {
+  local target="$1"
+  local tmp
+  tmp="$(mktemp)"
+  cat > "$tmp"
+
+  if [ -f "$target" ] && cmp -s "$tmp" "$target"; then
+    log "unveraendert: $target"
+    rm -f "$tmp"
+    return 0
+  fi
+
+  if [ -f "$target" ]; then
+    local backup="$target.bak-$(date +%Y%m%d%H%M%S)"
+    cp -a "$target" "$backup"
+    log "Backup angelegt: $backup"
+  fi
+
+  mkdir -p "$(dirname "$target")"
+  cat "$tmp" > "$target"
+  rm -f "$tmp"
+  chown "$OPENHAB_USER:$OPENHAB_GROUP" "$target" 2>/dev/null || \
+    warn "chown auf $OPENHAB_USER:$OPENHAB_GROUP fehlgeschlagen: $target"
+  chmod 0644 "$target"
+  log "geschrieben: $target"
+}
+
+openhab_restart() {
+  if command -v systemctl >/dev/null 2>&1; then
+    log "openHAB wird neu gestartet ..."
+    systemctl restart openhab.service && log "openHAB neu gestartet." \
+      || warn "Neustart fehlgeschlagen - bitte manuell: sudo systemctl restart openhab.service"
+  else
+    warn "systemctl nicht gefunden - bitte openHAB manuell neu starten."
+  fi
+}
