@@ -49,7 +49,7 @@
 			</form>
 		</header>
 
-		{#if data.sync}
+		{#if data.sync && data.sync.phase !== 'done'}
 			<SyncStatus job={data.sync} />
 		{/if}
 
@@ -196,6 +196,12 @@
 		<EnergieTab energie={data.energie} sync={data.sync} />
 		{:else if tab === 'prognose' && data.prognose}
 		<PrognoseTab prognose={data.prognose} sync={data.sync} />
+		{/if}
+
+		{#if data.sync && data.sync.phase === 'done'}
+			<footer class="mt-auto">
+				<SyncStatus job={data.sync} />
+			</footer>
 		{/if}
 	</main>
 </div>

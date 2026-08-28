@@ -7,7 +7,7 @@
 
 	const running = $derived(['queued', 'masterdata', 'energy'].includes(job.phase));
 	const labels = {
-		queued: 'Import wartet auf den Worker',
+		queued: 'Import startet in Kürze',
 		masterdata: 'Mitglieder und Zählpunkte werden geladen',
 		energy: 'Energiedaten werden geladen',
 		done: 'Import abgeschlossen',
@@ -38,6 +38,15 @@
 	});
 </script>
 
+{#if job.phase === 'done'}
+	<p class="text-xs text-stone-500 dark:text-stone-400">
+		EEGFaktura-Import abgeschlossen {fmtTime(job.finished_at)}
+		· {job.progress.members ?? 0} Mitglieder, {job.progress.points ?? 0} Zählpunkte
+		{#if job.data_first_day}
+			· Datenbestand: {fmtDay(job.data_first_day)} bis {fmtDay(job.data_last_day ?? undefined)}
+		{/if}
+	</p>
+{:else}
 <section
 	class="rounded-lg border p-4 {job.phase === 'error'
 		? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40'
@@ -57,7 +66,7 @@
 			{/if}
 		</span>
 	</div>
-	{#if running || job.phase === 'done'}
+	{#if running}
 		<div class="mt-3 h-2 w-full overflow-hidden rounded bg-stone-200 dark:bg-stone-800">
 			<div class="h-2 rounded bg-brand-500 transition-all" style="width: {percent}%"></div>
 		</div>
@@ -80,3 +89,4 @@
 		{/if}
 	</p>
 </section>
+{/if}
