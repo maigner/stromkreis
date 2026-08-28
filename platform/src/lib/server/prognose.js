@@ -22,7 +22,7 @@ export async function loadPrognose(tenantId) {
 		order by created_at desc
 		limit 1
 	`;
-	if (!run) return { run: null, hours: [], days: [] };
+	if (!run) return { run: null, hours: [], days: [], weather: [] };
 	const runId = Number(run.id);
 
 	// Fenster jeweils: heute 00:00 lokal bis in PROGNOSE_TAGE Tagen; weiter
@@ -59,6 +59,22 @@ export async function loadPrognose(tenantId) {
 		order by 1
 	`;
 
+	// Wetterentwicklung im selben Fenster (Stundenwerte aus dem Open-Meteo-
+	// Import der Pipeline): Globalstrahlung treibt die PV-Erzeugung,
+	// Temperatur und Regen geben den Rahmen
+	const weather = await sql`
+		select w.time,
+			w.temperature_2m::float as temperature,
+			coalesce(w.shortwave_radiation, 0)::float as radiation,
+			w.cloud_cover::float as cloud_cover,
+			w.rain::float as rain
+		from weather w
+		where w.tenant_id = ${tenantId}
+			and w.time >= (date_trunc('day', now() at time zone ${TZ})) at time zone ${TZ}
+			and w.time < (date_trunc('day', now() at time zone ${TZ}) + make_interval(days => ${PROGNOSE_TAGE})) at time zone ${TZ}
+		order by w.time
+	`;
+
 	return {
 		run: {
 			id: runId,
@@ -78,8 +94,15 @@ export async function loadPrognose(tenantId) {
 			generation_p90: h.generation_p90 == null ? null : Number(h.generation_p90),
 			self_coverage: Number(h.self_coverage)
 		})),
-		// Randtage am Ende des Wetterhorizonts koennen unvollstaendig sein;
-		// solche Tage fallen aus der Tabelle (sonst wirken die Summen zu klein)
+		weather: weather.map((w) => ({
+			ts: /** @type {Date} */ (w.time).toISOString(),
+			temperature: Number(w.temperature),
+			radiation: Number(w.radiation),
+			cloud_cover: Number(w.cloud_cover),
+			rain: Number(w.rain)
+		})),
+		// Randtage am Ende des Wetterhorizonts koennen unvollstaendig sein; solche
+		// Tage fallen aus den Tagesmitteln (sonst wirken die Durchschnitte zu klein)
 		days: days
 			.filter((d) => Number(d.intervals) >= 90)
 			.map((d) => ({
