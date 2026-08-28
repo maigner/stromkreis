@@ -44,7 +44,7 @@ Open-Meteo  ──────────────▶    │                
 ### gateway/ (Installation beim Mitglied)
 
 - Je Wechselrichterprofil ein Paket: Hardware-Stückliste, Verkabelungs- und Einrichtungsanleitung, Steuerlogik (OpenHAB-Regeln bzw. Skripte)
-- Kommuniziert ausschließlich ausgehend zur Plattform; kein eingehender Zugriff ins Heimnetz nötig
+- Die Steuerung kommuniziert ausschließlich ausgehend zur Plattform (HTTPS mit Anlagen-Token); am Router des Mitglieds wird nichts geöffnet. Für die Fernwartung baut das Gateway zusätzlich einen ebenfalls ausgehend initiierten WireGuard-Tunnel ins Wartungsnetz des Servers auf (SSH-Konsole auf der Anlagen-Detailseite, `deploy/wg-ssh.sh`); die openHAB-Verbindung zur Stromkreis-Cloud (`hac.stromkreis.net`) ist genauso ausgehend
 - Fail-Safe: Ist die Plattform nicht erreichbar, fällt die Anlage auf ihr Standardverhalten zurück (Auto-Revert). Dieses Verhalten ist je Profil dokumentiert und vor Ort getestet.
 
 ## Schema-Hoheit
