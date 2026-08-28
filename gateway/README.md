@@ -1,6 +1,11 @@
 # gateway
 
-Gateway-Pakete für das Speichermanagement. Ein Gateway läuft beim Mitglied (openHABian auf einem Raspberry Pi), holt Ladefenster, Crossover-Zeiten und Wolkenvorschau ausschließlich ausgehend per HTTPS von der Plattform (Anlagen-Token je Anlage) und steuert den Wechselrichter lokal (Modbus TCP bzw. Solar-API je nach Profil). Portiert aus dem ISCHLSTROM-Repo (`Batteriemanagement/openhab/`), generisch für alle EEGs: keine Referenzen mehr auf die ISCHLSTROM-Infrastruktur, keine eigene Cloud, kein WireGuard-Tunnel (Architekturregel: kein Zugriff in Heimnetze hinein).
+Gateway-Pakete für das Speichermanagement. Ein Gateway läuft beim Mitglied (openHABian auf einem Raspberry Pi), holt Ladefenster, Crossover-Zeiten und Wolkenvorschau ausschließlich ausgehend per HTTPS von der Plattform (Anlagen-Token je Anlage) und steuert den Wechselrichter lokal (Modbus TCP bzw. Solar-API je nach Profil). Portiert aus dem ISCHLSTROM-Repo (`Batteriemanagement/openhab/`), generisch für alle EEGs: keine Referenzen mehr auf die ISCHLSTROM-Infrastruktur.
+
+Fernwartung und Fernzugriff laufen ebenfalls über Stromkreis-Infrastruktur, beides als Container im Compose-Stack am Server (bei ISCHLSTROM war WireGuard nativ installiert):
+
+- **WireGuard-Fernwartung** (`deploy/wireguard/`): jeder Pi baut einen ausgehenden Tunnel ins Wartungsnetz `10.88.0.0/24` auf (Server ist `.1`, Anlagen ab `.11`; am Router des Mitglieds bleibt alles zu). Die Tunnel-IP vergibt die Plattform bei der Provisionierung; den Public-Key meldet der Pi in der Phase "Fernwartung", der WireGuard-Container gleicht die Peers jede Minute mit der Plattform ab (`/api/gateway/sync/wireguard-peers`). Zugriff: `deploy/wg-ssh.sh <tunnel-ip>` (Anmeldung als `openhabian` mit dem Anlagen-Passwort).
+- **Stromkreis-eigene openHAB Cloud** (`hac.stromkreis.net`, Compose-Dienste `cloud-app`/`cloud-mongodb`/`cloud-redis`): Mitglieder erreichen ihre Main UI von unterwegs (openHAB-App mit `https://hac.stromkreis.net` als Remote-URL, Browser über `https://remote.hac.stromkreis.net`). Die Konten legt der Dienst `cloud-sync` automatisch an (Zugangsdaten auf der Anlagen-Detailseite); die Registrierung auf der Cloud ist abgeschaltet. Push-Benachrichtigungen der offiziellen Apps funktionieren über eine eigene Cloud prinzipbedingt nicht.
 
 **Sicherheitsregeln (Startvoraussetzung je Profil, nicht optional):**
 
@@ -11,7 +16,7 @@ Gateway-Pakete für das Speichermanagement. Ein Gateway läuft beim Mitglied (op
 ## Aufbau
 
 - `openhab/` - das Gateway-Paket (wird als `stromkreis-gateway.tgz` an die Anlagen ausgeliefert):
-  - `setup/` - Einrichtungsskripte: `install-gateway.sh` (Gesamtablauf), `00-provision.sh` (Profil-Erkennung, Konfiguration vervollständigen), `01`-`06` (Preflight, Addons, Things, Items, Regeln, Overview-Seiten, Verify), `09` (Selbst-Update-Timer `stromkreis-update`), `10` (Standardpasswörter), `purge-gateway.sh` (vollständiger Rückbau für erneute Tests), `build-dist.sh` (packt das Paket nach `platform/static/gateway/`), `lib/common.sh` (gemeinsame Helfer).
+  - `setup/` - Einrichtungsskripte: `install-gateway.sh` (Gesamtablauf), `00-provision.sh` (Profil-Erkennung, Konfiguration vervollständigen), `01`-`06` (Preflight, Addons, Things, Items, Regeln, Overview-Seiten, Verify), `07` (openHAB-Cloud-Identität), `08` (WireGuard-Fernwartung), `09` (Selbst-Update-Timer `stromkreis-update`), `10` (Standardpasswörter), `purge-gateway.sh` (vollständiger Rückbau für erneute Tests), `build-dist.sh` (packt das Paket nach `platform/static/gateway/`), `lib/common.sh` (gemeinsame Helfer).
   - `control/` - Steuerungskern `core.js` (Ladesperre, forcierte Entladung, Laderegelung, Netzladeschutz, Kapazitäts-/Hauslast-Schätzung) und `netzeinspeisung.js`.
   - `api/` - Anbindung an die Plattform: `status_push.js` (minütlich), `ladefenster.js`, `crossover.js`, `cloud_forecast.js`.
   - `inverters/<profil>/` - je Wechselrichterprofil `profile.sh` (Kontrakt), `adapter.js`, `overview.yaml` (Main-UI-Seiten), teils `rediscover.sh` (Netzwerk-Watchdog) und Simulatoren unter `tools/`.
@@ -44,16 +49,19 @@ Alle mandantenbezogen über den Anlagen-Token (POST mit `{"token": ...}`):
 | `POST /api/gateway/crossover/v1` | mittlere Crossover-Zeiten der letzten vollständigen Messtage |
 | `POST /api/gateway/wolken/v1` | Bewölkung des nächsten Mittagsfensters plus Stundenwerte |
 
+Stack-intern (Auth `GATEWAY_SYNC_TOKEN` aus der Server-`.env`): `GET /api/gateway/sync/wireguard-peers` (Peer-Liste für den WireGuard-Container), `GET /api/gateway/sync/cloud-accounts` und `POST /api/gateway/sync/cloud-result` (Konten-Sync im Cloud-Container).
+
 ## Test auf dem Raspberry Pi
 
 Voraussetzungen: Raspberry Pi (64-bit, empfohlen Pi 4 mit 2 GB oder mehr), SD-Karte ab 16 GB, LAN-Kabel. Ein Wechselrichter ist für den Test nicht nötig; ohne ihn endet die Einrichtung planmäßig in "Wartet, wird automatisch fortgesetzt".
 
+0. **Einmalig am Server:** DNS-A-Records `hac.stromkreis.net` und `remote.hac.stromkreis.net` auf den Server, Router-Weiterleitung UDP 51820 auf den Server (WireGuard). Die Caddy-Vhosts und die `.env`-Werte (`GATEWAY_SYNC_TOKEN`, `EXPRESS_KEY`, `CLOUD_*`, `WG_ENDPOINT`) sind eingerichtet. Ohne diese Schritte läuft der Rest trotzdem: fehlt der WireGuard-Public-Key oder `CLOUD_BASE_URL`, lässt die Plattform die Teile am Gateway einfach aus.
 1. **Deployen:** `deploy/deploy.sh` baut jetzt auch das Gateway-Paket und legt es unter `https://stromkreis.net/gateway/stromkreis-gateway.tgz` ab.
 2. **Anlage anlegen:** auf `/intern` (Tab Anlagen) "Neue Anlage für ein Mitglied", Wechselrichterprofil setzen (im Testnetz ohne Wechselrichter unbedingt setzen, sonst wartet der Pi in "Wechselrichter nicht eindeutig"). Optional WLAN-Zugang; LAN bleibt die Empfehlung.
 3. **Image bauen und flashen:** auf der Anlagen-Detailseite "Image erstellen" (dauert einige Minuten; ein Deploy während des Baus bricht ihn ab), dann "Image herunterladen" und mit dem Raspberry Pi Imager ("Eigenes Image", ohne OS-Anpassungen) oder balenaEtcher flashen.
 4. **Booten und zusehen:** Karte in den Pi, LAN und Strom anstecken. openHABian installiert sich selbst (30 bis 45 Minuten, ein Neustart), danach laufen die Phasen auf der Anlagen-Detailseite durch: Konfiguration, Passwörter, openHAB-Erweiterungen, Wechselrichter, Datenpunkte, Steuerung, Oberfläche. Erwartetes Ende ohne Wechselrichter: "Wartet, wird automatisch fortgesetzt" - das ist der gewollte Endzustand des Tests, kein Fehler. Mit Wechselrichter im selben Netz läuft die Einrichtung bis "Einrichtung abgeschlossen".
 5. **Wechselrichter-Passwort (nur Fronius GEN24):** auf der Anlagen-Detailseite unter "Zugang zum Wechselrichter" eintragen; das Gateway holt es innerhalb weniger Minuten ab und trägt es ins Bridge-Thing ein.
-6. **Prüfen:** Die Anlage erscheint auf `/intern` als Online (Status-Push jede Minute); `http://<pi>:8080` zeigt die Main UI mit den Stromkreis-Seiten (Admin-Konto `admin`, Passwort = Linux-Passwort der Anlage, steht in der `openhabian.conf` des Images bzw. am Gateway in `/etc/stromkreis/gateway.conf`). Am Pi: `journalctl -u stromkreis-firstboot -f` bzw. `/var/log/stromkreis-firstboot.log`.
+6. **Prüfen:** Die Anlage erscheint auf `/intern` als Online (Status-Push jede Minute); `http://<pi>:8080` zeigt die Main UI mit den Stromkreis-Seiten (Admin-Konto `admin`, Passwort = Linux-Passwort der Anlage, steht in der `openhabian.conf` des Images bzw. am Gateway in `/etc/stromkreis/gateway.conf`). Fernwartung: `deploy/wg-ssh.sh <tunnel-ip>` (Tunnel-IP auf der Anlagen-Detailseite). Cloud: Anmeldung auf `https://hac.stromkreis.net` mit dem Cloud-Konto der Anlage (Detailseite), die Anlage muss dort als Online erscheinen; `https://remote.hac.stromkreis.net` zeigt die Main UI. Am Pi: `journalctl -u stromkreis-firstboot -f` bzw. `/var/log/stromkreis-firstboot.log`.
 7. **Wiederholen:** `sudo /opt/stromkreis/openhab/setup/purge-gateway.sh` baut alles zurück (Marker inklusive); mit "Neuer Code" und neu gebautem Image startet der Test von vorn.
 
 ## Profile

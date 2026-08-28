@@ -9,9 +9,12 @@
 // den Fortschritt per POST /api/gateway/provision/v1/result. Kein Token, kein
 // Passwort auf der Karte; der Code bleibt bis "fertig" oder Ablauf gueltig,
 // damit ein Neustart die Einrichtung wiederholen kann.
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { env } from '$env/dynamic/public';
+import { env as priv } from '$env/dynamic/private';
 import { sql } from './db.js';
+import { decrypt, encrypt } from './secrets.js';
 import firstbootScript from './gateway-firstboot/stromkreis-firstboot.sh?raw';
 import firstbootService from './gateway-firstboot/stromkreis-firstboot.service?raw';
 
@@ -24,7 +27,9 @@ export const SETUP_PHASES = /** @type {Record<string, { label: string, percent: 
 	konfiguration: { label: 'Konfiguration geladen', percent: 10 },
 	wechselrichter_suche: { label: 'Wechselrichter wird gesucht', percent: 15 },
 	wechselrichter_unklar: { label: 'Wechselrichter nicht eindeutig, bitte Profil setzen', percent: 15 },
+	tunnel: { label: 'Fernwartung', percent: 25 },
 	passwoerter: { label: 'Passwörter', percent: 30 },
+	cloud: { label: 'Cloud-Verbindung', percent: 40 },
 	addons: { label: 'openHAB-Erweiterungen', percent: 45 },
 	wechselrichter: { label: 'Wechselrichter wird eingebunden', percent: 60 },
 	wartet_auf_passwort: { label: 'Wartet auf das Passwort des Wechselrichters', percent: 60 },
@@ -62,6 +67,61 @@ function shellQuote(pw) {
 export function randomPassword(length = 14) {
 	const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	return Array.from({ length }, () => alphabet[randomInt(alphabet.length)]).join('');
+}
+
+/**
+ * Handytaugliches Cloud-Passwort (9 Kleinbuchstaben + 3 Ziffern, ohne
+ * verwechselbare Zeichen): laesst sich in der openHAB-App ohne Shift- und
+ * Sonderzeichen-Wechsel eingeben; Sonderzeichen scheitern dort teils (iOS).
+ */
+export function randomPhonePassword() {
+	const letters = 'abcdefghijkmnpqrstuvwxyz';
+	const digits = '23456789';
+	let out = '';
+	for (let i = 0; i < 9; i++) out += letters[randomInt(letters.length)];
+	for (let i = 0; i < 3; i++) out += digits[randomInt(digits.length)];
+	return out;
+}
+
+// --- WireGuard-Fernwartung und Stromkreis-Cloud ------------------------------
+// Tunnel-IPs: <prefix>.11 bis <prefix>.254 (.1 ist der WireGuard-Container
+// am Server); der Pool ist plattformweit, nicht je Mandant - es gibt ein
+// gemeinsames Wartungsnetz.
+const WG_FIRST_HOST = 11;
+const WG_LAST_HOST = 254;
+
+export function wgSubnetPrefix() {
+	return priv.WG_SUBNET_PREFIX || '10.88.0';
+}
+
+export function wgEndpoint() {
+	return priv.WG_ENDPOINT || 'stromkreis.net:51820';
+}
+
+/** Public-Key des WireGuard-Containers (geteiltes Volume); null, solange
+ *  der Container noch nie lief - dann bleibt INSTALL_WIREGUARD aus. */
+export function wgServerPublicKey() {
+	try {
+		const key = readFileSync(priv.WG_PUBLIC_KEY_FILE || '/var/lib/stromkreis/wireguard/server.pub', 'utf8').trim();
+		return /^[A-Za-z0-9+/]{42,43}=$/.test(key) ? key : null;
+	} catch {
+		return null;
+	}
+}
+
+export function cloudBaseUrl() {
+	return (priv.CLOUD_BASE_URL || '').replace(/\/$/, '') || null;
+}
+
+/** Naechste freie Tunnel-IP im Wartungsnetz. */
+async function nextWgAddress() {
+	const prefix = wgSubnetPrefix();
+	const rows = await sql`select wg_address from battery_site where wg_address like ${prefix + '.%'}`;
+	const used = new Set(rows.map((r) => Number(String(r.wg_address).split('.').pop())));
+	for (let host = WG_FIRST_HOST; host <= WG_LAST_HOST; host++) {
+		if (!used.has(host)) return `${prefix}.${host}`;
+	}
+	throw new Error('Keine freie Tunnel-IP mehr im Wartungsnetz.');
 }
 
 /**
@@ -157,7 +217,9 @@ export async function consumeProvisionCode(code) {
 		from tenant t
 		where b.tenant_id = t.id and b.provision_code = ${normalized}
 			and b.provision_expires_at > now() and b.setup_phase <> 'fertig'
-		returning b.id, b.tenant_id, b.name, b.inverter_profile, b.status, b.capacity_kwh, b.pv_kwp, t.slug as tenant_slug, t.name as tenant_name,
+		returning b.id, b.tenant_id, b.name, b.inverter_profile, b.status, b.capacity_kwh, b.pv_kwp,
+			b.wg_address, b.cloud_uuid, b.cloud_secret, b.cloud_username, b.cloud_account_state,
+			t.slug as tenant_slug, t.name as tenant_name,
 			(select m.name from member m where m.tenant_id = b.tenant_id and m.id = b.member_id) as member_name`;
 	if (!site) return null;
 	// openHAB-Admin-Konto: gleiches Passwort wie der Linux-Benutzer (steht in
@@ -171,6 +233,44 @@ export async function consumeProvisionCode(code) {
 			where tenant_id = ${site.tenant_id} and id = ${site.id}`;
 	}
 	const firstname = typeof site.member_name === 'string' ? site.member_name.trim().split(/\s+/)[0] : '';
+
+	// Fernwartung: Tunnel-IP einmalig zuteilen (bleibt der Anlage erhalten,
+	// auch bei neuer SD-Karte). Ohne Public-Key des WireGuard-Containers
+	// (Container lief noch nie) bleibt die Fernwartung aus.
+	const serverKey = wgServerPublicKey();
+	let wgAddress = site.wg_address;
+	if (serverKey && !wgAddress) {
+		wgAddress = await nextWgAddress();
+		await sql`update battery_site set wg_address = ${wgAddress}
+			where tenant_id = ${site.tenant_id} and id = ${site.id}`;
+	}
+
+	// Stromkreis-Cloud: Identitaet und Konto einmalig anlegen (Secret und
+	// Passwort mit TOKEN_SECRET verschluesselt); der Konten-Sync im
+	// Cloud-Container legt das Konto an (cloud_account_state pending).
+	const cloudBase = cloudBaseUrl();
+	let cloudUuid = site.cloud_uuid;
+	let cloudSecretPlain = '';
+	if (cloudBase) {
+		if (cloudUuid) {
+			try {
+				cloudSecretPlain = decrypt(site.cloud_secret);
+			} catch {
+				cloudUuid = null; // Secret nicht mehr lesbar (Schluesselwechsel): neu erzeugen
+			}
+		}
+		if (!cloudUuid) {
+			cloudUuid = randomUUID();
+			cloudSecretPlain = randomPassword(20);
+			await sql`update battery_site set cloud_uuid = ${cloudUuid},
+					cloud_secret = ${encrypt(cloudSecretPlain)},
+					cloud_username = ${`anlage-${site.id}@${new URL(platformBaseUrl()).hostname}`},
+					cloud_password = ${encrypt(randomPhonePassword())},
+					cloud_account_state = 'pending', cloud_account_error = null
+				where tenant_id = ${site.tenant_id} and id = ${site.id}`;
+		}
+	}
+
 	return {
 		site,
 		config: {
@@ -187,7 +287,15 @@ export async function consumeProvisionCode(code) {
 			DEFAULT_MAIN_SWITCH: 'ON',
 			STATUS_INTERVAL_S: '300',
 			OH_ADMIN_USER: 'admin',
-			OH_ADMIN_PASSWORD: linuxPassword
+			OH_ADMIN_PASSWORD: linuxPassword,
+			INSTALL_WIREGUARD: serverKey && wgAddress ? '1' : '0',
+			WG_ADDRESS: wgAddress ?? '',
+			WG_SERVER_ENDPOINT: wgEndpoint(),
+			WG_SERVER_PUBLIC_KEY: serverKey ?? '',
+			INSTALL_CLOUD: cloudBase && cloudUuid ? '1' : '0',
+			CLOUD_BASE_URL: cloudBase ?? '',
+			CLOUD_UUID: cloudUuid ?? '',
+			CLOUD_SECRET: cloudSecretPlain
 		}
 	};
 }

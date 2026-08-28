@@ -42,12 +42,20 @@ services:
       EEGFAKTURA_BASE_URL: ${EEGFAKTURA_BASE_URL:-https://eegfaktura.at}
       TOKEN_SECRET: ${TOKEN_SECRET:-}
       IMAGE_DIR: /var/lib/stromkreis/images
+      # Fernwartung und Stromkreis-Cloud (Provisionierung + Sync-Endpunkte)
+      GATEWAY_SYNC_TOKEN: ${GATEWAY_SYNC_TOKEN:-}
+      WG_ENDPOINT: ${WG_ENDPOINT:-stromkreis.net:51820}
+      WG_SUBNET_PREFIX: ${WG_SUBNET_PREFIX:-10.88.0}
+      WG_PUBLIC_KEY_FILE: /var/lib/stromkreis/wireguard/server.pub
+      CLOUD_BASE_URL: ${CLOUD_BASE_URL:-}
       TZ: Europe/Vienna
     ports:
       - "127.0.0.1:4000:3000"
     volumes:
       # SD-Karten-Images (gebaute site-<id>.img.gz plus openHABian-Basis-Image-Cache)
       - ./data/images:/var/lib/stromkreis/images
+      # Public-Key des WireGuard-Containers (fuer die Provisionierungsantwort)
+      - wg-keys:/var/lib/stromkreis/wireguard:ro
     depends_on:
       db:
         condition: service_healthy
@@ -80,3 +88,104 @@ services:
       db:
         condition: service_healthy
     command: ["sh", "-c", "while true; do node scripts/demo-data.js heartbeat salzkammerstrom; sleep 300; done"]
+
+  # WireGuard-Fernwartungsnetz der Gateways (10.88.0.0/24, Server ist .1):
+  # ausgehende Tunnel der Pis, Peers kommen jede Minute von der Plattform
+  # (/api/gateway/sync/wireguard-peers). Braucht die Router-Weiterleitung
+  # UDP 51820 auf den Server. SSH auf ein Gateway: deploy/wg-ssh.sh <ip>.
+  wireguard:
+    build: ./src/deploy/wireguard
+    image: stromkreis-wireguard
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "51820:51820/udp"
+    environment:
+      GATEWAY_SYNC_TOKEN: ${GATEWAY_SYNC_TOKEN:?GATEWAY_SYNC_TOKEN fehlt in .env}
+      WG_SUBNET_PREFIX: ${WG_SUBNET_PREFIX:-10.88.0}
+      PLATFORM_URL: http://platform:3000
+      TZ: Europe/Vienna
+    volumes:
+      - wg-keys:/keys
+    depends_on:
+      - platform
+
+  # Stromkreis-eigene openHAB Cloud (hac.stromkreis.net): Fernzugriff der
+  # Mitglieder auf ihre Anlage (App und Browser), ersetzt myopenhab.org.
+  # TLS terminiert Caddy am Host (hac.* und remote.hac.* -> 127.0.0.1:4100).
+  # Registrierung ist aus - die Konten legt der cloud-sync automatisch an.
+  cloud-app:
+    image: openhab/openhab-cloud:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4100:3000"
+    environment:
+      DOMAIN_NAME: ${CLOUD_DOMAIN:-hac.stromkreis.net}
+      PROXY_HOST: ${CLOUD_PROXY_HOST:-remote.hac.stromkreis.net}
+      EXPRESS_KEY: ${EXPRESS_KEY:?EXPRESS_KEY fehlt in .env}
+      NODE_ENV: production
+      REGISTRATION_ENABLED: "false"
+      LOG_LEVEL: ${CLOUD_LOG_LEVEL:-info}
+      # Dummy-Werte: die openHAB-Apps erkennen den Server nur mit gcm.senderId
+      # als openHAB Cloud (Push selbst geht ueber eine eigene Cloud nie).
+      FCM_SENDER_ID: "0"
+      FCM_SERVICE_FILE: /nonexistent
+      TZ: Europe/Vienna
+    volumes:
+      - ./src/deploy/openhab-cloud/config.json.template:/opt/openhabcloud/config.json.template:ro
+    depends_on:
+      cloud-mongodb:
+        condition: service_healthy
+      cloud-redis:
+        condition: service_healthy
+
+  cloud-mongodb:
+    image: mongo:6
+    restart: unless-stopped
+    volumes:
+      - ./data/mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cloud-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Konten-Sync der Cloud: legt die Cloud-Konten der Anlagen an, setzt
+  # Passwoerter (cloud_account_state pending/reset) und loescht Konten
+  # (delete). Laeuft im Cloud-Image, damit er dessen Modelle und config.json
+  # benutzt; die offenen Konten kommen von der Plattform.
+  cloud-sync:
+    image: openhab/openhab-cloud:latest
+    restart: unless-stopped
+    environment:
+      DOMAIN_NAME: ${CLOUD_DOMAIN:-hac.stromkreis.net}
+      EXPRESS_KEY: ${EXPRESS_KEY:?EXPRESS_KEY fehlt in .env}
+      GATEWAY_SYNC_TOKEN: ${GATEWAY_SYNC_TOKEN:?GATEWAY_SYNC_TOKEN fehlt in .env}
+      PLATFORM_URL: http://platform:3000
+      TZ: Europe/Vienna
+    volumes:
+      - ./src/deploy/openhab-cloud/config.json.template:/opt/openhabcloud/config.json.template:ro
+      - ./src/deploy/openhab-cloud/cloud-sync.js:/sync/cloud-sync.js:ro
+      - ./src/deploy/openhab-cloud/cloud-sync.sh:/sync/cloud-sync.sh:ro
+    command: ["sh", "/sync/cloud-sync.sh"]
+    depends_on:
+      cloud-mongodb:
+        condition: service_healthy
+      platform:
+        condition: service_started
+
+volumes:
+  wg-keys:

@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { sql } from '$lib/server/db.js';
-import { PROVISION_CODE_DAYS, describePhase, newProvisionCode } from '$lib/server/gateway-provision.js';
+import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, randomPhonePassword } from '$lib/server/gateway-provision.js';
+import { decrypt, encrypt } from '$lib/server/secrets.js';
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 
 /** @type {import('./$types').PageServerLoad} */
@@ -19,6 +20,8 @@ export async function load({ locals, params }) {
 			b.last_seen_at, b.setup_phase, b.setup_message, b.setup_phase_at, b.provision_code, b.provision_expires_at,
 			b.provisioned_at, b.capacity_kwh, b.pv_kwp, b.inverter_username,
 			(b.inverter_secret is not null) as has_inverter_secret,
+			b.wg_address, (coalesce(b.wg_public_key, '') <> '') as wg_key_reported,
+			b.cloud_username, b.cloud_password, b.cloud_account_state, b.cloud_account_error,
 			p.metering_point, p.direction as point_direction,
 			coalesce(b.last_seen_at > now() - interval '10 minutes', false) as online,
 			extract(epoch from now() - b.last_seen_at)::int as seen_seconds_ago,
@@ -33,9 +36,18 @@ export async function load({ locals, params }) {
 	}
 
 	const phase = describePhase(site.setup_phase);
+	let cloudPassword = null;
+	if (site.cloud_password) {
+		try {
+			cloudPassword = decrypt(site.cloud_password);
+		} catch {
+			cloudPassword = null;
+		}
+	}
 	return {
 		site: {
 			.../** @type {any} */ (site),
+			cloud_password: cloudPassword,
 			setup_label: phase.label,
 			setup_percent: phase.percent,
 			code_valid: Boolean(site.provision_code && site.provision_expires_at && site.provision_expires_at > new Date()),
@@ -89,5 +101,21 @@ export const actions = {
 		`;
 		if (!site) return fail(404, { message: 'Anlage nicht gefunden.' });
 		return { secret_saved: true };
+	},
+
+	// Neues Passwort fuer das Cloud-Konto der Anlage: der Konten-Sync im
+	// Cloud-Container setzt es innerhalb einer Minute (Zustand reset).
+	cloud_passwort_neu: async ({ locals, params }) => {
+		if (!locals.user) redirect(303, '/');
+		const password = randomPhonePassword();
+		const [site] = await sql`
+			update battery_site set cloud_password = ${encrypt(password)},
+				cloud_account_state = 'reset', cloud_account_error = null
+			where tenant_id = ${locals.user.tenant_id} and id = ${Number(params.id)}
+				and coalesce(cloud_username, '') <> ''
+			returning id
+		`;
+		if (!site) return fail(404, { message: 'Anlage hat noch kein Cloud-Konto.' });
+		return { cloud_password_reset: true };
 	}
 };

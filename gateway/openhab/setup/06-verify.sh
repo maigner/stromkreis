@@ -39,6 +39,28 @@ if [ "$INSTALL_PERSISTENCE" = "1" ]; then
   done
 fi
 
+# --- openHAB Cloud ----------------------------------------------------------
+# Nur Hinweis, kein Fehler: das Secret entsteht erst, wenn das Cloud-Addon
+# das erste Mal laeuft - die Installation kann einige Minuten dauern.
+if [ "$INSTALL_CLOUD" = "1" ]; then
+  if [ -f "$OPENHAB_USERDATA/openhabcloud/secret" ]; then
+    log "openHAB Cloud eingerichtet (Secret vorhanden)."
+  else
+    warn "openHAB Cloud: Secret noch nicht vorhanden - Addon noch nicht fertig"
+    warn "installiert? Spaeter ausfuehren: sudo $GW_SETUP_DIR/07-openhab-cloud.sh"
+  fi
+fi
+
+# --- WireGuard-Fernwartung --------------------------------------------------
+if [ "$INSTALL_WIREGUARD" = "1" ] && command -v wg >/dev/null 2>&1; then
+  hs="$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2; exit}')"
+  if [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
+    log "WireGuard-Tunnel steht (letzter Handshake: $(date -d "@$hs" '+%F %T' 2>/dev/null || echo "$hs"))."
+  else
+    warn "WireGuard: noch kein Handshake - der Peer wird am Server automatisch eingetragen (bis zu 1 Minute)."
+  fi
+fi
+
 # --- Netzwerk-Watchdog ------------------------------------------------------
 if [ "$INSTALL_WATCHDOG" = "1" ]; then
   for f in "$OPENHAB_CONF/automation/js/stromkreis_watchdog.js" \

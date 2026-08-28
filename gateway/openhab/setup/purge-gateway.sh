@@ -11,12 +11,14 @@
 #   3. API-Token 'stromkreis' und /var/lib/openhab/stromkreis
 #   4. Regeln, Items, Persistence-Konfiguration und mapdb-Daten
 #   5. addons.cfg (Backup von vor der Installation wird wiederhergestellt)
-#   6. Konsolen-Passwort zurueck auf den openHAB-Standard (habopen)
-#   7. /opt/stromkreis selbst
+#   6. WireGuard-Tunnel und Schluessel
+#   7. Konsolen-Passwort zurueck auf den openHAB-Standard (habopen)
+#   8. /opt/stromkreis selbst
 #
-# NICHT angetastet: das openHAB-Admin-Konto, das Linux-Passwort und die
-# Regionaleinstellungen (Zeitzone/Sprache) - eine Neuinstallation verwendet
-# sie einfach wieder.
+# NICHT angetastet: das openHAB-Admin-Konto, das Linux-Passwort, die
+# Regionaleinstellungen (Zeitzone/Sprache) und die openHAB-Cloud-Identitaet
+# (userdata/uuid, openhabcloud/secret) - eine Neuinstallation verwendet sie
+# einfach wieder.
 #
 #   sudo /opt/stromkreis/openhab/setup/purge-gateway.sh
 #   sudo STROMKREIS_ASSUME_YES=1 ...   # ohne Rueckfrage
@@ -45,7 +47,7 @@ echo "[Stromkreis] ==========================================================="
 echo "[Stromkreis]  Purge: entfernt das Batteriemanagement vollstaendig"
 echo "[Stromkreis] ==========================================================="
 echo "[Stromkreis]"
-echo "[Stromkreis] Things, Regeln, Items, Seiten, Token und"
+echo "[Stromkreis] Things, Regeln, Items, Seiten, Token, WireGuard und"
 echo "[Stromkreis] /opt/stromkreis werden geloescht. Admin-Konto, Linux-Passwort"
 echo "[Stromkreis] und Zeitzone bleiben."
 confirm "Wirklich alles entfernen?" || { log "Abgebrochen."; exit 0; }
@@ -153,7 +155,15 @@ if [ -f /etc/systemd/system/stromkreis-update.timer ]; then
   log "Selbst-Update entfernt (stromkreis-update.timer)."
 fi
 
-# --- 6. Konsolen-Passwort zurueck auf Standard -----------------------------------
+# --- 6. WireGuard ---------------------------------------------------------------
+if [ -f /etc/wireguard/wg0.conf ] || [ -f /etc/wireguard/stromkreis-pi.key ]; then
+  systemctl disable --now wg-quick@wg0 >/dev/null 2>&1 || true
+  rm -f /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.bak-*         /etc/wireguard/stromkreis-pi.key /etc/wireguard/stromkreis-pi.pub
+  log "WireGuard-Tunnel entfernt (Pakete bleiben installiert)."
+  log "Der Peer am Server verschwindet, sobald die Anlage auf der Plattform geloescht ist."
+fi
+
+# --- 7. Konsolen-Passwort zurueck auf Standard -----------------------------------
 up="$OPENHAB_USERDATA/etc/users.properties"
 if [ -f "$up" ]; then
   stored="$(karaf_stored_password habopen)"
@@ -161,7 +171,7 @@ if [ -f "$up" ]; then
   log "Karaf-Konsolen-Passwort zurueck auf den Standard (habopen)."
 fi
 
-# --- 7. Neustart und Selbstentfernung --------------------------------------------
+# --- 8. Neustart und Selbstentfernung --------------------------------------------
 log "openHAB wird neu gestartet, damit alles sauber verschwindet ..."
 systemctl restart openhab.service || warn "Neustart fehlgeschlagen - bitte manuell."
 
@@ -181,7 +191,7 @@ cat <<ENDE
 [Stromkreis] ===========================================================
 [Stromkreis]
 [Stromkreis] Uebrig geblieben (absichtlich): Admin-Konto der Main UI,
-[Stromkreis] Linux-Passwort und Zeitzone/Region.
+[Stromkreis] Linux-Passwort, Zeitzone/Region und die Cloud-Identitaet.
 [Stromkreis]
 [Stromkreis] Neuinstallation:
 [Stromkreis]   curl -fsSL ${STROMKREIS_BASE_URL:-https://stromkreis.net}/gateway/install.sh -o install.sh

@@ -267,6 +267,17 @@ load_config() {
   WATCHDOG_COOLDOWN_MIN="${WATCHDOG_COOLDOWN_MIN:-10}"
   INSTALL_PASSWORD_CHANGE="${INSTALL_PASSWORD_CHANGE:-1}"
 
+  # WireGuard-Fernwartung und Stromkreis-Cloud: die Werte kommen von der
+  # Plattform (Provisionierungsantwort); ohne sie bleiben beide aus.
+  INSTALL_WIREGUARD="${INSTALL_WIREGUARD:-0}"
+  WG_ADDRESS="${WG_ADDRESS:-}"
+  WG_SERVER_ENDPOINT="${WG_SERVER_ENDPOINT:-stromkreis.net:51820}"
+  WG_SERVER_PUBLIC_KEY="${WG_SERVER_PUBLIC_KEY:-}"
+  INSTALL_CLOUD="${INSTALL_CLOUD:-0}"
+  CLOUD_UUID="${CLOUD_UUID:-}"
+  CLOUD_SECRET="${CLOUD_SECRET:-}"
+  CLOUD_BASE_URL="${CLOUD_BASE_URL:-https://hac.stromkreis.net}"
+
   # Automatisches Anlegen des Wechselrichter-Things (02b-install-things.sh)
   AUTO_CREATE_THING="${AUTO_CREATE_THING:-0}"
   INVERTER_HOST="${INVERTER_HOST:-}"

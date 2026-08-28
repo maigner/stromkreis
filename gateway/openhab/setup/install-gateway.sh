@@ -56,41 +56,52 @@ step() {
   fi
 }
 
-log "=== Schritt 1/10: Konfiguration ==="
+log "=== Schritt 1/12: Konfiguration ==="
 rc=0; "$here/00-provision.sh" || rc=$?
 [ "$rc" -eq 0 ] || exit "$rc"
 
 load_config
 
-log "=== Schritt 2/10: Zeitzone und Regionaleinstellungen ==="
+log "=== Schritt 2/12: Zeitzone und Regionaleinstellungen ==="
 ensure_regional_settings
 
-log "=== Schritt 3/10: Standardpasswoerter ==="
+log "=== Schritt 3/12: WireGuard-Fernwartung ==="
+step tunnel 08-install-wireguard.sh 1
+
+log "=== Schritt 4/12: Standardpasswoerter ==="
 step passwoerter 10-change-passwords.sh 1
 
-log "=== Schritt 4/10: Addons ==="
+log "=== Schritt 5/12: openHAB Cloud (Identitaet) ==="
+if [ -n "${CLOUD_UUID:-}" ]; then
+  # UUID und Secret von der Plattform schreiben (vor dem Cloud-Addon).
+  step cloud 07-openhab-cloud.sh 1
+else
+  log "Keine Cloud-Identitaet von der Plattform - uebersprungen."
+fi
+
+log "=== Schritt 6/12: Addons ==="
 step addons 02-install-addons.sh
 
-log "=== Schritt 5/10: Preflight ==="
+log "=== Schritt 7/12: Preflight ==="
 if ! "$here/01-preflight.sh"; then
   warn "Preflight meldet Probleme."
   confirm "Trotzdem fortfahren?" || die "Abgebrochen."
 fi
 
-log "=== Schritt 6/10: Wechselrichter-Thing ==="
+log "=== Schritt 8/12: Wechselrichter-Thing ==="
 step wechselrichter 02b-install-things.sh 1
 
-log "=== Schritt 7/10: Items und Persistence ==="
+log "=== Schritt 9/12: Items und Persistence ==="
 step items 03-install-items.sh
 
-log "=== Schritt 8/10: Regeln ==="
+log "=== Schritt 10/12: Regeln ==="
 step regeln 04-install-rules.sh
 
-log "=== Schritt 9/10: Overview-Seite und Selbst-Update ==="
+log "=== Schritt 11/12: Overview-Seite und Selbst-Update ==="
 step overview 05-install-overview.sh 1
 step updater 09-install-updater.sh 1
 
-log "=== Schritt 10/10: Verify ==="
+log "=== Schritt 12/12: Verify ==="
 "$here/06-verify.sh" || warn "Verify meldet Probleme - siehe oben."
 
 if [ "$incomplete" = "1" ]; then
@@ -125,8 +136,8 @@ cat <<ENDE
 [Stromkreis] Thing-UID:      ${INVERTER_THING_UID}
 [Stromkreis]
 [Stromkreis] Alles wurde automatisch eingerichtet (Thing, Zugangsdaten,
-[Stromkreis] Items, Admin-Konto, Regeln, Selbst-Update). Der Hauptschalter
-[Stromkreis] steht auf ${DEFAULT_MAIN_SWITCH}.
+[Stromkreis] Items, Admin-Konto, Regeln, Fernwartung, Cloud-Verbindung,
+[Stromkreis] Selbst-Update). Der Hauptschalter steht auf ${DEFAULT_MAIN_SWITCH}.
 [Stromkreis]
 [Stromkreis] Logs beobachten:
 [Stromkreis]   tail -f ${OPENHAB_LOGDIR}/openhab.log | grep '\[Stromkreis\]'

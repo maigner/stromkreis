@@ -32,6 +32,9 @@ cat <<HINWEIS
 [Stromkreis]   persistence = mapdb, rrd4j     (Einstellungen ueberleben Neustart;
 [Stromkreis]                                   rrd4j liefert die Daten fuer Analyze/Diagramme)
 HINWEIS
+if [ "$INSTALL_CLOUD" = "1" ]; then
+  echo "[Stromkreis]   misc        = openhabcloud    (Fernzugriff ueber $CLOUD_BASE_URL)"
+fi
 cat <<HINWEIS
 [Stromkreis]
 [Stromkreis] WARNUNG: addons.cfg wird damit fuer diese Kategorien massgeblich.
@@ -53,6 +56,11 @@ addons_cfg_add "automation" "jsscripting"
 if [ "$INSTALL_PERSISTENCE" = "1" ]; then
   addons_cfg_add "persistence" "mapdb"
   addons_cfg_add "persistence" "rrd4j"
+fi
+if [ "$INSTALL_CLOUD" = "1" ]; then
+  addons_cfg_add "misc" "openhabcloud"
+  # Stromkreis-eigene Cloud-Instanz statt der Vorgabe myopenhab.org.
+  services_cfg_set "$OPENHAB_CONF/services/openhabcloud.cfg" "baseURL" "$CLOUD_BASE_URL/"
 fi
 
 chown "$OPENHAB_USER:$OPENHAB_GROUP" "$ADDONS_CFG" 2>/dev/null || true

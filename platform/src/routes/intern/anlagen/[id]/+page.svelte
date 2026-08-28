@@ -201,6 +201,56 @@
 						<dd class="mt-0.5 font-medium">{status.hauptschalter === 'ON' ? 'Ein' : status.hauptschalter === 'OFF' ? 'Aus' : 'k.A.'}</dd>
 					</div>
 				</dl>
+				<div class="mt-4 grid gap-4 border-t border-stone-200 pt-4 dark:border-stone-800 sm:grid-cols-2">
+					<div>
+						<h3 class="font-medium">Fernwartung</h3>
+						{#if site.wg_address}
+							<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+								Tunnel-IP <code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono dark:bg-stone-800">{site.wg_address}</code>
+								· {site.wg_key_reported ? 'Schlüssel gemeldet, Tunnel wird gehalten' : 'Wartet auf die erste Meldung des Gateways'}
+							</p>
+							<p class="mt-1 text-xs text-stone-500 dark:text-stone-400">
+								Zugriff vom Server: <code class="font-mono">deploy/wg-ssh.sh {site.wg_address}</code> (Anmeldung als openhabian mit dem Anlagen-Passwort)
+							</p>
+						{:else}
+							<p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Noch keine Tunnel-IP: wird bei der Einrichtung zugeteilt.</p>
+						{/if}
+					</div>
+					<div>
+						<h3 class="font-medium">Cloud-Konto</h3>
+						{#if site.cloud_username}
+							<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+								<code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono dark:bg-stone-800">{site.cloud_username}</code>
+								{#if site.cloud_password}
+									· Passwort <code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono dark:bg-stone-800">{site.cloud_password}</code>
+								{/if}
+							</p>
+							<p class="mt-1 text-xs text-stone-500 dark:text-stone-400">
+								{#if site.cloud_account_state === 'created'}
+									Konto angelegt. Login für App und Browser; Fernzugriff auf die Main UI über die Stromkreis-Cloud.
+								{:else if site.cloud_account_state === 'pending' || site.cloud_account_state === 'reset'}
+									Konto wird gerade angelegt bzw. das Passwort gesetzt (bis zu 1 Minute).
+								{:else if site.cloud_account_state === 'error'}
+									<span class="text-red-600 dark:text-red-400">Fehler: {site.cloud_account_error}</span>
+								{:else}
+									Zustand: {site.cloud_account_state || 'unbekannt'}
+								{/if}
+							</p>
+							{#if form?.cloud_password_reset}
+								<p class="mt-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-300">
+									Neues Passwort erzeugt; es wird innerhalb einer Minute gesetzt.
+								</p>
+							{/if}
+							<form method="POST" action="?/cloud_passwort_neu" class="mt-2">
+								<button class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900">
+									Neues Cloud-Passwort
+								</button>
+							</form>
+						{:else}
+							<p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Noch kein Cloud-Konto: wird bei der Einrichtung angelegt.</p>
+						{/if}
+					</div>
+				</div>
 			</section>
 		</div>
 

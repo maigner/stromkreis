@@ -88,6 +88,15 @@ CREATE TABLE public.battery_site (
     pv_kwp numeric(8,2),
     inverter_username text,
     inverter_secret text,
+    wg_address text,
+    wg_public_key text,
+    cloud_uuid text,
+    cloud_secret text,
+    cloud_username text,
+    cloud_password text,
+    cloud_account_state text DEFAULT ''::text NOT NULL,
+    cloud_account_error text,
+    CONSTRAINT battery_site_cloud_state_check CHECK ((cloud_account_state = ANY (ARRAY[''::text, 'pending'::text, 'reset'::text, 'created'::text, 'error'::text, 'delete'::text]))),
     CONSTRAINT battery_site_provision_code_format CHECK (((provision_code IS NULL) OR (provision_code ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$'::text)))
 );
 
@@ -562,6 +571,14 @@ ALTER TABLE ONLY public.battery_site
 
 ALTER TABLE ONLY public.battery_site
     ADD CONSTRAINT battery_site_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: battery_site battery_site_wg_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.battery_site
+    ADD CONSTRAINT battery_site_wg_address_key UNIQUE (wg_address);
 
 
 --
@@ -1138,4 +1155,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260826210000'),
     ('20260826220000'),
     ('20260827100000'),
-    ('20260828120000');
+    ('20260828120000'),
+    ('20260828150000');

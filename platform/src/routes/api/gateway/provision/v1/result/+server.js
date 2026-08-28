@@ -24,9 +24,16 @@ export async function POST({ request }) {
 	if (typeof body.inverter_type === 'string') patch.inverter_type = body.inverter_type.slice(0, 40);
 	if (typeof body.hostname === 'string') patch.hostname = body.hostname.slice(0, 63);
 	if (typeof body.version === 'string') patch.version = body.version.slice(0, 40);
+	// WireGuard-Public-Key der Anlage (Phase tunnel): der WireGuard-Container
+	// am Server liest die Peers ueber /api/gateway/sync/wireguard-peers.
+	const wgKey =
+		typeof body.wg_public_key === 'string' && /^[A-Za-z0-9+/]{42,43}=$/.test(body.wg_public_key.trim())
+			? body.wg_public_key.trim()
+			: null;
 	const [site] = await sql`
 		update battery_site set setup_phase = ${phase}, setup_message = ${message}, setup_phase_at = now(),
-			last_seen_at = now(), status = status || ${sql.json(/** @type {any} */ (patch))}
+			last_seen_at = now(), status = status || ${sql.json(/** @type {any} */ (patch))},
+			wg_public_key = coalesce(${wgKey}, wg_public_key)
 		where token_hash = ${hash}
 		returning id, inverter_profile`;
 	if (!site) return json({ error: 'Token unbekannt' }, { status: 401 });

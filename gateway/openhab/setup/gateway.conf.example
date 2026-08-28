@@ -24,6 +24,14 @@ DEFAULT_MAIN_SWITCH="ON"                # Hauptschalter nach der Installation
 STATUS_INTERVAL_S="300"
 OH_ADMIN_USER="admin"                   # openHAB-Admin-Konto (legt 02b an)
 OH_ADMIN_PASSWORD="geheim"
+INSTALL_WIREGUARD="1"                   # Fernwartungstunnel zur Plattform
+WG_ADDRESS="10.88.0.11"                 # eindeutige Tunnel-IP der Anlage
+WG_SERVER_ENDPOINT="stromkreis.net:51820"
+WG_SERVER_PUBLIC_KEY="..."              # Public-Key des WireGuard-Containers
+INSTALL_CLOUD="1"                       # Stromkreis-eigene openHAB Cloud
+CLOUD_BASE_URL="https://hac.stromkreis.net"
+CLOUD_UUID="..."                        # Identitaet der Anlage in der Cloud
+CLOUD_SECRET="..."
 
 # --- Von 00-provision.sh (aus dem Wechselrichter-Profil) --------------------
 INVERTER_THING_UID="fronius:powerinverter:stromkreis:inverter1"
