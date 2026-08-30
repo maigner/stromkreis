@@ -1,4 +1,5 @@
 <script>
+	import { enhance } from '$app/forms';
 	import SdImage from '../../SdImage.svelte';
 	import SshTerminal from './SshTerminal.svelte';
 	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from '../../site-format.js';
@@ -350,7 +351,8 @@
 							wird dabei ungültig.
 						</p>
 					{/if}
-					<form method="POST" action="?/app_code_erzeugen" class="mt-4">
+					<!-- use:enhance verhindert den vollen Seiten-Reload, sonst springt der Tab zurueck auf Uebersicht -->
+					<form method="POST" action="?/app_code_erzeugen" class="mt-4" use:enhance>
 						<button class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
 							{site.app_code || form?.app_setup ? 'Neuen Einrichtungscode erzeugen' : 'Einrichtungscode erzeugen'}
 						</button>
