@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createHash } from 'node:crypto';
 import { sql } from '$lib/server/db.js';
 import { SETUP_PHASES } from '$lib/server/gateway-provision.js';
+import { deleteImage } from '$lib/server/gateway-image.js';
 
 // Fortschrittsmeldung des Gateways waehrend der Einrichtung:
 // POST {token, phase, message?, inverter_type?, hostname?, version?}.
@@ -37,5 +38,9 @@ export async function POST({ request }) {
 		where token_hash = ${hash}
 		returning id, inverter_profile`;
 	if (!site) return json({ error: 'Token unbekannt' }, { status: 401 });
+	// Anlage ist online: das SD-Karten-Image hat seinen Zweck erfuellt, die
+	// Datei (samt Metadaten) wird geloescht. Fuer einen Restore wird ohnehin
+	// ein neuer Code und ein frisches Image gebraucht.
+	if (phase === 'fertig') await deleteImage(Number(site.id)).catch(() => {});
 	return json({ ok: true, inverter_profile: site.inverter_profile });
 }
