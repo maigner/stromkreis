@@ -40,6 +40,15 @@ secret_file="$OPENHAB_USERDATA/openhabcloud/secret"
 # wenn die Datei fehlt - unsere gilt also, sobald das Addon startet
 # (02-install-addons.sh laeuft danach).
 if [ -n "$CLOUD_UUID" ] && [ -n "$CLOUD_SECRET" ]; then
+  # Sicherheitsriegel: ohne Admin-Konto keine Cloud-Identitaet. Fehlt das
+  # Konto, serviert openHAB den Einrichtungsassistenten - ueber die Cloud
+  # koennte sich der Cloud-Benutzer der Anlage (Mitglied mit der App) selbst
+  # zum Administrator machen. Der Cloud-Zugang soll nur die User-Rolle haben:
+  # UI sehen und die dortigen Aktionen ausloesen, keine Verwaltung.
+  ensure_admin_user || true
+  if ! console_exec "openhab:users list" | grep -qi 'administrator'; then
+    die "Kein openHAB-Admin-Konto vorhanden - Cloud-Identitaet nicht gesetzt (wird beim naechsten Lauf wiederholt)."
+  fi
   changed=0
   current_uuid="$( [ -f "$uuid_file" ] && tr -d '[:space:]' < "$uuid_file" || true )"
   if [ "$current_uuid" != "$CLOUD_UUID" ]; then
@@ -70,6 +79,13 @@ if [ -n "$CLOUD_UUID" ] && [ -n "$CLOUD_SECRET" ]; then
 fi
 
 # --- Klassisch: UUID und Secret nur anzeigen ---------------------------------
+# Auch hier gilt: erst das Admin-Konto anlegen, dann registrieren - sonst
+# bekommt der erste Cloud-Besucher den Einrichtungsassistenten zu sehen.
+if ! console_exec "openhab:users list" 2>/dev/null | grep -qi 'administrator'; then
+  warn "Noch kein openHAB-Admin-Konto! Vor der Cloud-Registrierung in der"
+  warn "Main UI (http://<pi>:8080) das Admin-Konto anlegen - sonst kann das"
+  warn "jeder tun, der die Anlage ueber die Cloud erreicht."
+fi
 [ -f "$uuid_file" ] || die "UUID-Datei fehlt: $uuid_file - openHAB schon einmal gestartet?"
 uuid="$(tr -d '[:space:]' < "$uuid_file")"
 [ -n "$uuid" ] || die "UUID-Datei ist leer: $uuid_file"

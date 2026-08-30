@@ -29,11 +29,13 @@ export const SETUP_PHASES = /** @type {Record<string, { label: string, percent: 
 	wechselrichter_unklar: { label: 'Wechselrichter nicht eindeutig, bitte Profil setzen', percent: 15 },
 	tunnel: { label: 'Fernwartung', percent: 25 },
 	passwoerter: { label: 'Passwörter', percent: 30 },
-	cloud: { label: 'Cloud-Verbindung', percent: 40 },
-	addons: { label: 'openHAB-Erweiterungen', percent: 45 },
-	wechselrichter: { label: 'Wechselrichter wird eingebunden', percent: 60 },
-	wartet_auf_passwort: { label: 'Wartet auf das Passwort des Wechselrichters', percent: 60 },
-	wartet_auf_wechselrichter: { label: 'Wartet auf den Wechselrichter im Netz', percent: 60 },
+	addons: { label: 'openHAB-Erweiterungen', percent: 40 },
+	wechselrichter: { label: 'Wechselrichter wird eingebunden', percent: 55 },
+	// Cloud kommt bewusst nach dem Wechselrichter-Schritt: erst wenn das
+	// openHAB-Admin-Konto existiert (02b), wird die Cloud-Identitaet gesetzt.
+	cloud: { label: 'Cloud-Verbindung', percent: 65 },
+	wartet_auf_passwort: { label: 'Wartet auf das Passwort des Wechselrichters', percent: 55 },
+	wartet_auf_wechselrichter: { label: 'Wartet auf den Wechselrichter im Netz', percent: 55 },
 	items: { label: 'Datenpunkte', percent: 70 },
 	regeln: { label: 'Steuerung', percent: 80 },
 	overview: { label: 'Oberfläche', percent: 90 },

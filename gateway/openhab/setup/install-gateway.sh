@@ -71,25 +71,28 @@ step tunnel 08-install-wireguard.sh 1
 log "=== Schritt 4/12: Standardpasswoerter ==="
 step passwoerter 10-change-passwords.sh 1
 
-log "=== Schritt 5/12: openHAB Cloud (Identitaet) ==="
-if [ -n "${CLOUD_UUID:-}" ]; then
-  # UUID und Secret von der Plattform schreiben (vor dem Cloud-Addon).
-  step cloud 07-openhab-cloud.sh 1
-else
-  log "Keine Cloud-Identitaet von der Plattform - uebersprungen."
-fi
-
-log "=== Schritt 6/12: Addons ==="
+log "=== Schritt 5/12: Addons ==="
 step addons 02-install-addons.sh
 
-log "=== Schritt 7/12: Preflight ==="
+log "=== Schritt 6/12: Preflight ==="
 if ! "$here/01-preflight.sh"; then
   warn "Preflight meldet Probleme."
   confirm "Trotzdem fortfahren?" || die "Abgebrochen."
 fi
 
-log "=== Schritt 8/12: Wechselrichter-Thing ==="
+log "=== Schritt 7/12: Wechselrichter-Thing ==="
 step wechselrichter 02b-install-things.sh 1
+
+log "=== Schritt 8/12: openHAB Cloud (Identitaet) ==="
+# Bewusst erst nach 02b (dort entsteht das Admin-Konto): solange keines
+# existiert, zeigt openHAB dem ersten Besucher den Einrichtungsassistenten -
+# ueber die Cloud-Verbindung koennte sich also der Cloud-Benutzer der Anlage
+# selbst zum Administrator machen. 07 prueft das zusaetzlich hart.
+if [ -n "${CLOUD_UUID:-}" ]; then
+  step cloud 07-openhab-cloud.sh 1
+else
+  log "Keine Cloud-Identitaet von der Plattform - uebersprungen."
+fi
 
 log "=== Schritt 9/12: Items und Persistence ==="
 step items 03-install-items.sh

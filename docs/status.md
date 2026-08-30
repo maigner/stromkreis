@@ -2,6 +2,11 @@
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
 
+## Neu am 30.8. (abends): Cloud-Zugang auf User-Rolle beschraenkt, SD-Image-Aufraeumen
+
+- **Cloud-Benutzer darf nur noch UI + Aktionen (keine Verwaltung):** Die Cloud-Identitaet (07-openhab-cloud.sh) wird erst gesetzt, nachdem 02b das openHAB-Admin-Konto angelegt hat (`install-gateway.sh`: Schritt cloud jetzt nach wechselrichter; Phasen-Prozente in `gateway-provision.js` angepasst). Grund: solange kein Admin-Konto existiert, serviert openHAB den Einrichtungsassistenten - wer die Anlage ueber hac.stromkreis.net erreicht (Mitglied mit App-Zugang), koennte sich selbst zum Administrator machen. 07 prueft zusaetzlich hart (`die`, wenn kein Administrator existiert) und warnt im klassischen Modus. Mit vorhandenem Admin-Konto gilt die openHAB-Default-Security (implicit user role): unauthentifiziert/via Cloud nur Items lesen, Seiten sehen, Kommandos senden; Admin-Endpoints 401 (auf Pi 71 verifiziert). Achtung Bestand: Pis 50/51 sind online mit Phase `neu` - dort Admin-Konto pruefen bzw. Setup nachziehen.
+- **SD-Karten-Image wird nach der Einrichtung geloescht:** meldet ein Gateway Phase `fertig`, raeumt `/api/gateway/provision/v1/result` das Image samt Metadaten weg (`deleteImage`). Bestehende Images (Anlagen 50/51/66/71/74, je 1,7 GB) liegen noch am Server, keine davon ist `fertig`.
+
 ## Neu am 30.8.: App-Einrichtung per QR-Code/Einmal-Link (Tab auf der Anlagen-Detailseite)
 
 Gegenstueck zum Onboarding der Stromkreis-App (Fork der openHAB-App in `~/Workspace/stromkreis-openhab-ios`, Serverkontrakt in deren `docs/stromkreis-onboarding.md`):
