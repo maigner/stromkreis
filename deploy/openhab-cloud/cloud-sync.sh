@@ -13,7 +13,9 @@ if [ -f config.json.template ]; then
     fs.writeFileSync('config.json', j);
   "
 fi
+# timeout als zweite Sicherung: selbst wenn eine Runde haengen bleibt
+# (haengender fetch, offene Handles), blockiert sie die Schleife nie lange.
 while true; do
-  node /sync/cloud-sync.js || true
+  timeout 300 node /sync/cloud-sync.js || true
   sleep 60
 done

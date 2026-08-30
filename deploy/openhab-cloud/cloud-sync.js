@@ -126,7 +126,14 @@ async function main() {
 	}
 }
 
-main().catch((e) => {
-	log(`FEHLER: ${e && e.message ? e.message : e}`);
-	process.exit(1);
-});
+// Explizit beenden: die Cloud-Module (models/db-connect) halten auch nach
+// dem Mongo-Disconnect Handles offen (z. B. Redis), node wuerde also nie von
+// selbst enden - und die Minutenschleife in cloud-sync.sh haengt dann fest
+// (so geschehen 28.-30.8.: ein Passwort-Reset blieb 2 Tage liegen).
+main().then(
+	() => process.exit(0),
+	(e) => {
+		log(`FEHLER: ${e && e.message ? e.message : e}`);
+		process.exit(1);
+	}
+);
