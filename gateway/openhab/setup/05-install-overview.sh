@@ -114,5 +114,24 @@ PY
   esac
 done
 
+# Ausgemusterte Seiten entfernen, die fruehere Paketversionen installiert
+# haben - der Installations-Loop oben ersetzt nur, was es noch gibt.
+# stromkreis_experten: Expertenseite fuer Mitglieder entfernt (8/2026).
+for uid in stromkreis_experten; do
+  backup="$state_dir/${uid}.page.bak-$(date +%Y%m%d%H%M%S).json"
+  code="$(curl -s -o "$backup" -w '%{http_code}' -m 10 \
+    -H "Authorization: Bearer $OH_API_TOKEN" "$api/$uid" || true)"
+  if [ "$code" != "200" ]; then
+    rm -f "$backup"
+    continue
+  fi
+  code="$(curl -s -o /dev/null -w '%{http_code}' -m 10 -X DELETE \
+    -H "Authorization: Bearer $OH_API_TOKEN" "$api/$uid" || true)"
+  case "$code" in
+    200|204) log "Ausgemusterte Seite '$uid' entfernt (Sicherung: $backup)." ;;
+    *)       warn "Ausgemusterte Seite '$uid' liess sich nicht entfernen (HTTP $code)." ;;
+  esac
+done
+
 log "${#pages[@]} Seiten installiert."
 log "Anzeigen: Main UI -> Startseite (http://<pi>:8080)."
