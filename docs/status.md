@@ -1,6 +1,17 @@
-# Stand: 28. August 2026
+# Stand: 30. August 2026
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
+
+## Neu am 30.8.: App-Einrichtung per QR-Code/Einmal-Link (Tab auf der Anlagen-Detailseite)
+
+Gegenstueck zum Onboarding der Stromkreis-App (Fork der openHAB-App in `~/Workspace/stromkreis-openhab-ios`, Serverkontrakt in deren `docs/stromkreis-onboarding.md`):
+
+- **Neuer Tab "App-Einrichtung"** auf `/intern/anlagen/[id]`: erzeugt einen Einmal-Code (`?/app_code_erzeugen`), zeigt QR-Code (SVG, neue Dependency `qrcode`) und Link `https://stromkreis.net/app/setup/<token>` genau einmal an (7 Tage gueltig, ersetzt alte Codes; danach nur noch Metadaten "erstellt am/gueltig bis" aus dem Load).
+- **Tabelle `app_setup_token`** (Migration `20260830190000`, nach dem `login_token`-Muster: nur SHA-256-Hash, `used_at`, Komposit-FK auf `battery_site`), `schema.sql` regeneriert.
+- **`POST /api/app/setup/v1`** (unauthentifiziert, Token ist der Nachweis): loest den Code einmalig gegen `{cloudUrl, username, password, siteName}` ein (Cloud-Zugang der Anlage, Passwort aus `cloud_password` entschluesselt). Fehler als `{error}` mit deutschem Text (410 ungueltig/verbraucht, 409 noch kein Cloud-Konto ohne den Code zu verbrauchen, 400 kaputte Anfrage); verbraucht wird erst nach erfolgreichem Entschluesseln.
+- **Fallback-Seite `/app/setup/[token]`** (oeffentlich, prueft ohne zu verbrauchen): Schritte fuer Mitglieder im Browser, Knopf "In der App öffnen" (`stromkreis://setup?token=…&origin=…`), QR-Code fuer den Desktop-Fall.
+- **`/.well-known/apple-app-site-association`** als Route (Team `6U7435AK45`, Bundle `net.stromkreis.app`): Universal Links auf `/app/setup/*` oeffnen die App direkt, sobald die Datei live und die App entsprechend signiert ist. Bis dahin funktioniert `stromkreis://` sofort.
+- Logik in `platform/src/lib/server/app-setup.js`; getestet gegen Wegwerf-DB (Einloesung, Doppel-Einloesung 410, Seite danach ungueltig, Action mit Session), `npm run check` und `npm run build` sauber. Noch nicht deployt, nicht committet.
 
 ## Neu am 28.8. (Tag 2): Detailseite mit Tabs, Cloud-Passwort nur kopieren, Nachtbudget aus der Main UI, Updater-Fix
 

@@ -23,8 +23,23 @@
 
 	const tabs = [
 		{ id: 'uebersicht', label: 'Übersicht' },
+		{ id: 'app', label: 'App-Einrichtung' },
 		{ id: 'fernwartung', label: 'Fernwartung' }
 	];
+
+	let linkCopied = $state(false);
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let linkCopiedTimer;
+
+	async function copySetupLink() {
+		if (!form?.app_setup) return;
+		try {
+			await navigator.clipboard.writeText(form.app_setup.link);
+			linkCopied = true;
+			clearTimeout(linkCopiedTimer);
+			linkCopiedTimer = setTimeout(() => (linkCopied = false), 2000);
+		} catch {}
+	}
 
 	const site = $derived(data.site);
 	const conn = $derived(connectionState(data.site));
@@ -283,6 +298,65 @@
 					</div>
 				</section>
 			</div>
+		</div>
+
+		<div class={tab === 'app' ? 'flex flex-col gap-6' : 'hidden'}>
+			<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
+				<h2 class="text-lg font-semibold">Stromkreis-App einrichten</h2>
+				<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+					Das Mitglied installiert die Stromkreis-App und scannt den QR-Code, oder es öffnet den
+					Einrichtungslink direkt am Smartphone. Die App holt damit einmalig die Cloud-Zugangsdaten
+					der Anlage ab; Benutzer oder Passwort müssen nicht weitergegeben werden.
+				</p>
+				{#if !site.cloud_username}
+					<p class="mt-3 text-sm text-stone-500 dark:text-stone-400">
+						Noch kein Cloud-Konto: wird bei der Einrichtung des Gateways angelegt. Danach kann hier
+						der Einrichtungscode für die App erzeugt werden.
+					</p>
+				{:else}
+					{#if form?.app_setup}
+						<div class="mt-4 flex flex-col items-start gap-4 sm:flex-row">
+							<div class="shrink-0 rounded-lg bg-white p-3 shadow-sm ring-1 ring-stone-200 dark:ring-stone-700">
+								<div class="h-44 w-44 [&_svg]:h-full [&_svg]:w-full">
+									{@html form.app_setup.qr}
+								</div>
+							</div>
+							<div class="min-w-0 flex-1 text-sm">
+								<p class="rounded-md bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+									Link und QR-Code werden nur jetzt angezeigt. Der Code funktioniert genau einmal
+									und ist gültig bis {dateFmt.format(new Date(form.app_setup.expires_at))}.
+								</p>
+								<div class="mt-3 flex flex-wrap items-center gap-2">
+									<code class="max-w-full break-all rounded bg-stone-100 px-2 py-1 font-mono text-xs dark:bg-stone-800">{form.app_setup.link}</code>
+									<button
+										type="button"
+										class="rounded-md border border-stone-300 px-2 py-1 text-xs hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
+										onclick={copySetupLink}
+									>
+										{linkCopied ? 'Kopiert' : 'Link kopieren'}
+									</button>
+								</div>
+								<p class="mt-3 text-xs text-stone-500 dark:text-stone-400">
+									QR-Code ausdrucken oder den Link ans Mitglied schicken. Öffnet das Mitglied den
+									Link im Browser statt in der App, erklärt die Seite die nächsten Schritte.
+								</p>
+							</div>
+						</div>
+					{:else if site.app_code}
+						<p class="mt-3 text-sm text-stone-600 dark:text-stone-400">
+							Ein gültiger Einrichtungscode existiert (erstellt am {dateFmt.format(new Date(site.app_code.created_at))},
+							gültig bis {dateFmt.format(new Date(site.app_code.expires_at))}). Link und QR-Code werden
+							nur direkt nach dem Erzeugen angezeigt; bei Bedarf einen neuen Code erzeugen, der alte
+							wird dabei ungültig.
+						</p>
+					{/if}
+					<form method="POST" action="?/app_code_erzeugen" class="mt-4">
+						<button class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+							{site.app_code || form?.app_setup ? 'Neuen Einrichtungscode erzeugen' : 'Einrichtungscode erzeugen'}
+						</button>
+					</form>
+				{/if}
+			</section>
 		</div>
 
 		<div class={tab === 'fernwartung' ? 'flex flex-col gap-6' : 'hidden'}>

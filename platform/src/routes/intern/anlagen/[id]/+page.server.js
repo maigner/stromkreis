@@ -3,6 +3,7 @@ import { sql } from '$lib/server/db.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, randomPhonePassword } from '$lib/server/gateway-provision.js';
 import { decrypt, encrypt } from '$lib/server/secrets.js';
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
+import { createAppSetupToken, qrSvg } from '$lib/server/app-setup.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, params }) {
@@ -35,6 +36,13 @@ export async function load({ locals, params }) {
 		error(404, 'Anlage nicht gefunden');
 	}
 
+	// Gibt es einen noch gueltigen (unverbrauchten) App-Einrichtungscode?
+	// Der Link selbst ist nicht rekonstruierbar (nur Hash gespeichert).
+	const [appCode] = await sql`
+		select created_at, expires_at from app_setup_token
+		where tenant_id = ${tenantId} and site_id = ${id} and used_at is null and expires_at > now()
+	`;
+
 	const phase = describePhase(site.setup_phase);
 	let cloudPassword = null;
 	if (site.cloud_password) {
@@ -51,6 +59,7 @@ export async function load({ locals, params }) {
 			setup_label: phase.label,
 			setup_percent: phase.percent,
 			code_valid: Boolean(site.provision_code && site.provision_expires_at && site.provision_expires_at > new Date()),
+			app_code: appCode ?? null,
 			image: await getImageStatus(/** @type {any} */ (site))
 		}
 	};
@@ -117,5 +126,21 @@ export const actions = {
 		`;
 		if (!site) return fail(404, { message: 'Anlage hat noch kein Cloud-Konto.' });
 		return { cloud_password_reset: true };
+	},
+
+	// Einmal-Code fuer die App-Einrichtung: QR-Code/Link, mit dem die
+	// Stromkreis-App die Cloud-Zugangsdaten der Anlage abholt. Ersetzt einen
+	// eventuell bestehenden Code; Link und QR werden nur einmal angezeigt.
+	app_code_erzeugen: async ({ locals, params }) => {
+		if (!locals.user) redirect(303, '/');
+		const created = await createAppSetupToken(locals.user.tenant_id, Number(params.id));
+		if (!created) return fail(404, { message: 'Anlage nicht gefunden.' });
+		return {
+			app_setup: {
+				link: created.link,
+				expires_at: created.expires_at,
+				qr: await qrSvg(created.link)
+			}
+		};
 	}
 };

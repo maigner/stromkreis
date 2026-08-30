@@ -60,6 +60,35 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: app_setup_token; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.app_setup_token (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    site_id bigint NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: app_setup_token_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.app_setup_token ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.app_setup_token_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: battery_site; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -534,6 +563,22 @@ CREATE TABLE public.weather (
 
 
 --
+-- Name: app_setup_token app_setup_token_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_setup_token
+    ADD CONSTRAINT app_setup_token_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_setup_token app_setup_token_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_setup_token
+    ADD CONSTRAINT app_setup_token_token_hash_key UNIQUE (token_hash);
+
+
+--
 -- Name: battery_site battery_site_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -782,6 +827,13 @@ ALTER TABLE ONLY public.weather
 
 
 --
+-- Name: app_setup_token_site_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX app_setup_token_site_idx ON public.app_setup_token USING btree (tenant_id, site_id);
+
+
+--
 -- Name: battery_site_tenant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -926,6 +978,22 @@ CREATE TRIGGER meter_code_updated_at BEFORE UPDATE ON public.meter_code FOR EACH
 --
 
 CREATE TRIGGER tenant_updated_at BEFORE UPDATE ON public.tenant FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: app_setup_token app_setup_token_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_setup_token
+    ADD CONSTRAINT app_setup_token_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
+-- Name: app_setup_token app_setup_token_tenant_id_site_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_setup_token
+    ADD CONSTRAINT app_setup_token_tenant_id_site_id_fkey FOREIGN KEY (tenant_id, site_id) REFERENCES public.battery_site(tenant_id, id) ON DELETE CASCADE;
 
 
 --
@@ -1156,4 +1224,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260826220000'),
     ('20260827100000'),
     ('20260828120000'),
-    ('20260828150000');
+    ('20260828150000'),
+    ('20260830190000');
