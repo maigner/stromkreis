@@ -137,7 +137,7 @@ export function renderOpenhabianConf(p) {
 		'username=openhabian',
 		`userpw=${shellQuote(p.userPassword)}`,
 		'timezone=Europe/Vienna',
-		'locales=de_AT.UTF-8 en_US.UTF-8',
+		'locales="de_AT.UTF-8 en_US.UTF-8"',
 		'system_default_locale=de_AT.UTF-8',
 		'wifi_country=AT',
 		'debugmode=off',

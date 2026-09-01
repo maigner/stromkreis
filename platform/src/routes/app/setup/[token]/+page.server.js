@@ -1,6 +1,6 @@
 // Oeffentliche Fallback-Seite fuer den App-Einrichtungslink: landet das
 // Mitglied im Browser (App nicht installiert oder Desktop), zeigt die Seite
-// die Schritte, einen "In der App öffnen"-Knopf (stromkreis://) und den
+// die Schritte, einen "In der App öffnen"-Knopf (stromkreis://, iOS und Android) und den
 // QR-Code mit der eigenen URL. Der Token wird hier NUR geprueft, nie
 // verbraucht - das macht erst die App via POST /api/app/setup/v1.
 import { sql } from '$lib/server/db.js';

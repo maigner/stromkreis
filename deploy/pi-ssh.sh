@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # Scriptgesteuertes SSH auf einen Test-Pi im LAN (vor dem WireGuard-Tunnel):
-#   deploy/pi-ssh.sh <anlagen-id|host> [befehl ...]
+#   deploy/pi-ssh.sh <anlagen-id|host|anlagen-id@host> [befehl ...]
 # Ohne Befehl: interaktive Shell. Bei einer Anlagen-ID wird der Host
 # stromkreis-<id>.local angenommen und das Anlagen-Passwort aus der DB am
 # Server geholt; schlaegt es fehl, wird das openHABian-Standardpasswort
-# probiert (gilt, solange die Erstinstallation noch laeuft).
+# probiert (gilt, solange die Erstinstallation noch laeuft). Die Form
+# <id>@<host> holt das Passwort der Anlage, spricht aber einen anderen Host an
+# (z. B. openhabian.local, solange der Hostname noch nicht gesetzt ist).
 set -euo pipefail
 [ $# -ge 1 ] || { echo "Verwendung: $0 <anlagen-id|host> [befehl ...]"; exit 1; }
 target="$1"; shift
 
-if [[ "$target" =~ ^[0-9]+$ ]]; then
-  host="stromkreis-${target}.local"
-  pw="$(ssh server "cd /home/martin/Container/stromkreis && docker compose exec -T db psql -U stromkreis -d stromkreis -Atc \"select status->>'linux_password' from battery_site where id=${target}\"")"
+if [[ "$target" =~ ^([0-9]+)(@(.+))?$ ]]; then
+  id="${BASH_REMATCH[1]}"
+  host="${BASH_REMATCH[3]:-stromkreis-${id}.local}"
+  pw="$(ssh server "cd /home/martin/Container/stromkreis && docker compose exec -T db psql -U stromkreis -d stromkreis -Atc \"select status->>'linux_password' from battery_site where id=${id}\"")"
 else
   host="$target"
   pw="${STROMKREIS_PI_PASSWORD:-}"

@@ -1,6 +1,15 @@
-# Stand: 30. August 2026
+# Stand: 1. September 2026
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
+
+## Neu am 1.9.: Zero-Touch-Einrichtung von Pi 71 auf frischer SD-Karte beobachtet
+
+- **Durchlauf Ende-zu-Ende ohne Eingriff** (Image `site-71.img.gz` vom 28.8., Code `VSAT-LNZZ`, kein Wechselrichter im Netz): Boot 12:35, openHABian-Erstinstallation bis 12:45 (nur ~11 min statt der dokumentierten 30 bis 45; Reboot, Hostname `stromkreis-71` aktiv), `stromkreis-firstboot` startet 12:46 die Einrichtung, Phasen konfiguration -> tunnel -> wechselrichter -> cloud -> items -> `unvollstaendig` um 12:55. Alle 12 Schritte gelaufen; WireGuard-Handshake nach ~1 min frisch (10.88.0.11), Admin-Konto und API-Token angelegt, Cloud-Konto `created`, cloud-app meldet "Connection success" fuer die neue UUID, Status-Push minuetlich, Main UI mit Stromkreis-Seiten erreichbar, alle Addons (fronius, jsscripting, mapdb, rrd4j, openhabcloud) per REST `installed:true`. Endzustand "Wartet, wird automatisch fortgesetzt" mit 10-min-Wiederholung, wie fuer den Test ohne Wechselrichter vorgesehen. Vor dem Reboot heisst der Pi noch `openhabian.local`, das Anlagen-Passwort gilt aber schon (openHABian setzt es frueh).
+- **Bug gefunden und behoben (noch nicht deployt):** `renderOpenhabianConf` schrieb `locales=de_AT.UTF-8 en_US.UTF-8` ohne Anfuehrungszeichen; openHABian sourced die Datei, daher `line 7: en_US.UTF-8: command not found` und "Setting locale ... FAILED" im first-boot.log (Locale blieb auf Default, sonst harmlos). Jetzt `locales="de_AT.UTF-8 en_US.UTF-8"` wie in der openHABian-Vorlage und im ISCHLSTROM-Renderer. Wirkt ab dem naechsten Image-Bau nach dem Deploy.
+- **Kosmetik, offen:** Schritt 9 wartet auf die Installationsbestaetigung von `openhab-persistence-mapdb` im openhab.log und warnt, obwohl das Addon installiert ist: der openHAB-Neustart in Schritt 8 (Cloud-Identitaet, seit 30.8. nach dem Wechselrichter-Schritt) beginnt ein frisches Log, die Bestaetigung aus Schritt 5 steht nicht mehr drin. Besser per REST `/rest/addons/<id>` (`installed`) pruefen. Ebenso erwartbar ohne Wechselrichter: Watchdog "Thing nicht gefunden", Verify mit 1 Problem (Bridge-Status).
+- **Beobachtung:** cloud-app sah um 12:48 kurz eine Verbindung mit der openHAB-Zufalls-UUID (Addon aus Schritt 5 aktiv, Identitaet erst in Schritt 8); erst die gesetzte UUID wird angenommen. Der erste Teil-Push nach dem Setup traegt noch die Logzeilen des Vorgaenger-Pis (`status || patch`), der erste Voll-Push ersetzt sie.
+- **Werkzeug:** `deploy/pi-ssh.sh` kann jetzt `<id>@<host>` (Anlagen-Passwort, anderer Host), noetig fuer den Pi vor dem Hostnamen-Reboot.
+- Nicht committet (Martin macht git): `platform/src/lib/server/gateway-provision.js`, `deploy/pi-ssh.sh`, diese Datei.
 
 ## Neu am 30.8. (abends): Cloud-Zugang auf User-Rolle beschraenkt, SD-Image-Aufraeumen
 
@@ -17,6 +26,7 @@ Gegenstueck zum Onboarding der Stromkreis-App (Fork der openHAB-App in `~/Worksp
 - **Tabelle `app_setup_token`** (Migration `20260830190000`, nach dem `login_token`-Muster: nur SHA-256-Hash, `used_at`, Komposit-FK auf `battery_site`), `schema.sql` regeneriert.
 - **`POST /api/app/setup/v1`** (unauthentifiziert, Token ist der Nachweis): loest den Code einmalig gegen `{cloudUrl, username, password, siteName}` ein (Cloud-Zugang der Anlage, Passwort aus `cloud_password` entschluesselt). Fehler als `{error}` mit deutschem Text (410 ungueltig/verbraucht, 409 noch kein Cloud-Konto ohne den Code zu verbrauchen, 400 kaputte Anfrage); verbraucht wird erst nach erfolgreichem Entschluesseln.
 - **Fallback-Seite `/app/setup/[token]`** (oeffentlich, prueft ohne zu verbrauchen): Schritte fuer Mitglieder im Browser, Knopf "In der App öffnen" (`stromkreis://setup?token=…&origin=…`), QR-Code fuer den Desktop-Fall.
+- **`/.well-known/assetlinks.json`** als Route (Android-Gegenstueck; Application-IDs `net.stromkreis.app` und `net.stromkreis.app.beta`, SHA-256-Fingerabdruecke aus `ANDROID_APP_CERT_SHA256`, kommagetrennt): Android App Links auf `/app/setup/*` oeffnen die Android-App direkt, sobald der Fingerabdruck des Signaturzertifikats gesetzt ist. Ohne Variable wird `[]` geliefert; `stromkreis://` funktioniert sofort. Die Android-App (`~/Workspace/stromkreis-openhab-android`) akzeptiert dieselben Links/QR-Codes wie die iOS-App.
 - **`/.well-known/apple-app-site-association`** als Route (Team `6U7435AK45`, Bundle `net.stromkreis.app`): Universal Links auf `/app/setup/*` oeffnen die App direkt, sobald die Datei live und die App entsprechend signiert ist. Bis dahin funktioniert `stromkreis://` sofort.
 - Logik in `platform/src/lib/server/app-setup.js`; getestet gegen Wegwerf-DB (Einloesung, Doppel-Einloesung 410, Seite danach ungueltig, Action mit Session), `npm run check` und `npm run build` sauber. Noch nicht deployt, nicht committet.
 

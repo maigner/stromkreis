@@ -27,7 +27,7 @@
 			<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
 				<ol class="flex list-decimal flex-col gap-3 pl-5 text-sm text-stone-700 dark:text-stone-300">
 					<li>
-						Die Stromkreis-App auf dem Smartphone installieren (App Store).
+						Die Stromkreis-App auf dem Smartphone installieren (App Store bzw. Google Play).
 					</li>
 					<li>
 						Auf dem Smartphone: unten auf <strong>In der App öffnen</strong> tippen.
