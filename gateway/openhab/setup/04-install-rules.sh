@@ -229,10 +229,14 @@ if [ "$INSTALL_STATUS_PUSH" = "1" ]; then
   # Paket-Cache; damit die stimmt, muessen die Paketlisten regelmaessig
   # aktualisiert werden. Dafuer wird die Debian-eigene apt-daily-Mechanik
   # aktiviert (apt-daily.timer laeuft taeglich zu einem randomisierten
-  # Zeitpunkt). Sicherheitsupdates spielt unattended-upgrades automatisch
-  # ein (Debian-Standardkonfiguration: nur das Security-Archiv, kein
-  # automatischer Reboot - openHAB und Pi-Firmware kommen aus anderen Repos
-  # und bleiben damit Handarbeit). Alles Uebrige zeigt nur das Dashboard.
+  # Zeitpunkt). unattended-upgrades spielt die Updates automatisch ein -
+  # nicht nur das Debian-Security-Archiv (Vorgabe), sondern alle
+  # openHABian-Paketquellen (Debian, Raspbian, Raspberry Pi Foundation,
+  # also auch Kernel und Pi-Firmware). Steht danach ein Reboot an, startet
+  # die Anlage um 02:30 neu (vor dem naechtlichen Paketfenster von
+  # stromkreis-update, 03:00-05:00; die Steuerung ist fail-safe ausgelegt).
+  # Bewusst ausgenommen: das openHAB-Repo - ein openHAB-Versionssprung
+  # bleibt eine bewusste Entscheidung von Hand.
   apt_periodic="/etc/apt/apt.conf.d/02stromkreis-periodic"
   if command -v apt-get >/dev/null 2>&1 && [ -d /etc/apt/apt.conf.d ]; then
     # openHABian maskiert unattended-upgrades.service, damit waehrend der
@@ -259,13 +263,37 @@ APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
     chmod 0644 "$apt_periodic"
+    apt_unattended="/etc/apt/apt.conf.d/52stromkreis-unattended-upgrades"
+    cat > "$apt_unattended" <<'EOF'
+// GENERIERT von Stromkreis (04-install-rules.sh) - nicht direkt bearbeiten.
+// Erweitert die Debian-Vorgabe (50unattended-upgrades: nur Security-Archiv)
+// um alle openHABian-Paketquellen; die Origins-Pattern-Liste wird ergaenzt,
+// nicht ersetzt. Das openHAB-Repo (Origin "openHAB") fehlt hier bewusst:
+// openHAB-Updates bleiben Handarbeit. Entfernt von purge-gateway.sh.
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian";
+        "origin=Debian,codename=${distro_codename}-updates";
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Raspbian,codename=${distro_codename},label=Raspbian";
+        "origin=Raspberry Pi Foundation,codename=${distro_codename},label=Raspberry Pi Foundation";
+};
+// Reboot nur, wenn ein Update ihn verlangt (Kernel/Firmware); 02:30 liegt
+// vor dem naechtlichen Paketfenster von stromkreis-update (03:00-05:00).
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "02:30";
+// Alte Kernel und nicht mehr gebrauchte Abhaengigkeiten aufraeumen,
+// sonst fuellt sich die SD-Karte.
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+EOF
+    chmod 0644 "$apt_unattended"
     systemctl enable --now apt-daily.timer >/dev/null 2>&1 \
       || warn "apt-daily.timer konnte nicht aktiviert werden."
     systemctl enable --now apt-daily-upgrade.timer >/dev/null 2>&1 \
       || warn "apt-daily-upgrade.timer konnte nicht aktiviert werden."
     systemctl enable --now unattended-upgrades.service >/dev/null 2>&1 \
       || warn "unattended-upgrades.service konnte nicht aktiviert werden."
-    log "Taegliches apt-get update und automatische Sicherheitsupdates aktiviert ($apt_periodic)."
+    log "Taegliches apt-get update und automatische apt-Updates aktiviert ($apt_periodic, $apt_unattended; Reboot bei Bedarf um 02:30)."
   else
     warn "apt-get nicht gefunden - taegliches apt-get update uebersprungen."
   fi

@@ -33,7 +33,7 @@ Die Plattform baut je Anlage ein fertiges SD-Karten-Image (openHABian plus Konfi
 3. `install.sh` tauscht den Code gegen die Konfiguration samt Anlagen-Token (`POST /api/gateway/provision/v1`), lädt `stromkreis-gateway.tgz` (Prüfsummen-geprüft), entpackt nach `/opt/stromkreis/openhab` und startet `setup/install-gateway.sh`. Jeder Schritt meldet seine Phase (`POST /api/gateway/provision/v1/result`); der Fortschritt erscheint live auf der Anlagen-Detailseite.
 4. Exit 75 heißt "unvollständig, später erneut" (z. B. Wechselrichter nicht im Netz, Passwort fehlt noch): `stromkreis-firstboot` wiederholt den Lauf alle 10 Minuten, bis alles fertig ist.
 
-Updates laufen über denselben Bootstrap: der root-Timer `stromkreis-update` (alle 10 Minuten) prüft nachts die Paket-Prüfsumme auf der Plattform und spielt neue Stände automatisch ein.
+Updates laufen über denselben Bootstrap: der root-Timer `stromkreis-update` (alle 10 Minuten) prüft nachts die Paket-Prüfsumme auf der Plattform und spielt neue Stände automatisch ein. Betriebssystem-Updates spielt unattended-upgrades täglich automatisch ein (alle openHABian-Paketquellen inklusive Kernel und Pi-Firmware, bewusst ohne das openHAB-Repo); verlangt ein Update einen Neustart, rebootet der Pi um 02:30.
 
 ## Plattform-Endpunkte für die Gateways
 

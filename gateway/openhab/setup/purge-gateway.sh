@@ -122,12 +122,14 @@ rm -f "$OPENHAB_CONF"/automation/js/stromkreis_*.js \
       "$OPENHAB_CONF"/persistence/mapdb.persist \
       "$OPENHAB_CONF"/persistence/rrd4j.persist
 log "Regeln, Items und Persistence-Konfiguration entfernt."
-# Taegliches apt-get update und automatische Sicherheitsupdates fuer den
+# Taegliches apt-get update und automatische apt-Updates fuer den
 # Status-Push (die apt-daily-Timer und das Paket unattended-upgrades sind
 # Debian-Standard und bleiben installiert - ohne die Periodic-Eintraege
-# tun sie nichts mehr).
+# tun sie nichts mehr, und ohne die 52er-Datei gilt wieder die
+# Debian-Vorgabe: nur das Security-Archiv, kein automatischer Reboot).
 rm -f /etc/apt/apt.conf.d/02stromkreis-periodic \
-  && log "entfernt: /etc/apt/apt.conf.d/02stromkreis-periodic (apt-Update und Sicherheitsupdates deaktiviert)"
+      /etc/apt/apt.conf.d/52stromkreis-unattended-upgrades \
+  && log "entfernt: apt-Konfiguration (02stromkreis-periodic, 52stromkreis-unattended-upgrades) - automatische apt-Updates deaktiviert"
 rm -rf /var/lib/openhab/persistence/mapdb /var/lib/openhab/persistence/rrd4j \
   && log "mapdb- und rrd4j-Daten entfernt."
 # Der Standard-Dienst zeigt sonst auf das dann deinstallierte rrd4j.
