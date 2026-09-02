@@ -1,13 +1,17 @@
 import { json } from '@sveltejs/kit';
 import { createHash } from 'node:crypto';
 import { sql } from '$lib/server/db.js';
+import { decrypt } from '$lib/server/secrets.js';
 
 /**
- * Einmalige Auslieferung der Wechselrichter-Zugangsdaten an das Gateway
+ * Auslieferung der Wechselrichter-Zugangsdaten an das Gateway
  * (02b-install-things.sh fragt in der Phase wartet_auf_passwort alle zwei
  * Minuten nach). Der Betreiber traegt Benutzer und Passwort auf der
- * Anlagen-Detailseite ein; nach der Auslieferung wird das Passwort auf der
- * Plattform geloescht - es liegt dann nur noch am Gateway (Bridge-Thing).
+ * Anlagen-Detailseite ein; das Passwort bleibt verschluesselt (TOKEN_SECRET)
+ * auf der Plattform gespeichert, damit eine Neuinstallation (z. B. neue
+ * SD-Karte nach Pi-Defekt) es ohne erneutes Eintragen wieder abholen kann.
+ * Wer den Anlagen-Token hat, kann es abrufen - der Token liegt ohnehin nur
+ * am Gateway (gateway.conf, root-only), das das Passwort selbst kennt.
  *
  * Body: { "token": "<geheim>" }. Antwort: { username, password }, solange
  * ein Passwort hinterlegt ist, sonst {} (das Gateway fragt dann weiter).
@@ -25,14 +29,10 @@ export async function POST({ request }) {
 	}
 	const hash = createHash('sha256').update(token).digest('hex');
 	const [row] = await sql`
-		with alt as (
-			select id, inverter_username, inverter_secret
-			from battery_site where token_hash = ${hash}
-		)
-		update battery_site b set inverter_secret = null
-		from alt
-		where b.id = alt.id and alt.inverter_secret is not null
-		returning alt.inverter_username as username, alt.inverter_secret as password`;
+		select inverter_username as username, inverter_secret as password
+		from battery_site where token_hash = ${hash} and inverter_secret is not null`;
 	if (!row) return json({});
-	return json({ username: row.username ?? '', password: row.password });
+	// Altbestand vor der Verschluesselung lag im Klartext in der Datenbank.
+	const password = row.password.startsWith('enc1:') ? decrypt(row.password) : row.password;
+	return json({ username: row.username ?? '', password });
 }

@@ -43,7 +43,7 @@ Alle mandantenbezogen über den Anlagen-Token (POST mit `{"token": ...}`):
 |---|---|
 | `POST /api/gateway/provision/v1` | Einrichtungscode gegen Konfiguration + Token tauschen |
 | `POST /api/gateway/provision/v1/result` | Einrichtungsphase melden (Antwort trägt z. B. das Profil) |
-| `POST /api/gateway/provision/v1/secret` | Wechselrichter-Passwort einmalig abholen |
+| `POST /api/gateway/provision/v1/secret` | Wechselrichter-Passwort abholen (bleibt verschlüsselt auf der Plattform, für Neuinstallationen) |
 | `POST /api/gateway/status/v1` | Status-Push (Ladestand, Leistungen, Einstellungen, Log, Systemwerte) |
 | `POST /api/gateway/ladefenster/v1` | Ladesperre-Fenster aus der Tagesprognose, je Anlage individualisiert |
 | `POST /api/gateway/crossover/v1` | mittlere Crossover-Zeiten der letzten vollständigen Messtage |

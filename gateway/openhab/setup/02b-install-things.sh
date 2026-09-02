@@ -162,7 +162,8 @@ fi
 # --- 3d. Wechselrichter-Passwort (Provisionierung) ------------------------------
 # Braucht das Profil Zugangsdaten (GEN24) und liegen noch keine vor, holt
 # der Pi sie vom Server: das Mitglied (oder der Betreiber) traegt sie auf
-# stromkreis.net ein, der Server liefert sie einmalig aus und loescht sie.
+# stromkreis.net ein; dort bleiben sie verschluesselt gespeichert, eine
+# Neuinstallation holt sie also ohne erneutes Eintragen wieder ab.
 # Gewartet wird bis zu 30 Minuten je Lauf; danach Exit 75 - install-gateway.sh
 # bricht dann nicht ab, sondern meldet "unvollstaendig", und stromkreis-firstboot
 # wiederholt den Lauf. Die Things werden trotzdem schon angelegt (ohne

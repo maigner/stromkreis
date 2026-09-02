@@ -146,7 +146,7 @@
 					<h2 class="text-lg font-semibold">Zugang zum Wechselrichter</h2>
 					<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 						Manche Wechselrichter (z. B. Fronius GEN24) brauchen für die Batteriesteuerung Benutzer und Passwort.
-						Das Gateway holt die Angaben einmalig ab; danach wird das Passwort hier gelöscht und liegt nur noch auf dem Gateway.
+						Das Gateway holt die Angaben bei der Einrichtung ab. Das Passwort bleibt verschlüsselt hinterlegt, damit eine Neuinstallation (etwa nach einem Pi-Defekt) ohne erneutes Eintragen auskommt.
 					</p>
 					{#if site.setup_phase === 'wartet_auf_passwort'}
 						<p class="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -158,7 +158,7 @@
 							Gespeichert. Das Gateway holt das Passwort innerhalb weniger Minuten ab.
 						</p>
 					{:else if site.has_inverter_secret}
-						<p class="mt-2 text-sm text-stone-600 dark:text-stone-400">Ein Passwort ist hinterlegt und wartet auf die Abholung durch das Gateway.</p>
+						<p class="mt-2 text-sm text-stone-600 dark:text-stone-400">Ein Passwort ist verschlüsselt hinterlegt; das Gateway holt es bei der Einrichtung automatisch ab.</p>
 					{/if}
 					{#if form?.message}
 						<p class="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-300">{form.message}</p>

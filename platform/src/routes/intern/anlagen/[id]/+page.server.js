@@ -93,8 +93,9 @@ export const actions = {
 	},
 
 	// Zugangsdaten des Wechselrichters hinterlegen (z. B. Fronius GEN24,
-	// Benutzer "customer"): das Gateway holt sie einmalig ab, danach wird
-	// das Passwort hier geloescht - es liegt dann nur noch am Gateway.
+	// Benutzer "customer"): das Gateway holt sie bei der Einrichtung ab.
+	// Das Passwort bleibt verschluesselt (TOKEN_SECRET) gespeichert, damit
+	// eine Neuinstallation es ohne erneutes Eintragen wieder abholen kann.
 	wechselrichter_zugang: async ({ locals, params, request }) => {
 		if (!locals.user) redirect(303, '/');
 		const form = await request.formData();
@@ -104,7 +105,7 @@ export const actions = {
 			return fail(400, { message: 'Bitte das Passwort des Wechselrichters eingeben.' });
 		}
 		const [site] = await sql`
-			update battery_site set inverter_username = ${username || null}, inverter_secret = ${password}
+			update battery_site set inverter_username = ${username || null}, inverter_secret = ${encrypt(password)}
 			where tenant_id = ${locals.user.tenant_id} and id = ${Number(params.id)}
 			returning id
 		`;
