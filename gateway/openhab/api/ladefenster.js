@@ -48,6 +48,13 @@ if (response !== null) {
       // Prognose deutlich im Defizit ist. '-' heisst kein Wert (die
       // Steuerung startet dann beim Abend-Crossover plus Abstand).
       var entladestart = (typeof fenster.entladestart === "string" && /^\d{2}:\d{2}$/.test(fenster.entladestart)) ? fenster.entladestart : "-";
+      // Entladeende am Morgen (erster Slot, in dem das Defizit der
+      // Gemeinschaft die Einspeisung der Flotte nicht mehr sicher aufnimmt)
+      // und Vormittags-Crossover der Gemeinschaft (bis dahin sperrt die
+      // Laderegelung hart). '-' heisst kein Wert: Wochen-Crossover bzw.
+      // Regelung ohne Sperre bis zum Crossover.
+      var entladeende = (typeof fenster.entladeende === "string" && /^\d{2}:\d{2}$/.test(fenster.entladeende)) ? fenster.entladeende : "-";
+      var crossoverVormittag = (typeof fenster.crossover_vormittag === "string" && /^\d{2}:\d{2}$/.test(fenster.crossover_vormittag)) ? fenster.crossover_vormittag : "-";
 
       items.getItem("Stromkreis_Ladesperre_Start").postUpdate(start);
       items.getItem("Stromkreis_Ladesperre_Ende").postUpdate(ende);
@@ -63,6 +70,12 @@ if (response !== null) {
         items.getItem("Stromkreis_Entladestart").postUpdate(entladestart);
       } catch (e3) {
         console.error("[Stromkreis] Item Stromkreis_Entladestart fehlt - Setup-Skript 03 erneut ausfuehren.");
+      }
+      try {
+        items.getItem("Stromkreis_Entladeende").postUpdate(entladeende);
+        items.getItem("Stromkreis_Crossover_Vormittag").postUpdate(crossoverVormittag);
+      } catch (e4) {
+        console.error("[Stromkreis] Item Stromkreis_Entladeende oder Stromkreis_Crossover_Vormittag fehlt - Setup-Skript 03 erneut ausfuehren.");
       }
 
       // Stuendliche Ladefaktoren des Erzeugungsprofils samt Abend-Deadline:
@@ -85,7 +98,7 @@ if (response !== null) {
       } catch (e2) {
         // Item fehlt bei aelteren Installationen - Setup-Skript 03 erneut ausfuehren
       }
-      console.log("[Stromkreis] Ladesperre-Fenster aktualisiert (" + fenster.datum + "): " + start + " - " + ende + (individuell ? " (individuell)" : "") + (entladestart !== "-" ? " | Entladung ab " + entladestart : "") + (faktorenText === "-" ? "" : " | " + lf.stunden.length + " Ladefaktoren bis " + lf.deadline));
+      console.log("[Stromkreis] Ladesperre-Fenster aktualisiert (" + fenster.datum + "): " + start + " - " + ende + (individuell ? " (individuell)" : "") + (entladestart !== "-" ? " | Entladung " + entladestart + "-" + entladeende : "") + (crossoverVormittag !== "-" ? " | Crossover " + crossoverVormittag : "") + (faktorenText === "-" ? "" : " | " + lf.stunden.length + " Ladefaktoren bis " + lf.deadline));
     }
   } catch (e) {
     console.error("[Stromkreis] Fehler beim Parsen der Antwort: " + e.message);

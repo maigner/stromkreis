@@ -64,10 +64,10 @@ json_str() {
 # Seriennummer des GX unter der IP lesen (Modbus-FC03 auf 800, Unit 100).
 # Ausgabe: die Seriennummer; leer, wenn kein GX antwortet.
 probe_serial() {
-  Stromkreis_PROBE_IP="$1" Stromkreis_PROBE_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
+  GW_PROBE_IP="$1" GW_PROBE_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
 import os, socket, struct, sys
-ip = os.environ["Stromkreis_PROBE_IP"]
-unit = int(os.environ["Stromkreis_PROBE_UNIT"])
+ip = os.environ["GW_PROBE_IP"]
+unit = int(os.environ["GW_PROBE_UNIT"])
 try:
     s = socket.create_connection((ip, 502), timeout=1)
     s.settimeout(1.5)
@@ -145,11 +145,11 @@ prefix="${own_cidr#*/}"
 
 log "Suche GX-Geraete (Modbus, Unit $MODBUS_UNIT_ID) in ${base}.0/24 ..."
 # Eine Zeile je Fund: "IP Seriennummer"
-candidates="$(Stromkreis_SCAN_BASE="$base" Stromkreis_SCAN_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
+candidates="$(GW_SCAN_BASE="$base" GW_SCAN_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
 import concurrent.futures, os, socket, struct
 
-base = os.environ["Stromkreis_SCAN_BASE"]
-unit = int(os.environ["Stromkreis_SCAN_UNIT"])
+base = os.environ["GW_SCAN_BASE"]
+unit = int(os.environ["GW_SCAN_UNIT"])
 
 def probe(ip):
     try:

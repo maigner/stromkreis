@@ -122,14 +122,21 @@ rm -f "$OPENHAB_CONF"/automation/js/stromkreis_*.js \
       "$OPENHAB_CONF"/persistence/mapdb.persist \
       "$OPENHAB_CONF"/persistence/rrd4j.persist
 log "Regeln, Items und Persistence-Konfiguration entfernt."
-# Taegliches apt-get update und automatische apt-Updates fuer den
-# Status-Push (die apt-daily-Timer und das Paket unattended-upgrades sind
-# Debian-Standard und bleiben installiert - ohne die Periodic-Eintraege
-# tun sie nichts mehr, und ohne die 52er-Datei gilt wieder die
-# Debian-Vorgabe: nur das Security-Archiv, kein automatischer Reboot).
+# Automatische Betriebssystem-Updates (11-install-apt-auto.sh). Die
+# apt-daily-Timer und das Paket unattended-upgrades sind Debian-Standard und
+# bleiben installiert - ohne die Periodic-Eintraege tun sie nichts mehr, und
+# ohne die 52er-Datei gilt wieder die Debian-Vorgabe: nur das
+# Security-Archiv, kein automatischer Reboot.
 rm -f /etc/apt/apt.conf.d/02stromkreis-periodic \
       /etc/apt/apt.conf.d/52stromkreis-unattended-upgrades \
   && log "entfernt: apt-Konfiguration (02stromkreis-periodic, 52stromkreis-unattended-upgrades) - automatische apt-Updates deaktiviert"
+if [ -f /etc/systemd/system/apt-daily-upgrade.timer.d/stromkreis.conf ]; then
+  rm -f /etc/systemd/system/apt-daily-upgrade.timer.d/stromkreis.conf
+  rmdir /etc/systemd/system/apt-daily-upgrade.timer.d 2>/dev/null || true
+  systemctl daemon-reload
+  systemctl restart apt-daily-upgrade.timer >/dev/null 2>&1 || true
+  log "entfernt: Drop-in fuer apt-daily-upgrade.timer"
+fi
 rm -rf /var/lib/openhab/persistence/mapdb /var/lib/openhab/persistence/rrd4j \
   && log "mapdb- und rrd4j-Daten entfernt."
 # Der Standard-Dienst zeigt sonst auf das dann deinstallierte rrd4j.
@@ -155,6 +162,18 @@ if [ -f /etc/systemd/system/stromkreis-update.timer ]; then
   rm -f /etc/systemd/system/stromkreis-update.timer /etc/systemd/system/stromkreis-update.service /usr/local/sbin/stromkreis-update
   systemctl daemon-reload >/dev/null 2>&1 || true
   log "Selbst-Update entfernt (stromkreis-update.timer)."
+fi
+
+# --- 5c. Fail-Safe ---------------------------------------------------------------
+if [ -f /etc/systemd/system/stromkreis-failsafe.timer ] || [ -f /usr/local/sbin/stromkreis-failsafe ]; then
+  systemctl disable --now stromkreis-failsafe.timer stromkreis-failsafe-boot.service >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/stromkreis-failsafe.timer /etc/systemd/system/stromkreis-failsafe.service \
+        /etc/systemd/system/stromkreis-failsafe-boot.service /usr/local/sbin/stromkreis-failsafe \
+        /etc/systemd/system/openhab.service.d/stromkreis-failsafe.conf \
+        /etc/systemd/system.conf.d/stromkreis-watchdog.conf
+  rmdir /etc/systemd/system/openhab.service.d /etc/systemd/system.conf.d 2>/dev/null || true
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  log "Fail-Safe entfernt (stromkreis-failsafe.timer, Boot-Reset, Drop-ins)."
 fi
 
 # --- 6. WireGuard ---------------------------------------------------------------

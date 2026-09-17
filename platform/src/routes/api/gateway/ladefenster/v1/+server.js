@@ -6,6 +6,7 @@ import {
 	individualChargeWindowEnd,
 	chargeFactorsToday,
 	todayDischargeStart,
+	todayDischargeEnd,
 	fleetDischargeKw
 } from '$lib/server/gateway-data.js';
 
@@ -25,8 +26,12 @@ import {
  * das Gemeinschaftsfenster.
  *
  * Ausserdem: `entladestart` (ab wann die Nachteinspeisung heute beginnen
- * soll) und `ladefaktoren` (stuendliche Faktoren samt Abend-Deadline fuer
- * die dynamische Laderegelung).
+ * soll), `entladeende` (bis wann die Gemeinschaft sie am Morgen noch sicher
+ * aufnimmt; null = das Gateway nimmt den gemittelten Vormittags-Crossover),
+ * `crossover_vormittag` (bis dahin ist die Gemeinschaft laut Tagesprognose im
+ * Defizit, die Laderegelung sperrt bis dahin hart) und `ladefaktoren`
+ * (stuendliche Faktoren samt Abend-Deadline fuer die dynamische
+ * Laderegelung).
  */
 export async function POST({ request }) {
 	let body;
@@ -72,9 +77,9 @@ export async function POST({ request }) {
 	}
 
 	const ladefaktoren = await chargeFactorsToday(site.tenant_id, Number(run.id));
-	const entladestart = await todayDischargeStart(
-		site.tenant_id, Number(run.id), await fleetDischargeKw(site.tenant_id)
-	);
+	const fleetKw = await fleetDischargeKw(site.tenant_id);
+	const entladestart = await todayDischargeStart(site.tenant_id, Number(run.id), fleetKw);
+	const entladeende = await todayDischargeEnd(site.tenant_id, Number(run.id), fleetKw);
 
 	return json({
 		ladefenster: {
@@ -83,6 +88,8 @@ export async function POST({ request }) {
 			ende,
 			individuell,
 			entladestart,
+			entladeende,
+			crossover_vormittag: fenster.crossover_vormittag,
 			ladefaktoren
 		}
 	});

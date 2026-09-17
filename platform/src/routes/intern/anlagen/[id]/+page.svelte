@@ -46,6 +46,11 @@
 	const conn = $derived(connectionState(data.site));
 	const status = $derived(data.site.status);
 	const logs = $derived(Array.isArray(data.site.status.logs) ? data.site.status.logs : []);
+	// Zustand des Fail-Safe-Timers am Gateway (nur Profile ohne geraeteseitiges
+	// Auto-Revert): gesetzt, sobald er einmal ausserhalb von openHAB eingegriffen hat.
+	const failsafe = $derived(
+		status.failsafe && typeof status.failsafe === 'object' && status.failsafe.zeit ? status.failsafe : null
+	);
 
 	const dateFmt = new Intl.DateTimeFormat('de-AT', {
 		timeZone: 'Europe/Vienna',
@@ -89,6 +94,26 @@
 		{#if !site.online && site.last_seen_at}
 			<p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-300">
 				Keine Meldung seit über 10 Minuten. Die Werte unten stammen vom letzten Status-Push und können veraltet sein.
+			</p>
+		{/if}
+
+		{#if failsafe}
+			<p
+				class="rounded-md px-3 py-2 text-sm {failsafe.ergebnis === 'reset'
+					? 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+					: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300'}"
+			>
+				{#if failsafe.ergebnis === 'reset'}
+					Fail-Safe hat eingegriffen ({failsafe.zeit}): Der Wechselrichter wurde ohne openHAB auf Werksverhalten
+					zurückgesetzt. Grund: {failsafe.grund ?? 'unbekannt'}.
+				{:else}
+					Fail-Safe-Reset fehlgeschlagen ({failsafe.zeit}): {failsafe.grund ?? 'unbekannt'}{failsafe.meldung
+						? `, ${failsafe.meldung}`
+						: ''}. Bitte die Anlage prüfen.
+				{/if}
+				{#if typeof failsafe.anzahl === 'number' && failsafe.anzahl > 1}
+					Eingriffe bisher: {failsafe.anzahl}.
+				{/if}
 			</p>
 		{/if}
 

@@ -68,8 +68,15 @@ Switch Stromkreis_Aktiv "Batteriemanagement aktivieren" <switch> (Stromkreis)
 // Von der Plattform-API befuellt
 Number Stromkreis_Wolkenvorschau      "Bewoelkungsvorhersage [%.0f %%]" <sun>  (Stromkreis)
 String Stromkreis_Wolkenvorschau_Zeit "Wolkenvorschau abgerufen [%s]"   <time> (Stromkreis)
+// Erwarteter Ertrag des Tages, dem die Wolkenvorschau gilt, in Prozent
+// eines guten Tages (Strahlungsprognose der Plattform); NULL = kein Wert,
+// dann rechnet die Nachtreserve mit dem Wolkenfaktor
+Number Stromkreis_Ertragsprognose     "Ertragsprognose [%.0f %%]"       <sun>  (Stromkreis)
 String Stromkreis_Crossover_Start     "Crossover Start [%s]"            <time> (Stromkreis)
 String Stromkreis_Crossover_Ende      "Crossover Ende [%s]"             <time> (Stromkreis)
+// Letzter Abruf der Crossover-Zeiten; aelter als 14 Tage gelten die
+// Werte in der Steuerung als fehlend
+String Stromkreis_Crossover_Zeit      "Crossover abgerufen [%s]"        <time> (Stromkreis)
 String Stromkreis_Ladesperre_Start    "Ladesperre ab [%s]"              <time> (Stromkreis)
 String Stromkreis_Ladesperre_Ende     "Ladesperre bis [%s]"             <time> (Stromkreis)
 String Stromkreis_Ladesperre_Datum    "Ladesperre-Fenster fuer [%s]"    <calendar> (Stromkreis)
@@ -82,11 +89,22 @@ Switch Stromkreis_Ladesperre_Individuell "Sperr-Ende individualisiert"  <switch>
 // Ladefaktoren = stuendliche Ladefaktoren des Erzeugungsprofils samt
 // Abend-Deadline (Token-API); '-' = keine Daten
 String Stromkreis_Wolken_Stunden      "Wolken je Stunde (intern) [%s]"  <settings> (Stromkreis)
+// Wolken_Verlauf = die letzten Abrufe der Wolkenvorschau (JSON-Liste von
+// {zeit, wert, ertrag}); die Steuerung glaettet die Vorschau darueber
+String Stromkreis_Wolken_Verlauf      "Wolken-Verlauf (intern) [%s]"    <settings> (Stromkreis)
 String Stromkreis_Ladefaktoren        "Ladefaktoren (intern) [%s]"      <settings> (Stromkreis)
 // Entladestart der Nacht von der Token-API: erster Slot, in dem die
 // Gemeinschaft laut Prognose deutlich im Defizit ist (HH:MM); '-' = kein
 // Wert, die Steuerung startet dann beim Abend-Crossover plus Abstand
 String Stromkreis_Entladestart        "Entladung ab [%s]"               <time>   (Stromkreis)
+// Entladeende am Morgen (Token-API): erster Slot, in dem das Defizit der
+// Gemeinschaft die Einspeisung der Flotte nicht mehr sicher aufnimmt;
+// '-' = kein Wert, dann gilt der Wochen-Crossover (Stromkreis_Crossover_Start)
+String Stromkreis_Entladeende         "Entladung bis [%s]"              <time>   (Stromkreis)
+// Vormittags-Crossover der Gemeinschaft laut Tagesprognose (Token-API):
+// bis dahin sperrt die Laderegelung hart, sofern die Batterie danach noch
+// voll wird; '-' = kein Wert
+String Stromkreis_Crossover_Vormittag "Gemeinschaft im Plus ab [%s]"    <time>   (Stromkreis)
 
 // Vom Mitglied einstellbar
 Number Stromkreis_MIN_BATTERY_CHARGE                       "Minimaler Ladestand Batterie [%.0f %%]" <batterylevel> (Stromkreis)
@@ -120,6 +138,10 @@ Switch Stromkreis_LADESPERRE_LOKAL      "Ladesperre-Ende selbst berechnen"      
 Number Stromkreis_LADELEISTUNG          "Geschaetzte Ladeleistung [%.1f kW]"          <energy>   (Stromkreis)
 String Stromkreis_LADERATE_MESSUNG      "Ladeleistungsschaetzung (intern) [%s]"       <settings> (Stromkreis)
 String Stromkreis_LADESPERRE_LOKAL_ENDE "Lokales Ladesperre-Ende [%s]"                <time>     (Stromkreis)
+// Sonnenprofil: je Tagesstunde die mittlere PV-Leistung der letzten 14 Tage
+// (interner Zustand, JSON). Beobachteter Boden der Restladezeit der
+// Laderegelung, wenn die Prognose veraltet oder falsch ist.
+String Stromkreis_SONNENPROFIL          "Sonnenprofil (intern) [%s]"                  <settings> (Stromkreis)
 
 // Laderegelung: statt des harten Sperrfensters wird die Ladeleistung
 // dynamisch geregelt - die Batterie laedt den ganzen Tag gerade schnell
@@ -164,6 +186,11 @@ Number Stromkreis_BATTERIE_NETZEINSPEISUNG "Netzeinspeisung aus der Batterie [%.
 // Nutzen-Indikator fuer Besitzer und EEG. Stromkreis_NETZEINSPEISUNG_ZAEHLER ist
 // interner Zustand (JSON, praeziser Stand samt Zeitstempel).
 Number Stromkreis_BATTERIE_NETZEINSPEISUNG_KWH "Batterie ins Netz gesamt [%.2f kWh]"  <energy>   (Stromkreis)
+// Woche und Monat rechnet die Plattform (wie fuer das Dashboard) und liefert
+// sie mit der Antwort auf die Statusmeldung; status_push.js schreibt sie
+// in diese Items fuer die Main UI.
+Number Stromkreis_BATTERIE_NETZEINSPEISUNG_WOCHE_KWH "Batterie ins Netz diese Woche [%.2f kWh]" <energy> (Stromkreis)
+Number Stromkreis_BATTERIE_NETZEINSPEISUNG_MONAT_KWH "Batterie ins Netz dieses Monat [%.2f kWh]" <energy> (Stromkreis)
 String Stromkreis_NETZEINSPEISUNG_ZAEHLER  "Einspeise-Zaehler (intern) [%s]"          <settings> (Stromkreis)
 EOF
 
@@ -197,15 +224,20 @@ Items {
 ${profile_persist}    Stromkreis_Aktiv,
     Stromkreis_Wolkenvorschau,
     Stromkreis_Wolkenvorschau_Zeit,
+    Stromkreis_Ertragsprognose,
     Stromkreis_Crossover_Start,
     Stromkreis_Crossover_Ende,
+    Stromkreis_Crossover_Zeit,
     Stromkreis_Ladesperre_Start,
     Stromkreis_Ladesperre_Ende,
     Stromkreis_Ladesperre_Datum,
     Stromkreis_Ladesperre_Individuell,
     Stromkreis_Wolken_Stunden,
+    Stromkreis_Wolken_Verlauf,
     Stromkreis_Ladefaktoren,
     Stromkreis_Entladestart,
+    Stromkreis_Entladeende,
+    Stromkreis_Crossover_Vormittag,
     Stromkreis_MIN_BATTERY_CHARGE,
     Minimale_Entladeleistung_Batterieeinspeisung,
     Maximale_Entladeleistung_Batterieeinspeisung,
@@ -220,6 +252,7 @@ ${profile_persist}    Stromkreis_Aktiv,
     Stromkreis_LADELEISTUNG,
     Stromkreis_LADERATE_MESSUNG,
     Stromkreis_LADESPERRE_LOKAL_ENDE,
+    Stromkreis_SONNENPROFIL,
     Stromkreis_LADEREGELUNG,
     Stromkreis_LADEREGELUNG_SOLL,
     Stromkreis_LADEREGELUNG_STATUS,
@@ -227,6 +260,8 @@ ${profile_persist}    Stromkreis_Aktiv,
     Stromkreis_NETZLADESCHUTZ,
     Stromkreis_NETZLADE_WAECHTER,
     Stromkreis_BATTERIE_NETZEINSPEISUNG_KWH,
+    Stromkreis_BATTERIE_NETZEINSPEISUNG_WOCHE_KWH,
+    Stromkreis_BATTERIE_NETZEINSPEISUNG_MONAT_KWH,
     Stromkreis_NETZEINSPEISUNG_ZAEHLER,
     Stromkreis_HAUSLAST,
     Stromkreis_HAUSLAST_MESSUNG,

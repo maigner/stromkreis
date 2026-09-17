@@ -1,5 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { siteByToken, cloudNextSunshineWindow, cloudHoursToday } from '$lib/server/gateway-data.js';
+import {
+	siteByToken,
+	cloudNextSunshineWindow,
+	cloudHoursToday,
+	nextSunshineWindowDate,
+	radiationShareForDay
+} from '$lib/server/gateway-data.js';
 
 /**
  * Bewoelkungsvorhersage fuer das Speichermanagement (api/cloud_forecast.js
@@ -7,9 +13,13 @@ import { siteByToken, cloudNextSunshineWindow, cloudHoursToday } from '$lib/serv
  * bindet die Abfrage an den Mandanten (POST, damit der Token in keinem
  * Access-Log landet).
  *
- * Antwort: { wolken: { vorschau, datum, stunden } } - `vorschau` ist die
- * mittlere Bewoelkung des naechsten Mittagsfensters, `stunden` die
+ * Antwort: { wolken: { vorschau, datum, stunden }, ertrag } - `vorschau` ist
+ * die mittlere Bewoelkung des naechsten Mittagsfensters, `stunden` die
  * Stundenwerte des restlichen Tages fuer die dynamische Laderegelung.
+ * `ertrag` ist der erwartete Ertrag des Tages, dem `vorschau` gilt, als
+ * Anteil an einem guten Tag (Strahlungsprognose durch das 75. Perzentil der
+ * 14 Vortage); die Nachtreserve der Gateways rechnet damit statt mit dem
+ * Wolkenfaktor. Fehlt der Wert (null), gilt am Gateway der Wolkenfaktor.
  */
 export async function POST({ request }) {
 	let body;
@@ -27,5 +37,6 @@ export async function POST({ request }) {
 	}
 	const heute = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Vienna' }).format(new Date());
 	const stunden = await cloudHoursToday(site.tenant_id);
-	return json({ wolken: { vorschau, datum: heute, stunden } });
+	const ertrag = await radiationShareForDay(site.tenant_id, nextSunshineWindowDate());
+	return json({ wolken: { vorschau, datum: heute, stunden }, ertrag });
 }

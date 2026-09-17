@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { createHash } from 'node:crypto';
 import { sql } from '$lib/server/db.js';
+import { recordCounterSnapshot, batteryGridFeedIn } from '$lib/server/gateway-data.js';
 
 // Groessenlimit des data-JSON; schuetzt die Tabelle vor aufgeblasenen Payloads.
 const MAX_STATUS_DATA_BYTES = 16 * 1024;
@@ -15,6 +16,11 @@ const MAX_STATUS_DATA_BYTES = 16 * 1024;
  * Systemzustand (erkennbar am Feld `versions`). Volle Meldungen ersetzen
  * den gespeicherten Status komplett, schlanke werden hineingemischt - so
  * bleiben die zuletzt voll gemeldeten Felder in der Anlagenansicht sichtbar.
+ *
+ * Antwort: { ok: true }. Bei vollen Meldungen geht zusaetzlich `einspeisung`
+ * mit: Wochen- und Monatssumme der Batterie-Netzeinspeisung aus den
+ * Tages-Schnappschuessen des Einspeisezaehlers (batterie_netz_kwh) - das
+ * Gateway zeigt sie in der Main UI an, lokal fehlt ihm die Historie.
  */
 export async function POST({ request }) {
 	let body;
@@ -67,10 +73,34 @@ export async function POST({ request }) {
 					'wifi_ssid', status->'wifi_ssid', 'wifi_password', status->'wifi_password'))
 				else status || ${sql.json(patch)}::jsonb end
 		where token_hash = ${hash}
-		returning id`;
+		returning id, tenant_id`;
 	if (!site) {
 		console.log(`gateway status push abgelehnt (unbekannter Token): ${anlage || 'ohne Namen'}`);
 		return json({ error: 'Unbekannter Token.' }, { status: 401 });
 	}
-	return json({ ok: true });
+
+	/** @type {Record<string, unknown>} */
+	const response = { ok: true };
+
+	// Zaehlerstand und Summen nur bei vollen Meldungen (5-Minuten-Raster) - die
+	// minuetlichen schlanken Pushes bleiben ohne DB-Extraabfrage. Fehler hier
+	// duerfen die Statusmeldung nie scheitern lassen.
+	if (isFull) {
+		try {
+			const kwh = data.batterie_netz_kwh;
+			if (typeof kwh === 'number') {
+				await recordCounterSnapshot(Number(site.tenant_id), Number(site.id), kwh);
+			}
+			const feedIn = await batteryGridFeedIn(Number(site.tenant_id), Number(site.id));
+			if (feedIn) {
+				response.einspeisung = {
+					woche_kwh: Math.round(feedIn.week_kwh * 100) / 100,
+					monat_kwh: Math.round(feedIn.month_kwh * 100) / 100
+				};
+			}
+		} catch (e) {
+			console.error('einspeisung fuer status-antwort fehlgeschlagen:', e);
+		}
+	}
+	return json(response);
 }

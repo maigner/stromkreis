@@ -10,7 +10,7 @@ Fernwartung und Fernzugriff laufen ebenfalls über Stromkreis-Infrastruktur, bei
 **Sicherheitsregeln (Startvoraussetzung je Profil, nicht optional):**
 
 - **Fail-Safe:** Ist die Plattform nicht erreichbar, fällt die Anlage auf ihr Standardverhalten zurück.
-- **Auto-Revert:** Jede Steuerungsvorgabe läuft ohne Verlängerung automatisch ab; vor Ort getestet.
+- **Auto-Revert:** Jede Steuerungsvorgabe läuft ohne Verlängerung automatisch ab; vor Ort getestet. Wo der Wechselrichter das nicht selbst kann (Modbus-Profile: geschriebene Register bleiben stehen), setzt der root-Timer `stromkreis-failsafe` den Wechselrichter außerhalb von openHAB zurück: minütliche Prüfung des Heartbeats der Steuerung, Reset bei Heartbeat älter als 12 Minuten oder gestopptem openHAB, dazu ein Reset bei jedem Boot vor dem openHAB-Start (`setup/10-install-failsafe.sh`, Analyse und Testplan in `openhab/inverters/failsafe-modbus.md`). Derzeit hat nur `fronius-snapinverter` das nötige Reset-Skript; für `sigenergy`, `deye` und `victron` ist es offen. Steht der Hauptschalter auf Aus, rühren weder Steuerung noch Fail-Safe den Wechselrichter an.
 - **Risikoaufklärung:** Je Anlage wird das Restrisiko schriftlich dokumentiert und vom Mitglied bestätigt.
 
 ## Aufbau
@@ -33,7 +33,7 @@ Die Plattform baut je Anlage ein fertiges SD-Karten-Image (openHABian plus Konfi
 3. `install.sh` tauscht den Code gegen die Konfiguration samt Anlagen-Token (`POST /api/gateway/provision/v1`), lädt `stromkreis-gateway.tgz` (Prüfsummen-geprüft), entpackt nach `/opt/stromkreis/openhab` und startet `setup/install-gateway.sh`. Jeder Schritt meldet seine Phase (`POST /api/gateway/provision/v1/result`); der Fortschritt erscheint live auf der Anlagen-Detailseite.
 4. Exit 75 heißt "unvollständig, später erneut" (z. B. Wechselrichter nicht im Netz, Passwort fehlt noch): `stromkreis-firstboot` wiederholt den Lauf alle 10 Minuten, bis alles fertig ist.
 
-Updates laufen über denselben Bootstrap: der root-Timer `stromkreis-update` (alle 10 Minuten) prüft nachts die Paket-Prüfsumme auf der Plattform und spielt neue Stände automatisch ein. Betriebssystem-Updates spielt unattended-upgrades täglich automatisch ein (alle openHABian-Paketquellen inklusive Kernel und Pi-Firmware, bewusst ohne das openHAB-Repo); verlangt ein Update einen Neustart, rebootet der Pi um 02:30.
+Updates laufen über denselben Bootstrap: der root-Timer `stromkreis-update` (alle 10 Minuten) prüft nachts die Paket-Prüfsumme auf der Plattform und spielt neue Stände automatisch ein. Betriebssystem-Updates spielt unattended-upgrades täglich ab 03:40 automatisch ein (`setup/11-install-apt-auto.sh`: Debian, Raspbian und das Archiv der Raspberry Pi Foundation inklusive Kernel und Pi-Firmware, bewusst ohne openHAB, Java und NodeSource); verlangt ein Update einen Neustart, rebootet der Pi um 10:00. Der Neustart liegt bewusst am Vormittag: kommt ein Pi danach nicht mehr hoch, fällt das sofort auf und es ist jemand erreichbar (`APT_AUTO_REBOOT_TIME`, `APT_AUTO_REBOOT=0` schaltet ihn ab).
 
 ## Plattform-Endpunkte für die Gateways
 
@@ -69,7 +69,7 @@ Voraussetzungen: Raspberry Pi (64-bit, empfohlen Pi 4 mit 2 GB oder mehr), SD-Ka
 | Profil | Status |
 |---|---|
 | `fronius-symo` (GEN24/Symo Hybrid) | Vor-Ort-Erprobung Aug 2026 (ISCHLSTROM), portiert |
-| `fronius-snapinverter` | Vor-Ort-Erprobung Aug 2026 (ISCHLSTROM), portiert |
+| `fronius-snapinverter` | Vor-Ort-Spike Sep 2026 (ISCHLSTROM) eingearbeitet: Model 124 ab 40303, kein geräteseitiges Revert-Timeout (daher Fail-Safe-Timer), Leistungswerte über die Solar API; Fail-Safe-Test am Gerät offen |
 | `sigenergy` | portiert; Spike offen (Auto-Revert, mySigen-Zugriff) |
 | `deye` (SG05LP3) | portiert; Spike offen (RS485-Gateway, TOU/EEPROM/Fail-Safe) |
 | `victron` | portiert; Spike offen (DVCC vs. MPPT, Reg 2700, Venus 3.50+) |

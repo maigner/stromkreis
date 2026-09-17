@@ -71,7 +71,9 @@ tar -czf "$tarball" \
     --exclude='setup/gateway.conf' \
     --exclude='*.bak-*' \
     --exclude='.gitignore' \
-    --exclude='inverters/*/tools' \
+    --exclude='inverters/*/tools/sim_*' \
+    --exclude='inverters/*/tools/spike_*' \
+    --exclude='__pycache__' \
     "$(basename "$openhab_dir")"
 
 # Versionsstring, wie ihn die Anlagen melden (04-install-rules.sh aus

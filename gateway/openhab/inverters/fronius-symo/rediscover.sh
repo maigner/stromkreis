@@ -20,8 +20,12 @@
 # ============================================================================
 set -u
 
-THING_UID="@GW_HOST_THING_UID@"
+THING_UID="@GW_HOST_THING_UID@"        # traegt die Adresse (bei Modbus die tcp-Bridge)
+WATCH_THING_UID="@GW_WATCH_THING_UID@" # zeigt die Verbindung an (bei Modbus ein Daten-Thing)
 HOST_PARAM="@GW_HOST_PARAM@"
+# Weitere Things mit derselben Adresse, "uid=parameter" Leerzeichen-getrennt
+# (fronius-snapinverter: die Solar-API-Bridge neben der Modbus-Bridge)
+EXTRA_HOST_THINGS="@GW_EXTRA_HOST_THINGS@"
 TOKEN_FILE="@GW_TOKEN_FILE@"
 STATE_DIR="@GW_STATE_DIR@"
 COOLDOWN_MIN="@GW_COOLDOWN_MIN@"
@@ -33,6 +37,15 @@ FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
 
 serial_file="$STATE_DIR/inverter_serial"
+
+# Die Modbus-tcp-Bridge meldet ONLINE, sobald sie konfiguriert ist - auch wenn
+# niemand auf der Adresse antwortet (im ISCHLSTROM-Betrieb beobachtet: 11 Stunden
+# "Connection refused" bei ONLINE-Bridge). OFFLINE gehen nur Poller und
+# Daten-Things. Deshalb den Status am Wechselrichter-Thing ablesen und nur
+# die Adresse aus dem Bridge-Thing nehmen. Aeltere Installationen ohne den
+# Platzhalter fallen auf das Bridge-Thing zurueck.
+case "$WATCH_THING_UID" in ""|@*) WATCH_THING_UID="$THING_UID" ;; esac
+case "$EXTRA_HOST_THINGS" in @*) EXTRA_HOST_THINGS="" ;; esac
 
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 
@@ -79,33 +92,69 @@ remember_serials() {
 }
 
 # --- Thing-Status und aktuelle Adresse abfragen -----------------------------
-response="$(auth_curl -w '\n%{http_code}' "$REST/things/$THING_UID")"
-http_code="${response##*$'\n'}"
-thing_json="${response%$'\n'*}"
-case "$http_code" in
-  200) ;;
-  401|403) log "FEHLER: API-Token wird abgelehnt (HTTP $http_code) - neues Token eintragen."; exit 1 ;;
-  404) log "FEHLER: Thing nicht gefunden: $THING_UID"; exit 1 ;;
-  *)   log "FEHLER: openHAB REST API nicht erreichbar (HTTP $http_code)."; exit 1 ;;
-esac
+fetch_thing() {
+  local uid="$1" response http_code
+  response="$(auth_curl -w '\n%{http_code}' "$REST/things/$uid")"
+  http_code="${response##*$'\n'}"
+  case "$http_code" in
+    200) printf '%s' "${response%$'\n'*}" ;;
+    401|403) log "FEHLER: API-Token wird abgelehnt (HTTP $http_code) - neues Token eintragen."; exit 1 ;;
+    404) log "FEHLER: Thing nicht gefunden: $uid"; exit 1 ;;
+    *)   log "FEHLER: openHAB REST API nicht erreichbar (HTTP $http_code)."; exit 1 ;;
+  esac
+}
 
-status="$(json_str "$thing_json" status)"
-detail="$(json_str "$thing_json" statusDetail)"
-current_host="$(json_str "$thing_json" "$HOST_PARAM")"
+# Traegt die Adresse $1 in die weiteren Things (EXTRA_HOST_THINGS) ein, wo
+# sie abweicht. Still, solange alles stimmt; ein fehlendes Thing (aelteres
+# Paket, noch nicht angelegt) wird uebersprungen.
+sync_extra_hosts() {
+  local target="$1" entry uid param response http_code have
+  [ -n "$target" ] || return 0
+  for entry in $EXTRA_HOST_THINGS; do
+    uid="${entry%=*}"; param="${entry##*=}"
+    response="$(auth_curl -w '\n%{http_code}' -m 10 "$REST/things/$uid")"
+    http_code="${response##*$'\n'}"
+    [ "$http_code" = "200" ] || continue
+    have="$(json_str "${response%$'\n'*}" "$param")"
+    [ "$have" = "$target" ] && continue
+    http_code="$(auth_curl -o /dev/null -w '%{http_code}' -m 10 -X PUT \
+      -H 'Content-Type: application/json' \
+      -d "{\"$param\": \"$target\"}" \
+      "$REST/things/$uid/config")"
+    if [ "$http_code" = "200" ]; then
+      log "Adresse in $uid nachgezogen: ${have:-leer} -> $target"
+    else
+      log "FEHLER: Adresse in $uid konnte nicht nachgezogen werden (HTTP $http_code)."
+    fi
+  done
+}
+
+host_json="$(fetch_thing "$THING_UID")"
+if [ "$WATCH_THING_UID" = "$THING_UID" ]; then
+  watch_json="$host_json"
+else
+  watch_json="$(fetch_thing "$WATCH_THING_UID")"
+fi
+
+status="$(json_str "$watch_json" status)"
+detail="$(json_str "$watch_json" statusDetail)"
+current_host="$(json_str "$host_json" "$HOST_PARAM")"
 
 # --- Normalbetrieb: nichts tun, nebenbei die Seriennummern aktuell halten ---
 if [ "$status" = "ONLINE" ] && [ "$FORCE" -ne 1 ]; then
   [ -n "$current_host" ] && remember_serials "$(serials_of "$current_host" || true)"
+  sync_extra_hosts "$current_host"
   exit 0
 fi
 
-log "Thing $THING_UID ist $status ($detail), konfigurierte Adresse: ${current_host:-unbekannt}."
+log "Thing $WATCH_THING_UID ist $status ($detail), konfigurierte Adresse in $THING_UID: ${current_host:-unbekannt}."
 
 # Antwortet die konfigurierte Adresse noch, liegt es nicht an der IP -
 # dann bringt eine Netzwerksuche nichts (z. B. Credentials, Nachtmodus).
 if [ -n "$current_host" ] && probe "$current_host"; then
   log "Wechselrichter antwortet weiterhin unter $current_host - keine Suche."
   log "Ursache liegt nicht an der Adresse (Credentials? Binding? openhab.log pruefen)."
+  sync_extra_hosts "$current_host"
   exit 0
 fi
 
@@ -179,6 +228,7 @@ fi
 
 if [ "$found" = "$current_host" ]; then
   log "Gefundene Adresse entspricht der konfigurierten ($found) - das Binding verbindet sich von selbst neu."
+  sync_extra_hosts "$found"
   exit 0
 fi
 
@@ -196,7 +246,8 @@ fi
 
 remember_serials "$found_serials"
 log "Thing-Konfiguration aktualisiert - das Binding initialisiert sich neu."
+sync_extra_hosts "$found"
 
-sleep 15
-verify="$(auth_curl "$REST/things/$THING_UID/status" || true)"
-log "Thing-Status nach dem Update: $(json_str "$verify" status || echo unbekannt)"
+sleep 20
+verify="$(auth_curl "$REST/things/$WATCH_THING_UID/status" || true)"
+log "Status von $WATCH_THING_UID nach dem Update: $(json_str "$verify" status || echo unbekannt)"
