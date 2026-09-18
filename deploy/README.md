@@ -33,7 +33,7 @@ Dazu das benannte Volume `wg-keys`: das WireGuard-Schlüsselpaar des Servers, er
 Dienste:
 
 - `db` (Postgres), `platform` (lauscht auf `127.0.0.1:4000`), `worker` (Pipeline-Container, arbeitet die Import-Aufträge des EEGFaktura-Logins ab; `docker compose logs -f worker`), `demo-heartbeat`.
-- `wireguard`: Wartungsnetz `10.88.0.0/24` für die Gateways (UDP 51820 veröffentlicht, braucht eine Weiterleitung am Router), Peer-Abgleich minütlich aus der Plattform-DB, dazu der stack-interne SOCKS-Durchgang für die SSH-Konsole der Anlagen-Detailseite. SSH vom Terminal: `deploy/wg-ssh.sh <tunnel-ip>`.
+- `wireguard`: Wartungsnetz `10.88.0.0/24` für die Gateways (UDP 51820 veröffentlicht, braucht eine Weiterleitung am Router), Peer-Abgleich minütlich aus der Plattform-DB, dazu der stack-interne SOCKS-Durchgang für die Fernwartungs-Aktionen der Anlagen-Detailseite (SSH). SSH vom Terminal: `deploy/wg-ssh.sh <tunnel-ip>`.
 - `cloud-app` (Stromkreis-eigene openHAB-Cloud, lauscht auf `127.0.0.1:4100`), `cloud-mongodb`, `cloud-redis`, `cloud-sync` (legt die Cloud-Konten der Anlagen automatisch an).
 
 Die Datenbanken sind nicht veröffentlicht. Öffentlicher Zugang läuft über drei Einträge in `~/Container/caddy/Caddyfile` am Server (die DNS-A-Records für `hac` und `remote.hac` müssen auf den Server zeigen, sonst bekommt Caddy keine Zertifikate):

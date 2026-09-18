@@ -1,13 +1,42 @@
 <script>
 	import { enhance } from '$app/forms';
 	import SdImage from '../../SdImage.svelte';
-	import SshTerminal from './SshTerminal.svelte';
 	import { profileLabels, de, seenLabel, connectionState, watt, batteryLabel, gridLabel } from '../../site-format.js';
 
 	let { data, form } = $props();
 
-	let sshOpen = $state(false);
 	let tab = $state('uebersicht');
+
+	// Fernwartung: laufende Aktion und letztes Ergebnis. Eigener Zustand statt
+	// `form`, damit die Ausgabe andere Formulare der Seite uebersteht.
+	let remoteRunning = $state('');
+	let remoteError = $state('');
+	let remote = $state(
+		/** @type {{id: string, label: string, ok: boolean, exit_code: number | null, output: string, at: string} | null} */ (null)
+	);
+
+	/** @type {import('@sveltejs/kit').SubmitFunction} */
+	function submitRemote({ formData, cancel }) {
+		const id = String(formData.get('aktion') ?? '');
+		const action = data.remote_actions.find((/** @type {any} */ a) => a.id === id);
+		if (!action || (action.confirm && !confirm(action.confirm))) {
+			cancel();
+			return;
+		}
+		remoteRunning = id;
+		remoteError = '';
+		return async ({ result, update }) => {
+			remoteRunning = '';
+			if (result.type === 'success') {
+				remote = /** @type {any} */ (result.data)?.remote ?? null;
+			} else if (result.type === 'failure') {
+				remoteError = String(/** @type {any} */ (result.data)?.remote_error ?? 'Fernwartung fehlgeschlagen.');
+			} else if (result.type === 'error') {
+				remoteError = 'Fernwartung fehlgeschlagen.';
+			}
+			await update({ reset: false });
+		};
+	}
 	let pwCopied = $state(false);
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let pwCopiedTimer;
@@ -48,6 +77,11 @@
 	const logs = $derived(Array.isArray(data.site.status.logs) ? data.site.status.logs : []);
 	// Zustand des Fail-Safe-Timers am Gateway (nur Profile ohne geraeteseitiges
 	// Auto-Revert): gesetzt, sobald er einmal ausserhalb von openHAB eingegriffen hat.
+	const aptPending = $derived(typeof status.apt_updates?.pending === 'number' ? status.apt_updates.pending : null);
+	const remoteGroups = $derived([
+		{ title: 'Aktionen', items: data.remote_actions.filter((/** @type {any} */ a) => a.kind === 'aktion') },
+		{ title: 'Abfragen', items: data.remote_actions.filter((/** @type {any} */ a) => a.kind === 'abfrage') }
+	]);
 	const failsafe = $derived(
 		status.failsafe && typeof status.failsafe === 'object' && status.failsafe.zeit ? status.failsafe : null
 	);
@@ -132,8 +166,7 @@
 			{/each}
 		</nav>
 
-		<!-- Beide Tab-Inhalte bleiben gemountet (nur per CSS versteckt), damit eine
-		     offene SSH-Sitzung den Tab-Wechsel uebersteht. -->
+		<!-- Alle Tab-Inhalte bleiben gemountet (nur per CSS versteckt). -->
 		<div class={tab === 'uebersicht' ? 'flex flex-col gap-6' : 'hidden'}>
 			{#if site.setup_phase !== 'fertig' || site.code_valid}
 				<section class="rounded-lg border border-brand-300 bg-brand-50 p-5 dark:border-brand-700 dark:bg-brand-950/40">
@@ -388,28 +421,84 @@
 
 		<div class={tab === 'fernwartung' ? 'flex flex-col gap-6' : 'hidden'}>
 			<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-				<h2 class="text-lg font-semibold">SSH-Fernwartung</h2>
+				<h2 class="text-lg font-semibold">Fernwartung</h2>
 				{#if site.wg_address}
 					<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
 						Tunnel-IP <code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono dark:bg-stone-800">{site.wg_address}</code>
 						· {site.wg_key_reported ? 'Schlüssel gemeldet, Tunnel wird gehalten' : 'Wartet auf die erste Meldung des Gateways'}
 					</p>
-					<p class="mt-1 text-xs text-stone-500 dark:text-stone-400">
-						Zugriff vom Server: <code class="font-mono">deploy/wg-ssh.sh {site.wg_address}</code> (Anmeldung als openhabian mit dem Anlagen-Passwort)
-					</p>
-					{#if site.wg_key_reported && !sshOpen}
-						<button
-							type="button"
-							class="mt-3 rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
-							onclick={() => (sshOpen = true)}
-						>
-							SSH-Konsole öffnen
-						</button>
-					{/if}
-					{#if sshOpen}
-						<div class="mt-4">
-							<SshTerminal siteId={site.id} onclose={() => (sshOpen = false)} />
+					<dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
+						<div>
+							<dt class="text-stone-500 dark:text-stone-400">Gateway-Paket</dt>
+							<dd class="mt-0.5 font-medium">{status.gateway_version ?? 'k.A.'}</dd>
 						</div>
+						<div>
+							<dt class="text-stone-500 dark:text-stone-400">System-Updates</dt>
+							<dd class="mt-0.5 font-medium">{aptPending === null ? 'k.A.' : aptPending === 0 ? 'Aktuell' : `${aptPending} ausstehend`}</dd>
+						</div>
+						<div>
+							<dt class="text-stone-500 dark:text-stone-400">Neustart</dt>
+							<dd class="mt-0.5 font-medium {status.system?.reboot_required ? 'text-amber-700 dark:text-amber-400' : ''}">
+								{status.system ? (status.system.reboot_required ? 'Erforderlich' : 'Nicht nötig') : 'k.A.'}
+							</dd>
+						</div>
+						<div>
+							<dt class="text-stone-500 dark:text-stone-400">Läuft seit</dt>
+							<dd class="mt-0.5 font-medium">{status.system?.booted_at ?? 'k.A.'}</dd>
+						</div>
+					</dl>
+
+					{#if site.wg_key_reported}
+						<!-- use:enhance: kein voller Seiten-Reload, der Tab bleibt stehen -->
+						<form method="POST" action="?/fernwartung" class="mt-4 flex flex-col gap-3" use:enhance={submitRemote}>
+							{#each remoteGroups as group (group.title)}
+								<div>
+									<h3 class="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">{group.title}</h3>
+									<div class="mt-1.5 flex flex-wrap gap-2">
+										{#each group.items as a (a.id)}
+											<button
+												name="aktion"
+												value={a.id}
+												title={a.description}
+												disabled={remoteRunning !== ''}
+												class="rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 {a.id === 'neustart'
+													? 'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950'
+													: 'border-stone-300 hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-800'}"
+											>
+												{remoteRunning === a.id ? `${a.label} ...` : a.label}
+											</button>
+										{/each}
+									</div>
+								</div>
+							{/each}
+						</form>
+						<p class="mt-3 text-xs text-stone-500 dark:text-stone-400">
+							Die Aktionen laufen per SSH über den Wartungstunnel (Anmeldung als openhabian mit dem Anlagen-Passwort, es verlässt den Server nie).
+							Update und System-Update laufen am Gateway im Hintergrund weiter; den Verlauf zeigen die Protokoll-Abfragen.
+							Für alles Weitere vom Server: <code class="font-mono">deploy/wg-ssh.sh {site.wg_address}</code>
+						</p>
+
+						{#if remoteRunning}
+							<p class="mt-3 rounded-md bg-stone-100 px-3 py-2 text-sm text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+								Verbinde mit dem Gateway und führe die Aktion aus ...
+							</p>
+						{:else if remoteError}
+							<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-300">{remoteError}</p>
+						{:else if remote}
+							<div class="mt-3">
+								<p class="text-sm {remote.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}">
+									{remote.label}: {remote.ok ? 'ausgeführt' : `fehlgeschlagen${remote.exit_code === null ? '' : ` (Exit ${remote.exit_code})`}`}
+									<span class="text-stone-500 dark:text-stone-400">· {dateFmt.format(new Date(remote.at))}</span>
+								</p>
+								{#if remote.output}
+									<pre class="mt-2 max-h-96 overflow-auto rounded-md bg-stone-950 p-3 font-mono text-xs leading-relaxed text-stone-300">{remote.output}</pre>
+								{/if}
+							</div>
+						{/if}
+					{:else}
+						<p class="mt-3 text-sm text-stone-500 dark:text-stone-400">
+							Die Wartungsaktionen stehen bereit, sobald das Gateway seinen Tunnel-Schlüssel gemeldet hat.
+						</p>
 					{/if}
 				{:else}
 					<p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Noch keine Tunnel-IP: wird bei der Einrichtung zugeteilt.</p>

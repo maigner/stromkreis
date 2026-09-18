@@ -2,8 +2,8 @@
 # Compose-Stack (statt nativ wie bei ISCHLSTROM auf s1). Braucht NET_ADMIN
 # und das wireguard-Kernelmodul des Hosts (Linux ab 5.6 eingebaut).
 #
-# microsocks reicht der Plattform TCP ins Wartungsnetz durch (SSH-Konsole
-# der Anlagen-Detailseite); Alpine hat kein Paket dafuer, deshalb wird es
+# microsocks reicht der Plattform TCP ins Wartungsnetz durch (Fernwartungs-
+# Aktionen der Anlagen-Detailseite, SSH); Alpine hat kein Paket dafuer, deshalb wird es
 # hier aus den Quellen gebaut (gepinnte Version, statisch, ~100 KB).
 FROM alpine:3.20 AS microsocks
 RUN apk add --no-cache build-base curl \

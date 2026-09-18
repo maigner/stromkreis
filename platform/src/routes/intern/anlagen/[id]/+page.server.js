@@ -4,6 +4,7 @@ import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, randomPhonePasswo
 import { decrypt, encrypt } from '$lib/server/secrets.js';
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { createAppSetupToken, qrSvg } from '$lib/server/app-setup.js';
+import { listRemoteActions, runRemoteAction } from '$lib/server/gateway-ssh.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, params }) {
@@ -61,7 +62,8 @@ export async function load({ locals, params }) {
 			code_valid: Boolean(site.provision_code && site.provision_expires_at && site.provision_expires_at > new Date()),
 			app_code: appCode ?? null,
 			image: await getImageStatus(/** @type {any} */ (site))
-		}
+		},
+		remote_actions: listRemoteActions()
 	};
 }
 
@@ -143,5 +145,22 @@ export const actions = {
 				qr: await qrSvg(created.link)
 			}
 		};
+	},
+
+	// Fernwartung: eine der festen Wartungsaktionen per SSH am Gateway
+	// ausfuehren (Neustart, Updates, Abfragen). Vom Browser kommt nur die
+	// Kennung; die Befehle selbst stehen in gateway-ssh.js.
+	fernwartung: async ({ locals, params, request }) => {
+		if (!locals.user) redirect(303, '/');
+		const form = await request.formData();
+		const actionId = String(form.get('aktion') ?? '');
+		try {
+			return { remote: await runRemoteAction(locals.user.tenant_id, Number(params.id), actionId) };
+		} catch (e) {
+			return fail(502, {
+				remote_error: e instanceof Error ? e.message : 'Fernwartung fehlgeschlagen.',
+				remote_action: actionId
+			});
+		}
 	}
 };
