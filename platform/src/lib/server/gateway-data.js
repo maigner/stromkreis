@@ -69,6 +69,63 @@ export async function cloudHoursToday(tenantId) {
 		.filter((s) => /^\d{2}:\d{2}$/.test(s.zeit) && Number.isFinite(s.wolken) && s.wolken >= 0 && s.wolken <= 100);
 }
 
+/**
+ * Datum ("YYYY-MM-DD") des naechsten Mittagsfensters - derselbe Tag, dem
+ * cloudNextSunshineWindow gilt (heute vor 12:00 Lokalzeit, sonst morgen).
+ */
+export function nextSunshineWindowDate() {
+	const now = new Date();
+	const hour = Number(
+		new Intl.DateTimeFormat('de-AT', { timeZone: 'Europe/Vienna', hour: '2-digit', hour12: false }).format(now)
+	);
+	const day = new Date(now.getTime() + (hour < 12 ? 0 : 24 * 3600 * 1000));
+	return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Vienna' }).format(day);
+}
+
+/**
+ * Erwarteter Ertrag eines Tages als Anteil an einem guten Tag, fuer die
+ * Nachtreserve der Gateways: die prognostizierte Tagessumme der
+ * Globalstrahlung (`shortwave_radiation`, Wh/m2) geteilt durch das
+ * 75. Perzentil der Tagessummen der 14 Vortage - dieselbe Normierung wie das
+ * Sonnenprofil am Gateway (je Stunde das 75. Perzentil der letzten 14 Tage).
+ * Anders als die Bewoelkung bildet die Strahlungsprognose auch Hochnebel und
+ * Regentage ab, an denen "80% Wolken" real 3% Ertrag bedeuten. Null, wenn
+ * der Tag nicht vollstaendig (24 Stunden) vorliegt oder die Vortage fehlen.
+ * `anteil` ist ungekappt (ueber 1 an einem Tag, der besser ist als die
+ * Vortage); das Gateway kappt selbst bei 1.
+ * @param {number} tenantId @param {string} datum
+ */
+export async function radiationShareForDay(tenantId, datum) {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return null;
+	const [row] = await sql`
+		with tage as (
+			select (time at time zone 'Europe/Vienna')::date as d,
+				sum(shortwave_radiation) / 1000.0 as kwh,
+				count(shortwave_radiation) as n
+			from weather
+			where tenant_id = ${tenantId}
+				and time >= ((${datum}::date - 14)::timestamp at time zone 'Europe/Vienna')
+				and time < ((${datum}::date + 1)::timestamp at time zone 'Europe/Vienna')
+			group by 1
+		)
+		select
+			(select kwh from tage where d = ${datum}::date and n >= 24)::float as prognose,
+			(select percentile_cont(0.75) within group (order by kwh)
+				from tage where d < ${datum}::date and n >= 24)::float as gut,
+			(select count(*) from tage where d < ${datum}::date and n >= 24)::int as vortage`;
+	const prognose = Number(row?.prognose);
+	const gut = Number(row?.gut);
+	const vortage = Number(row?.vortage);
+	if (row?.prognose == null || row?.gut == null) return null;
+	if (!Number.isFinite(prognose) || !Number.isFinite(gut) || gut <= 0 || vortage < 7) return null;
+	return {
+		datum,
+		anteil: Math.round((prognose / gut) * 100) / 100,
+		prognose_kwh_m2: Math.round(prognose * 100) / 100,
+		gut_kwh_m2: Math.round(gut * 100) / 100
+	};
+}
+
 // --- Crossover (Messdaten) ---------------------------------------------------
 
 /**
@@ -77,7 +134,12 @@ export async function cloudHoursToday(tenantId) {
  * und Abend-Ende, gemittelt ueber bis zu 7 Tage der letzten zwei Wochen.
  * Anders als bei ISCHLSTROM (Kalenderwochen-View) zaehlen die juengsten
  * vollstaendigen Tage - das vertraegt sich besser mit Teillieferungen.
+ *
+ * `complete_days` sagt, ob es ueberhaupt vollstaendige Messtage gab: nur dann
+ * ist ein fehlender Crossover eine Aussage (Winter, die Gemeinschaft kommt
+ * nie ins Plus) und nicht bloss eine Datenluecke.
  * @param {number} tenantId
+ * @returns {Promise<{ crossover: { week_number: number, avg_morning_crossover: string, avg_evening_crossover: string, days_averaged: number } | null, complete_days: number }>}
  */
 export async function weeklyCrossover(tenantId) {
 	const [row] = await sql`
@@ -109,16 +171,21 @@ export async function weeklyCrossover(tenantId) {
 			order by tag desc limit 7
 		)
 		select count(*)::int as days_averaged,
+			(select count(*) from tage)::int as complete_days,
 			to_char(time '00:00' + avg(morgens - time '00:00'), 'HH24:MI:SS') as avg_morning_crossover,
 			to_char(time '00:00' + avg(abends - time '00:00'), 'HH24:MI:SS') as avg_evening_crossover,
 			extract(week from (now() at time zone 'Europe/Vienna')::date)::int as week_number
 		from letzte`;
-	if (!row || !row.days_averaged) return null;
+	const complete_days = Number(row?.complete_days) || 0;
+	if (!row || !row.days_averaged) return { crossover: null, complete_days };
 	return {
-		week_number: row.week_number,
-		avg_morning_crossover: row.avg_morning_crossover,
-		avg_evening_crossover: row.avg_evening_crossover,
-		days_averaged: row.days_averaged
+		crossover: {
+			week_number: row.week_number,
+			avg_morning_crossover: row.avg_morning_crossover,
+			avg_evening_crossover: row.avg_evening_crossover,
+			days_averaged: row.days_averaged
+		},
+		complete_days
 	};
 }
 
@@ -141,6 +208,11 @@ export async function latestForecastRun(tenantId) {
  * Mittagsspitze. Das Ende ist der spaetere von Vormittags-Crossover und dem
  * ersten Slot mit Ueberschuss >= 75% des Tagesmaximums, nie spaeter als der
  * Spitzen-Slot und nie nach 14:00. `ende` null = heute keine Sperre.
+ *
+ * `crossover_vormittag` ist der Vormittags-Crossover selbst (erster Slot ab
+ * 03:00 mit Erzeugung >= Verbrauch): bis dahin ist die Gemeinschaft im
+ * Defizit, und die Laderegelung am Gateway sperrt bis dahin hart, sofern die
+ * Batterie danach noch voll wird. Null ohne Crossover.
  * @param {number} tenantId @param {number} runId
  */
 export async function todayChargeWindow(tenantId, runId) {
@@ -180,20 +252,31 @@ export async function todayChargeWindow(tenantId, runId) {
 			to_char(min(ts_local) filter (
 				where generation_kwh > 0.05 * (select max_gen from peak)
 			), 'HH24:MI') as start,
-			to_char((select t from extended), 'HH24:MI') as ende
+			to_char((select t from extended), 'HH24:MI') as ende,
+			to_char((select t from crossover), 'HH24:MI') as crossover_vormittag
 		from slots`;
 	if (!row || !row.intervals) return null;
-	return { datum: row.datum, start: row.start, ende: row.ende };
+	return {
+		datum: row.datum,
+		start: row.start,
+		ende: row.ende,
+		crossover_vormittag: row.crossover_vormittag ?? null
+	};
 }
 
 // Parameter des individualisierten Sperr-Endes - bewusst am Server, damit
 // Tuning kein Paket-Update auf den Anlagen braucht (Werte wie ISCHLSTROM).
 const CHARGE_FRACTION = 0.95; // nachgeladen wird, was bis 95% der Kapazitaet fehlt
 const SAFETY_FACTOR = 1.3; // Aufschlag fuer Prognosefehler und Dunst
-const FULL_BUFFER_MIN = 60; // so viele Minuten vor dem Abend-Crossover voll
+// So viele Minuten vor dem Abend-Crossover voll (wie LOCAL_FULL_BUFFER_MIN in
+// gateway/openhab/control/core.js, im Replay der ISCHLSTROM-Betriebsdaten
+// kalibriert: am spaeten Nachmittag bleibt von der Spitzen-Ladeleistung nach
+// Hauslast wenig uebrig, mit 60 Minuten wurden die Batterien zu spaet voll).
+const FULL_BUFFER_MIN = 120;
 const LATEST_END_MIN = 14 * 60; // spaeter endet keine Sperre
 const DISCHARGE_MIN_DEFICIT_SHARE = 0.25; // Mindest-Defizit als Verbrauchsanteil
 const DISCHARGE_FLEET_FACTOR = 2; // ... und als Vielfaches der Flotten-Entladeleistung
+const DISCHARGE_END_FROM_HOUR = 5; // das Entladeende wird erst ab dieser Stunde gesucht
 
 /** @param {number} m */
 const fmtMinutes = (m) => {
@@ -350,15 +433,54 @@ export async function todayDischargeStart(tenantId, runId, fleetDischargeKw) {
 }
 
 /**
+ * Entladeende des heutigen Morgens ("HH:MM"), das Spiegelbild des
+ * Entladestarts: der erste Slot ab DISCHARGE_END_FROM_HOUR, in dem das
+ * Defizit der Gemeinschaft UNTER die Schwelle des Entladestarts faellt. Ab
+ * dann nimmt die Gemeinschaft die Nachteinspeisung nicht mehr sicher auf; sie
+ * ginge an den Energielieferanten. Null, wenn der Prognosetag morgens kein
+ * Defizit hat oder es bis 12:00 nicht unter die Schwelle faellt - das Gateway
+ * faellt dann auf den gemittelten Vormittags-Crossover zurueck.
+ * @param {number} tenantId @param {number} runId @param {number} fleetDischargeKw
+ */
+export async function todayDischargeEnd(tenantId, runId, fleetDischargeKw) {
+	const slots = await todaySlots(tenantId, runId);
+	if (slots.length === 0) return null;
+
+	let seenDeficit = false;
+	for (const s of slots) {
+		if (s.minute < DISCHARGE_END_FROM_HOUR * 60 || s.minute >= 12 * 60) continue;
+		const deficitKw = (s.cons - s.gen) * 4;
+		const neededKw = Math.max(
+			s.cons * 4 * DISCHARGE_MIN_DEFICIT_SHARE,
+			fleetDischargeKw * DISCHARGE_FLEET_FACTOR
+		);
+		if (deficitKw >= neededKw) {
+			seenDeficit = true;
+			continue;
+		}
+		if (seenDeficit) return fmtMinutes(s.minute);
+	}
+	return null;
+}
+
+/**
  * Summe der maximalen Entladeleistungen aller aktiven Anlagen des Mandanten
  * (zuletzt innerhalb einer Stunde gemeldet, Hauptschalter und Entladung an),
- * in kW. Anlagen ohne gemeldeten Wert zaehlen mit 3 kW.
+ * in kW. Gerechnet wird wie in control/core.js: mit dynamischer Leistung und
+ * gelernter Kapazitaet 0,3 C, gekappt bei 5 kW (ABSOLUTE_MAX_DISCHARGE_W);
+ * sonst die eingestellte maximale Entladeleistung; ohne Einstellung 3 kW.
  * @param {number} tenantId
  */
 export async function fleetDischargeKw(tenantId) {
 	const [row] = await sql`
-		select coalesce(sum(case when jsonb_typeof(status->'max_entladeleistung_w') = 'number'
-			then (status->>'max_entladeleistung_w')::float else 3000 end), 0) / 1000 as kw
+		select coalesce(sum(least(5000, case
+			when coalesce(status->>'dynamische_leistung', 'ON') = 'ON'
+				and jsonb_typeof(status->'batterie_kapazitaet') = 'number'
+				and (status->>'batterie_kapazitaet')::float between 1 and 100
+				then (status->>'batterie_kapazitaet')::float * 1000 * 0.3
+			when jsonb_typeof(status->'max_entladeleistung_w') = 'number'
+				then (status->>'max_entladeleistung_w')::float
+			else 3000 end)), 0) / 1000 as kw
 		from battery_site
 		where tenant_id = ${tenantId}
 			and last_seen_at > now() - interval '1 hour'
@@ -366,4 +488,65 @@ export async function fleetDischargeKw(tenantId) {
 			and coalesce(status->>'entladung_aktiv', 'ON') = 'ON'`;
 	const kw = Number(row?.kw);
 	return Number.isFinite(kw) ? kw : 0;
+}
+
+// --- Netzeinspeisung aus der Batterie (Zaehler-Schnappschuesse) ---------------
+// Basis ist der kumulierte Einspeisezaehler des Gateways (batterie_netz_kwh aus
+// dem Status-Push). Das Gateway weiss im Gegensatz zum Netzzaehler, wann die
+// Batterie entlaedt - auch in der Daemmerung, wenn PV und Batterie
+// gleichzeitig einspeisen. Je lokalem Tag (Europe/Vienna) haelt
+// battery_site_counter_snapshot den letzten Zaehlerstand; summiert werden
+// positive Tagesdeltas. Ein Zaehlerreset (SD-Karte neu aufgesetzt, Item
+// verloren) zeigt sich als Sprung nach unten und zaehlt ab 0 weiter.
+
+/**
+ * Schreibt den Zaehlerstand des laufenden Tages fort. Beim allerersten
+ * Schnappschuss einer Anlage entsteht zusaetzlich eine Baseline fuer den
+ * Vortag mit demselben Stand: was der Zaehler davor schon gesammelt hat,
+ * gehoert nicht in die laufende Woche.
+ * @param {number} tenantId @param {number} siteId @param {number} kwh
+ */
+export async function recordCounterSnapshot(tenantId, siteId, kwh) {
+	if (!Number.isFinite(kwh) || kwh < 0) return;
+	await sql`
+		insert into battery_site_counter_snapshot (tenant_id, site_id, day, battery_grid_kwh)
+		select ${tenantId}, ${siteId}, (now() at time zone 'Europe/Vienna')::date - 1, ${kwh}
+		where not exists (
+			select 1 from battery_site_counter_snapshot
+			where tenant_id = ${tenantId} and site_id = ${siteId})`;
+	await sql`
+		insert into battery_site_counter_snapshot (tenant_id, site_id, day, battery_grid_kwh)
+		values (${tenantId}, ${siteId}, (now() at time zone 'Europe/Vienna')::date, ${kwh})
+		on conflict (tenant_id, site_id, day)
+		do update set battery_grid_kwh = excluded.battery_grid_kwh, updated_at = now()`;
+}
+
+/**
+ * Wochen- und Monatssumme der Batterie-Netzeinspeisung einer Anlage in kWh
+ * (Woche ab Montag, Monat ab dem Ersten, Europe/Vienna). Geht mit der Antwort
+ * auf die Statusmeldung an das Gateway, damit die Main UI der Anlage dieselben
+ * Werte zeigt wie die Plattform. Null ohne Schnappschuesse.
+ * @param {number} tenantId @param {number} siteId
+ * @returns {Promise<{ week_kwh: number, month_kwh: number } | null>}
+ */
+export async function batteryGridFeedIn(tenantId, siteId) {
+	const [row] = await sql`
+		with snaps as (
+			select day, battery_grid_kwh as kwh,
+				lag(battery_grid_kwh) over (order by day) as prev
+			from battery_site_counter_snapshot
+			where tenant_id = ${tenantId} and site_id = ${siteId}
+		), deltas as (
+			select day,
+				case when prev is null then 0          -- Baseline
+					when kwh >= prev then kwh - prev
+					else kwh end as delta              -- Reset: ab 0 weitergezaehlt
+			from snaps
+		)
+		select count(*)::int as days,
+			coalesce(sum(delta) filter (where day >= date_trunc('week', (now() at time zone 'Europe/Vienna'))::date), 0)::float as week_kwh,
+			coalesce(sum(delta) filter (where day >= date_trunc('month', (now() at time zone 'Europe/Vienna'))::date), 0)::float as month_kwh
+		from deltas`;
+	if (!row || !row.days) return null;
+	return { week_kwh: Number(row.week_kwh), month_kwh: Number(row.month_kwh) };
 }

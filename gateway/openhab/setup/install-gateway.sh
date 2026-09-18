@@ -56,34 +56,34 @@ step() {
   fi
 }
 
-log "=== Schritt 1/12: Konfiguration ==="
+log "=== Schritt 1/14: Konfiguration ==="
 rc=0; "$here/00-provision.sh" || rc=$?
 [ "$rc" -eq 0 ] || exit "$rc"
 
 load_config
 
-log "=== Schritt 2/12: Zeitzone und Regionaleinstellungen ==="
+log "=== Schritt 2/14: Zeitzone und Regionaleinstellungen ==="
 ensure_regional_settings
 
-log "=== Schritt 3/12: WireGuard-Fernwartung ==="
+log "=== Schritt 3/14: WireGuard-Fernwartung ==="
 step tunnel 08-install-wireguard.sh 1
 
-log "=== Schritt 4/12: Standardpasswoerter ==="
+log "=== Schritt 4/14: Standardpasswoerter ==="
 step passwoerter 10-change-passwords.sh 1
 
-log "=== Schritt 5/12: Addons ==="
+log "=== Schritt 5/14: Addons ==="
 step addons 02-install-addons.sh
 
-log "=== Schritt 6/12: Preflight ==="
+log "=== Schritt 6/14: Preflight ==="
 if ! "$here/01-preflight.sh"; then
   warn "Preflight meldet Probleme."
   confirm "Trotzdem fortfahren?" || die "Abgebrochen."
 fi
 
-log "=== Schritt 7/12: Wechselrichter-Thing ==="
+log "=== Schritt 7/14: Wechselrichter-Thing ==="
 step wechselrichter 02b-install-things.sh 1
 
-log "=== Schritt 8/12: openHAB Cloud (Identitaet) ==="
+log "=== Schritt 8/14: openHAB Cloud (Identitaet) ==="
 # Bewusst erst nach 02b (dort entsteht das Admin-Konto): solange keines
 # existiert, zeigt openHAB dem ersten Besucher den Einrichtungsassistenten -
 # ueber die Cloud-Verbindung koennte sich also der Cloud-Benutzer der Anlage
@@ -94,17 +94,23 @@ else
   log "Keine Cloud-Identitaet von der Plattform - uebersprungen."
 fi
 
-log "=== Schritt 9/12: Items und Persistence ==="
+log "=== Schritt 9/14: Items und Persistence ==="
 step items 03-install-items.sh
 
-log "=== Schritt 10/12: Regeln ==="
+log "=== Schritt 10/14: Regeln ==="
 step regeln 04-install-rules.sh
 
-log "=== Schritt 11/12: Overview-Seite und Selbst-Update ==="
+log "=== Schritt 11/14: Overview-Seite und Selbst-Update ==="
 step overview 05-install-overview.sh 1
 step updater 09-install-updater.sh 1
 
-log "=== Schritt 12/12: Verify ==="
+log "=== Schritt 12/14: Fail-Safe ==="
+step failsafe 10-install-failsafe.sh 1
+
+log "=== Schritt 13/14: Automatische Updates ==="
+step systemupdates 11-install-apt-auto.sh 1
+
+log "=== Schritt 14/14: Verify ==="
 "$here/06-verify.sh" || warn "Verify meldet Probleme - siehe oben."
 
 if [ "$incomplete" = "1" ]; then

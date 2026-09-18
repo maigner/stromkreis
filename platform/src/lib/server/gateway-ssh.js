@@ -1,9 +1,14 @@
 // ============================================================================
-// Echte SSH-Sitzungen auf die Gateways, aus der Anlagen-Detailseite heraus.
+// Fernwartung der Gateways: feste Wartungsaktionen per SSH, aus der
+// Anlagen-Detailseite heraus (Tab "Fernwartung").
 //
-// Weg: Browser (xterm.js) <-> Plattform (SSE fuer die Ausgabe, POST fuer die
-// Eingabe) <-> ssh2-Client <-> SOCKS5-Durchgang im WireGuard-Container
-// (microsocks, nur im Compose-Netz erreichbar) <-> Wartungsnetz wg0 <-> Pi.
+// Weg: Browser (Knopf, schickt nur die Kennung der Aktion) -> Plattform ->
+// ssh2-Client -> SOCKS5-Durchgang im WireGuard-Container (microsocks, nur im
+// Compose-Netz erreichbar) -> Wartungsnetz wg0 -> Pi.
+//
+// Bewusst keine freie Konsole mehr: welche Befehle am Pi laufen, steht
+// ausschliesslich in der Liste ACTIONS unten; vom Browser kommt nie
+// Befehlstext. Wer wirklich eine Shell braucht: deploy/wg-ssh.sh am Server.
 //
 // Die Anmeldung am Pi ist normales SSH mit Passwort (openhabian + Anlagen-
 // Passwort aus status.linux_password); der Browser bekommt das Passwort nie
@@ -12,32 +17,174 @@
 // nur ueber den Tunnel erreichbar - dokumentiertes Restrisiko.
 // ============================================================================
 import { connect as netConnect } from 'node:net';
-import { randomBytes } from 'node:crypto';
 import { Client } from 'ssh2';
 import { env } from '$env/dynamic/private';
 import { sql } from '$lib/server/db.js';
 
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // ohne Ein-/Ausgabe schliessen
-const MAX_SESSIONS = 20; // Plattform-weit; Wartungszugang, kein Massenbetrieb
-const BACKLOG_BYTES = 256 * 1024; // Ausgabe-Puffer je Sitzung (fuer Reconnect)
+const OUTPUT_BYTES = 64 * 1024; // je Aktion behaltene Ausgabe (das Ende zaehlt)
+const SETUP_DIR = '/opt/stromkreis/openhab/setup'; // Ziel von static/gateway/install.sh
 
 /**
- * @typedef {Object} SshSession
+ * @typedef {Object} RemoteAction
  * @property {string} id
- * @property {number} tenantId
- * @property {number} siteId
- * @property {import('ssh2').Client} client
- * @property {any} shell
- * @property {Buffer[]} backlog
- * @property {number} backlogBytes
- * @property {Set<(chunk: Buffer) => void>} listeners
- * @property {Set<() => void>} closeListeners
- * @property {boolean} closed
- * @property {ReturnType<typeof setTimeout>} idleTimer
+ * @property {'aktion' | 'abfrage'} kind aktion greift ein, abfrage liest nur
+ * @property {string} label
+ * @property {string} description
+ * @property {string} [confirm] Rueckfrage vor dem Ausfuehren
+ * @property {number} timeoutMs
+ * @property {string} script laeuft am Pi als root unter /bin/sh (kein bash)
  */
 
-/** @type {Map<string, SshSession>} */
-const sessions = new Map();
+// Lang laufende Eingriffe (Paket-Update, System-Update) starten als
+// transiente systemd-Unit: sie ueberleben das Ende der SSH-Sitzung, und
+// openHAB oder der Tunnel duerfen dabei neu starten. Den Verlauf zeigen die
+// zugehoerigen Protokoll-Abfragen. "Laeuft schon?" prueft auf active und
+// activating: die oneshot-Unit des Timers (stromkreis-update.service) steht
+// waehrend des Laufs auf activating.
+/** @type {RemoteAction[]} */
+const ACTIONS = [
+	{
+		id: 'neustart',
+		kind: 'aktion',
+		label: 'Neustart',
+		description: 'Startet den Raspberry Pi neu. Die Anlage ist danach einige Minuten offline.',
+		confirm:
+			'Raspberry Pi jetzt neu starten? Die Steuerung ruht währenddessen einige Minuten (Fail-Safe bzw. Auto-Revert greifen).',
+		timeoutMs: 30000,
+		// Verzoegert, damit die SSH-Sitzung noch sauber mit Exit 0 endet.
+		script: `systemd-run --quiet --on-active=3 --timer-property=AccuracySec=1s /bin/systemctl reboot || exit 1
+echo "Neustart eingeleitet. Die Anlage meldet sich in einigen Minuten wieder."`
+	},
+	{
+		id: 'openhab_neustart',
+		kind: 'aktion',
+		label: 'openHAB neu starten',
+		description: 'Startet nur den openHAB-Dienst neu, der Pi läuft weiter.',
+		confirm: 'openHAB jetzt neu starten? Die Steuerung ruht, bis openHAB wieder läuft (einige Minuten).',
+		timeoutMs: 240000,
+		script: `systemctl restart openhab.service || exit 1
+echo "openhab.service: $(systemctl is-active openhab.service)"
+echo "openHAB braucht nach dem Start noch einige Minuten, bis Regeln und Main UI bereit sind."`
+	},
+	{
+		id: 'paket_update',
+		kind: 'aktion',
+		label: 'Update',
+		description: 'Spielt das aktuelle Stromkreis-Gateway-Paket von der Plattform neu ein (stromkreis-update).',
+		confirm: 'Gateway-Paket jetzt aktualisieren? openHAB kann dabei neu starten.',
+		timeoutMs: 30000,
+		script: `[ -x /usr/local/sbin/stromkreis-update ] || { echo "stromkreis-update ist auf diesem Gateway nicht installiert (INSTALL_AUTO_UPDATE=0?)."; exit 1; }
+if systemctl is-active stromkreis-update-manuell.service stromkreis-update.service 2>/dev/null | grep -qE "^(active|activating)$"; then
+  echo "Ein Paket-Update läuft bereits. Verlauf: Update-Protokoll."
+  exit 0
+fi
+systemd-run --quiet --collect --unit=stromkreis-update-manuell /usr/local/sbin/stromkreis-update --now || exit 1
+echo "Paket-Update gestartet, es läuft im Hintergrund weiter (einige Minuten). Verlauf: Update-Protokoll."`
+	},
+	{
+		id: 'system_update',
+		kind: 'aktion',
+		label: 'System-Update',
+		description:
+			'Aktualisiert die Paketlisten und spielt die Betriebssystem-Updates ein (unattended-upgrade: Debian und Raspberry Pi). openHAB und Java bleiben bewusst Handarbeit.',
+		confirm: 'Betriebssystem-Updates jetzt einspielen? Das kann 10 bis 30 Minuten dauern.',
+		timeoutMs: 30000,
+		script: `command -v unattended-upgrade >/dev/null 2>&1 || { echo "unattended-upgrades ist auf diesem Gateway nicht installiert."; exit 1; }
+if systemctl is-active --quiet stromkreis-systemupdate.service; then
+  echo "Ein System-Update läuft bereits. Verlauf: System-Update-Protokoll."
+  exit 0
+fi
+systemd-run --quiet --collect --unit=stromkreis-systemupdate --setenv=DEBIAN_FRONTEND=noninteractive /bin/sh -c "apt-get update && unattended-upgrade -v" || exit 1
+echo "System-Update gestartet, es läuft im Hintergrund weiter. Verlauf: System-Update-Protokoll."
+echo "Verlangt ein Update einen Neustart, zeigt das der Systemzustand an."`
+	},
+	{
+		id: 'systemzustand',
+		kind: 'abfrage',
+		label: 'Systemzustand',
+		description: 'Laufzeit, Temperatur, Speicher, SD-Karte, Dienste und Tunnel.',
+		timeoutMs: 30000,
+		script: `echo "== System =="
+uptime
+if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
+  awk '{ printf "CPU-Temperatur: %.1f °C\\n", $1 / 1000 }' /sys/class/thermal/thermal_zone0/temp
+fi
+if [ -e /run/reboot-required ]; then echo "Neustart erforderlich (/run/reboot-required)."; else echo "Kein Neustart ausstehend."; fi
+echo
+echo "== Speicher =="
+free -m
+echo
+df -h / /boot/firmware 2>/dev/null || df -h /
+echo
+echo "== Dienste =="
+for u in openhab.service wg-quick@wg0.service stromkreis-update.timer stromkreis-failsafe.timer apt-daily-upgrade.timer; do
+  printf "%-30s %s\\n" "$u" "$(systemctl is-active "$u" 2>/dev/null)"
+done
+echo
+echo "== Tunnel =="
+wg show wg0 2>/dev/null | grep -E "latest handshake|transfer" || echo "wg0 nicht aktiv."
+exit 0`
+	},
+	{
+		id: 'update_protokoll',
+		kind: 'abfrage',
+		label: 'Update-Protokoll',
+		description: 'Letzte Zeilen aus /var/log/stromkreis-update.log.',
+		timeoutMs: 30000,
+		script: `if systemctl is-active stromkreis-update-manuell.service stromkreis-update.service 2>/dev/null | grep -qE "^(active|activating)$"; then
+  echo "Paket-Update läuft gerade."
+else
+  echo "Kein Paket-Update aktiv."
+fi
+echo "Installiertes Paket: $(cut -c1-12 ${SETUP_DIR}/../PACKAGE-SHA256 2>/dev/null || echo unbekannt)"
+echo
+tail -n 60 /var/log/stromkreis-update.log 2>/dev/null || echo "Noch kein Update-Protokoll vorhanden."
+exit 0`
+	},
+	{
+		id: 'systemupdate_protokoll',
+		kind: 'abfrage',
+		label: 'System-Update-Protokoll',
+		description: 'Verlauf des letzten System-Updates und Ende von unattended-upgrades.log.',
+		timeoutMs: 30000,
+		script: `if systemctl is-active --quiet stromkreis-systemupdate.service; then
+  echo "System-Update läuft gerade."
+else
+  echo "Kein System-Update aktiv."
+fi
+echo
+echo "== Letzter Lauf vom Dashboard =="
+journalctl -u stromkreis-systemupdate.service -n 40 --no-pager -o cat 2>/dev/null
+echo
+echo "== unattended-upgrades.log =="
+tail -n 30 /var/log/unattended-upgrades/unattended-upgrades.log 2>/dev/null || echo "Noch kein Protokoll vorhanden."
+exit 0`
+	},
+	{
+		id: 'einrichtung_pruefen',
+		kind: 'abfrage',
+		label: 'Einrichtung prüfen',
+		description: 'Lässt die Prüfung des Gateway-Pakets laufen (06-verify.sh, ändert nichts).',
+		timeoutMs: 180000,
+		script: `[ -x ${SETUP_DIR}/06-verify.sh ] || { echo "${SETUP_DIR}/06-verify.sh nicht gefunden."; exit 1; }
+${SETUP_DIR}/06-verify.sh 2>&1`
+	}
+];
+
+/** Aktionsliste fuer die Oberflaeche - ohne die Skripte. */
+export function listRemoteActions() {
+	return ACTIONS.map(({ id, kind, label, description, confirm }) => ({
+		id,
+		kind,
+		label,
+		description,
+		confirm: confirm ?? null
+	}));
+}
+
+// Je Anlage laeuft hoechstens eine Aktion (Doppelklick, zwei Betreiber).
+/** @type {Set<string>} */
+const running = new Set();
 
 function socksHost() {
 	return env.WG_SOCKS_HOST || 'wireguard';
@@ -119,55 +266,70 @@ function socksConnect(dstIp, dstPort) {
 	});
 }
 
-/** @param {SshSession} s */
-function touch(s) {
-	clearTimeout(s.idleTimer);
-	s.idleTimer = setTimeout(() => closeSession(s.id), IDLE_TIMEOUT_MS);
+/**
+ * Einen Befehl ueber die stehende SSH-Verbindung ausfuehren; stdout und
+ * stderr landen gemeinsam in der Ausgabe (nur das Ende, OUTPUT_BYTES).
+ * @param {import('ssh2').Client} client
+ * @param {string} command
+ * @param {{stdin?: string, timeoutMs: number}} opts
+ * @returns {Promise<{code: number | null, output: string, timedOut: boolean}>}
+ */
+function execCommand(client, command, { stdin, timeoutMs }) {
+	return new Promise((resolve, reject) => {
+		client.exec(command, (/** @type {any} */ err, /** @type {any} */ stream) => {
+			if (err) {
+				reject(new Error(`SSH-Befehl fehlgeschlagen: ${err.message}`));
+				return;
+			}
+			/** @type {Buffer[]} */
+			const chunks = [];
+			let bytes = 0;
+			let done = false;
+			const finish = (/** @type {number | null} */ code, /** @type {boolean} */ timedOut) => {
+				if (done) return;
+				done = true;
+				clearTimeout(timer);
+				resolve({ code, output: Buffer.concat(chunks).toString('utf8'), timedOut });
+			};
+			const timer = setTimeout(() => {
+				try {
+					stream.close();
+				} catch {}
+				finish(null, true);
+			}, timeoutMs);
+			const onData = (/** @type {Buffer} */ chunk) => {
+				chunks.push(chunk);
+				bytes += chunk.length;
+				while (bytes > OUTPUT_BYTES && chunks.length > 1) {
+					bytes -= /** @type {Buffer} */ (chunks.shift()).length;
+				}
+			};
+			stream.on('data', onData);
+			stream.stderr.on('data', onData);
+			stream.on('close', (/** @type {number | null} */ code) => finish(typeof code === 'number' ? code : null, false));
+			stream.end(stdin ?? '');
+		});
+	});
 }
 
-/** @param {string} id */
-export function closeSession(id) {
-	const s = sessions.get(id);
-	if (!s) return;
-	sessions.delete(id);
-	s.closed = true;
-	clearTimeout(s.idleTimer);
-	for (const cb of s.closeListeners) cb();
-	s.closeListeners.clear();
-	s.listeners.clear();
-	try {
-		s.shell.close();
-	} catch {}
-	try {
-		s.client.end();
-	} catch {}
+/** @param {string} text */
+function shellQuote(text) {
+	return `'${text.replace(/'/g, `'\\''`)}'`;
 }
 
 /**
- * Sitzung holen, aber nur wenn sie dem Mandanten und der Anlage gehoert.
- * @param {string} id
+ * Wartungsaktion auf dem Gateway einer Anlage ausfuehren.
  * @param {number} tenantId
  * @param {number} siteId
+ * @param {string} actionId Kennung aus ACTIONS; alles andere wird abgelehnt
+ * @returns {Promise<{id: string, label: string, ok: boolean, exit_code: number | null, output: string, at: string}>}
  */
-export function getSession(id, tenantId, siteId) {
-	const s = sessions.get(id);
-	if (!s || s.closed || s.tenantId !== tenantId || s.siteId !== siteId) return null;
-	return s;
-}
+export async function runRemoteAction(tenantId, siteId, actionId) {
+	const action = ACTIONS.find((a) => a.id === actionId);
+	if (!action) throw new Error('Unbekannte Aktion.');
 
-/**
- * SSH-Sitzung auf das Gateway einer Anlage oeffnen.
- * @param {number} tenantId
- * @param {number} siteId
- * @param {{cols?: number, rows?: number}} [size]
- * @returns {Promise<{id: string}>}
- */
-export async function openSession(tenantId, siteId, size = {}) {
-	if (sessions.size >= MAX_SESSIONS) {
-		throw new Error('Zu viele offene SSH-Sitzungen; bitte eine schließen.');
-	}
 	const [site] = await sql`
-		select wg_address, coalesce(wg_public_key, '') <> '' as wg_key_reported,
+		select name, wg_address, coalesce(wg_public_key, '') <> '' as wg_key_reported,
 			status->>'linux_password' as linux_password
 		from battery_site where tenant_id = ${tenantId} and id = ${siteId}`;
 	if (!site) throw new Error('Anlage nicht gefunden.');
@@ -179,116 +341,59 @@ export async function openSession(tenantId, siteId, size = {}) {
 		throw new Error('Kein Anlagen-Passwort hinterlegt (Anlage vor der Passwort-Verwaltung eingerichtet?).');
 	}
 
-	const sock = await socksConnect(site.wg_address, 22);
+	const key = `${tenantId}:${siteId}`;
+	if (running.has(key)) throw new Error('Auf dieser Anlage läuft bereits eine Aktion; bitte kurz warten.');
+	running.add(key);
 	const client = new Client();
-	const shell = await new Promise((resolve, reject) => {
-		client.on('error', (e) => reject(new Error(`SSH fehlgeschlagen: ${e.message}`)));
-		client.on('ready', () => {
-			client.shell(
-				{ term: 'xterm-256color', cols: size.cols || 120, rows: size.rows || 32 },
-				(/** @type {any} */ err, /** @type {any} */ stream) => (err ? reject(err) : resolve(stream))
-			);
+	try {
+		const sock = await socksConnect(site.wg_address, 22);
+		await new Promise((resolve, reject) => {
+			client.on('error', (e) => reject(new Error(`SSH fehlgeschlagen: ${e.message}`)));
+			client.on('ready', () => resolve(undefined));
+			client.connect({
+				sock,
+				username: 'openhabian',
+				password: site.linux_password,
+				readyTimeout: 20000,
+				keepaliveInterval: 15000,
+				keepaliveCountMax: 3
+			});
 		});
-		client.connect({
-			sock,
-			username: 'openhabian',
-			password: site.linux_password,
-			readyTimeout: 20000,
-			keepaliveInterval: 30000,
-			keepaliveCountMax: 3
-		});
-	});
 
-	const id = randomBytes(18).toString('base64url');
-	/** @type {SshSession} */
-	const session = {
-		id,
-		tenantId,
-		siteId,
-		client,
-		shell,
-		backlog: [],
-		backlogBytes: 0,
-		listeners: new Set(),
-		closeListeners: new Set(),
-		closed: false,
-		idleTimer: setTimeout(() => closeSession(id), IDLE_TIMEOUT_MS)
-	};
-	sessions.set(id, session);
+		// Die Skripte laufen als root. openHABian erlaubt sudo je nach Stand
+		// ohne Passwort; sonst bekommt sudo das Anlagen-Passwort auf stdin.
+		// Nur dann wird es ueberhaupt geschrieben - so landet es nie in der
+		// Standardeingabe des eigentlichen Skripts.
+		const probe = await execCommand(client, 'sudo -n true', { timeoutMs: 15000 });
+		const quoted = shellQuote(action.script);
+		const result =
+			probe.code === 0
+				? await execCommand(client, `sudo -n /bin/sh -c ${quoted}`, { timeoutMs: action.timeoutMs })
+				: await execCommand(client, `sudo -S -p '' /bin/sh -c ${quoted}`, {
+						stdin: `${site.linux_password}\n`,
+						timeoutMs: action.timeoutMs
+					});
 
-	const onData = (/** @type {Buffer} */ chunk) => {
-		touch(session);
-		session.backlog.push(chunk);
-		session.backlogBytes += chunk.length;
-		while (session.backlogBytes > BACKLOG_BYTES && session.backlog.length > 1) {
-			session.backlogBytes -= /** @type {Buffer} */ (session.backlog.shift()).length;
+		let output = result.output.trimEnd();
+		if (result.timedOut) {
+			output += `${output ? '\n' : ''}Zeitüberschreitung nach ${Math.round(action.timeoutMs / 1000)} s; die Verbindung wurde getrennt.`;
 		}
-		for (const cb of session.listeners) cb(chunk);
-	};
-	shell.on('data', onData);
-	shell.stderr.on('data', onData);
-	shell.on('close', () => closeSession(id));
-	client.on('close', () => closeSession(id));
-	client.on('error', () => closeSession(id));
-	return { id };
-}
-
-/**
- * Tastatureingabe an die Sitzung.
- * @param {SshSession} s
- * @param {string} dataB64 Base64-kodierte Bytes vom Terminal
- */
-export function writeInput(s, dataB64) {
-	touch(s);
-	s.shell.write(Buffer.from(dataB64, 'base64'));
-}
-
-/**
- * Terminalgroesse nachziehen.
- * @param {SshSession} s
- * @param {number} cols
- * @param {number} rows
- */
-export function resize(s, cols, rows) {
-	if (Number.isInteger(cols) && Number.isInteger(rows) && cols > 0 && rows > 0 && cols <= 500 && rows <= 200) {
-		s.shell.setWindow(rows, cols, 0, 0);
+		const ok = !result.timedOut && result.code === 0;
+		console.log(
+			`fernwartung: mandant ${tenantId} anlage ${siteId} (${site.name}) aktion ${action.id}: ${ok ? 'ok' : `fehler (exit ${result.code})`}`
+		);
+		return {
+			id: action.id,
+			label: action.label,
+			ok,
+			exit_code: result.code,
+			output,
+			at: new Date().toISOString()
+		};
+	} finally {
+		running.delete(key);
+		try {
+			client.end();
+		} catch {}
 	}
-}
-
-/**
- * SSE-Strom der Terminalausgabe: erst der Puffer (Reconnect zeigt den
- * bisherigen Bildschirm), dann live. Chunks Base64-kodiert (SSE ist
- * zeilenbasiert, Terminalausgabe nicht).
- * @param {SshSession} s
- * @returns {ReadableStream<Uint8Array>}
- */
-export function outputStream(s) {
-	const encoder = new TextEncoder();
-	/** @type {(chunk: Buffer) => void} */
-	let onChunk;
-	/** @type {() => void} */
-	let onClose;
-	return new ReadableStream({
-		start(controller) {
-			const send = (/** @type {Buffer} */ chunk) => {
-				try {
-					controller.enqueue(encoder.encode(`data: ${chunk.toString('base64')}\n\n`));
-				} catch {}
-			};
-			for (const chunk of s.backlog) send(chunk);
-			onChunk = send;
-			onClose = () => {
-				try {
-					controller.enqueue(encoder.encode('event: end\ndata: closed\n\n'));
-					controller.close();
-				} catch {}
-			};
-			s.listeners.add(onChunk);
-			s.closeListeners.add(onClose);
-		},
-		cancel() {
-			s.listeners.delete(onChunk);
-			s.closeListeners.delete(onClose);
-		}
-	});
 }

@@ -62,10 +62,10 @@ json_str() {
 
 # Antwortet unter der IP eine SigenStor (Modbus-FC04 auf 30003, Slave 247)?
 probe() {
-  Stromkreis_PROBE_IP="$1" Stromkreis_PROBE_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
+  GW_PROBE_IP="$1" GW_PROBE_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
 import os, socket, struct, sys
-ip = os.environ["Stromkreis_PROBE_IP"]
-unit = int(os.environ["Stromkreis_PROBE_UNIT"])
+ip = os.environ["GW_PROBE_IP"]
+unit = int(os.environ["GW_PROBE_UNIT"])
 try:
     s = socket.create_connection((ip, 502), timeout=1)
     s.settimeout(1.5)
@@ -127,11 +127,11 @@ prefix="${own_cidr#*/}"
 [ "$prefix" -lt 24 ] 2>/dev/null && log "Hinweis: Eigenes Netz ist /$prefix - durchsucht wird nur ${base}.0/24."
 
 log "Suche SigenStor (Modbus, Slave $MODBUS_UNIT_ID) in ${base}.0/24 ..."
-candidates="$(Stromkreis_SCAN_BASE="$base" Stromkreis_SCAN_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
+candidates="$(GW_SCAN_BASE="$base" GW_SCAN_UNIT="$MODBUS_UNIT_ID" python3 - <<'PY'
 import concurrent.futures, os, socket, struct
 
-base = os.environ["Stromkreis_SCAN_BASE"]
-unit = int(os.environ["Stromkreis_SCAN_UNIT"])
+base = os.environ["GW_SCAN_BASE"]
+unit = int(os.environ["GW_SCAN_UNIT"])
 
 def probe(ip):
     try:

@@ -55,6 +55,14 @@ STROMKREIS_PROVISIONED="1"
 # INSTALL_WATCHDOG="1"         # Netzwerk-Watchdog (findet neue IP des Wechselrichters)
 # INSTALL_PASSWORD_CHANGE="1"  # Standardpasswoerter pruefen/aendern
 # INSTALL_AUTO_UPDATE="1"      # Selbst-Update des Pakets (stromkreis-update.timer)
+# INSTALL_FAILSAFE="1"         # Fail-Safe ausserhalb von openHAB (nur Modbus-Profile mit
+#                              # inverter_failsafe_reset; 10-install-failsafe.sh)
+# FAILSAFE_STALE_MIN="12"      # Heartbeat aelter als so viele Minuten -> Reset
+# FAILSAFE_REPEAT_MIN="10"     # waehrend eines Ausfalls so oft wiederholen
+# INSTALL_HW_WATCHDOG="0"      # Hardware-Watchdog (Reboot bei eingefrorenem Pi)
+# INSTALL_APT_AUTO="1"         # automatische Betriebssystem-Updates (11-install-apt-auto.sh)
+# APT_AUTO_REBOOT="1"          # Neustart, wenn ein Update ihn verlangt ...
+# APT_AUTO_REBOOT_TIME="10:00" # ... bewusst am Vormittag (faellt sofort auf)
 # CRON_BATTERY="0 */5 * * * ?"       # Batteriesteuerung
 # CRON_CLOUD="0 40 * * * ?"          # Wolkenvorschau abholen
 # CRON_CROSSOVER="0 5 4 * * ?"       # Crossover-Zeiten abholen

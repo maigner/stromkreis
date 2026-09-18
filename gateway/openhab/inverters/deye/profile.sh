@@ -183,7 +183,11 @@ for reg_id, poller_id, address, valuetype, writable in registers:
     }
     if writable:
         cfg["writeStart"] = str(address)
-        cfg["writeValueType"] = valuetype
+        # Das Modbus-Binding kennt fuer Schreibzugriffe kein "uint16" - int16
+        # deckt beide ab (openHAB 5.2: "int16 (int16, uint16)"). Mit "uint16"
+        # bleibt das Thing UNINITIALIZED und jeder Write laeuft ins Leere
+        # (ISCHLSTROM-Testanlage, 2026-09-11).
+        cfg["writeValueType"] = "int16" if valuetype == "uint16" else valuetype
         cfg["writeType"] = "holding"
     things.append({
         "UID": "modbus:data:stromkreis:dy:" + reg_id,
@@ -230,12 +234,12 @@ inverter_scan_hosts() {
   own_cidr="$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4; exit}')"
   [ -n "$own_cidr" ] || return 0
   base="${own_cidr%/*}"; base="${base%.*}"
-  Stromkreis_SCAN_BASE="$base" Stromkreis_SCAN_UNIT="$MODBUS_UNIT_ID" Stromkreis_SCAN_PORT="$MODBUS_PORT" python3 - <<'PY'
+  GW_SCAN_BASE="$base" GW_SCAN_UNIT="$MODBUS_UNIT_ID" GW_SCAN_PORT="$MODBUS_PORT" python3 - <<'PY'
 import concurrent.futures, os, socket, struct
 
-base = os.environ["Stromkreis_SCAN_BASE"]
-unit = int(os.environ["Stromkreis_SCAN_UNIT"])
-port = int(os.environ["Stromkreis_SCAN_PORT"])
+base = os.environ["GW_SCAN_BASE"]
+unit = int(os.environ["GW_SCAN_UNIT"])
+port = int(os.environ["GW_SCAN_PORT"])
 
 def probe(ip):
     try:

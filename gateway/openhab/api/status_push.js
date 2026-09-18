@@ -223,6 +223,29 @@ function collectSystemHealth() {
   };
 }
 
+// Zustand des Fail-Safe-Timers (stromkreis-failsafe, setup/10-install-failsafe.sh):
+// die JSON-Datei schreibt der root-Timer nach jedem Reset-Versuch; das
+// Dashboard sieht so, ob und warum ausserhalb von openHAB zurueckgesetzt
+// wurde. null ohne Fail-Safe (GEN24) oder solange nie eingegriffen wurde.
+function collectFailsafe() {
+  var raw;
+  try {
+    raw = actions.Exec.executeCommandLine(
+      time.Duration.ofSeconds(5),
+      '/bin/sh', '-c', "cat '@GW_FAILSAFE_STATUS@' 2>/dev/null"
+    );
+  } catch (e) {
+    return null;
+  }
+  if (raw === null || raw === undefined || String(raw).trim().length === 0) return null;
+  try {
+    var parsed = JSON.parse(String(raw));
+    return (typeof parsed === 'object' && parsed !== null) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 var payload = {
   anlage: '@GW_ANLAGE_NAME@',
   token: '@GW_STATUS_TOKEN@',
@@ -270,13 +293,19 @@ var payload = {
     wolken_schwelle: numberOf('Stromkreis_LADESPERRE_WOLKEN_SCHWELLE'),
     wolkenvorschau: numberOf('Stromkreis_Wolkenvorschau'),
     wolkenvorschau_zeit: stateOf('Stromkreis_Wolkenvorschau_Zeit'),
+    // Erwarteter Ertrag des naechsten Sonnentages in Prozent eines guten
+    // Tages (Strahlungsprognose, Wolken-API); null ohne Wert
+    ertragsprognose: numberOf('Stromkreis_Ertragsprognose'),
     crossover_start: stateOf('Stromkreis_Crossover_Start'),
     crossover_ende: stateOf('Stromkreis_Crossover_Ende'),
+    crossover_zeit: stateOf('Stromkreis_Crossover_Zeit'),
     ladesperre_start: stateOf('Stromkreis_Ladesperre_Start'),
     ladesperre_ende: stateOf('Stromkreis_Ladesperre_Ende'),
     ladesperre_datum: stateOf('Stromkreis_Ladesperre_Datum'),
     ladesperre_individuell: stateOf('Stromkreis_Ladesperre_Individuell'),
     entladestart: stateOf('Stromkreis_Entladestart'),
+    entladeende: stateOf('Stromkreis_Entladeende'),
+    crossover_vormittag: stateOf('Stromkreis_Crossover_Vormittag'),
     hauslast_w: numberOf('Stromkreis_HAUSLAST'),
     // Verbleibendes Nacht-Entladebudget (kWh ueber dem Ziel-Ladestand),
     // vom Kern aus Kapazitaet und Hauslast gerechnet; null ohne Schaetzung.
@@ -290,6 +319,7 @@ if (voll) {
   payload.data.versions = collectVersions();
   payload.data.apt_updates = collectAptUpdates();
   payload.data.system = collectSystemHealth();
+  payload.data.failsafe = collectFailsafe();
 }
 
 var response = actions.HTTP.sendHttpPostRequest(url, "application/json", JSON.stringify(payload), 15000);
@@ -301,6 +331,19 @@ if (response === null) {
     var jsonData = JSON.parse(response);
     if (jsonData.ok) {
       console.log("[Stromkreis][Status] Status gemeldet (Ladestand: " + payload.data.soc + (voll ? ", voll" : "") + ").");
+      // Wochen-/Monatssumme der Batterie-Netzeinspeisung aus der Antwort
+      // (rechnet die Plattform wie fuer das Dashboard, inklusive der Historie
+      // vor dem lokalen Zaehlerstand) in die Main-UI-Items uebernehmen.
+      if (jsonData.einspeisung !== null && typeof jsonData.einspeisung === 'object') {
+        [['woche_kwh', 'Stromkreis_BATTERIE_NETZEINSPEISUNG_WOCHE_KWH'],
+         ['monat_kwh', 'Stromkreis_BATTERIE_NETZEINSPEISUNG_MONAT_KWH']].forEach(function (pair) {
+          var value = jsonData.einspeisung[pair[0]];
+          if (typeof value !== 'number' || !isFinite(value) || value < 0) return;
+          try {
+            items.getItem(pair[1]).postUpdate(String(value));
+          } catch (e) { /* aeltere Installation ohne Item */ }
+        });
+      }
       // Der Betreiber hat am Dashboard "Paket aktualisieren" gedrueckt: Marker
       // fuer den root-Timer stromkreis-update ablegen (09-install-updater.sh), der
       // das Paket innerhalb von 10 Minuten neu einspielt.

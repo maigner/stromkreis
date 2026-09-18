@@ -40,6 +40,8 @@ export const SETUP_PHASES = /** @type {Record<string, { label: string, percent: 
 	regeln: { label: 'Steuerung', percent: 80 },
 	overview: { label: 'Oberfläche', percent: 90 },
 	updater: { label: 'Selbst-Update wird eingerichtet', percent: 92 },
+	failsafe: { label: 'Fail-Safe wird eingerichtet', percent: 93 },
+	systemupdates: { label: 'Automatische Updates werden eingerichtet', percent: 94 },
 	unvollstaendig: { label: 'Wartet, wird automatisch fortgesetzt', percent: 95 },
 	fertig: { label: 'Einrichtung abgeschlossen', percent: 100 }
 });

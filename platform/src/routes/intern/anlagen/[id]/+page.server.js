@@ -4,6 +4,7 @@ import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, randomPhonePasswo
 import { decrypt, encrypt } from '$lib/server/secrets.js';
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { createAppSetupToken, qrSvg } from '$lib/server/app-setup.js';
+import { listRemoteActions, runRemoteAction } from '$lib/server/gateway-ssh.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, params }) {
@@ -61,7 +62,8 @@ export async function load({ locals, params }) {
 			code_valid: Boolean(site.provision_code && site.provision_expires_at && site.provision_expires_at > new Date()),
 			app_code: appCode ?? null,
 			image: await getImageStatus(/** @type {any} */ (site))
-		}
+		},
+		remote_actions: listRemoteActions()
 	};
 }
 
@@ -93,8 +95,9 @@ export const actions = {
 	},
 
 	// Zugangsdaten des Wechselrichters hinterlegen (z. B. Fronius GEN24,
-	// Benutzer "customer"): das Gateway holt sie einmalig ab, danach wird
-	// das Passwort hier geloescht - es liegt dann nur noch am Gateway.
+	// Benutzer "customer"): das Gateway holt sie bei der Einrichtung ab.
+	// Das Passwort bleibt verschluesselt (TOKEN_SECRET) gespeichert, damit
+	// eine Neuinstallation es ohne erneutes Eintragen wieder abholen kann.
 	wechselrichter_zugang: async ({ locals, params, request }) => {
 		if (!locals.user) redirect(303, '/');
 		const form = await request.formData();
@@ -104,7 +107,7 @@ export const actions = {
 			return fail(400, { message: 'Bitte das Passwort des Wechselrichters eingeben.' });
 		}
 		const [site] = await sql`
-			update battery_site set inverter_username = ${username || null}, inverter_secret = ${password}
+			update battery_site set inverter_username = ${username || null}, inverter_secret = ${encrypt(password)}
 			where tenant_id = ${locals.user.tenant_id} and id = ${Number(params.id)}
 			returning id
 		`;
@@ -142,5 +145,22 @@ export const actions = {
 				qr: await qrSvg(created.link)
 			}
 		};
+	},
+
+	// Fernwartung: eine der festen Wartungsaktionen per SSH am Gateway
+	// ausfuehren (Neustart, Updates, Abfragen). Vom Browser kommt nur die
+	// Kennung; die Befehle selbst stehen in gateway-ssh.js.
+	fernwartung: async ({ locals, params, request }) => {
+		if (!locals.user) redirect(303, '/');
+		const form = await request.formData();
+		const actionId = String(form.get('aktion') ?? '');
+		try {
+			return { remote: await runRemoteAction(locals.user.tenant_id, Number(params.id), actionId) };
+		} catch (e) {
+			return fail(502, {
+				remote_error: e instanceof Error ? e.message : 'Fernwartung fehlgeschlagen.',
+				remote_action: actionId
+			});
+		}
 	}
 };

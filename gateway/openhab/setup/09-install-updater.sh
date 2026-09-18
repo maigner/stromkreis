@@ -40,7 +40,11 @@ mkdir -p "$GW_REQUEST_DIR"
 chown "$OPENHAB_USER:$OPENHAB_GROUP" "$GW_REQUEST_DIR" 2>/dev/null || true
 chmod 0755 "$GW_REQUEST_DIR"
 
-install_file "$UPDATER" <<'UPD'
+# Atomar ersetzen (Tempdatei + mv): das Update schreibt diese Datei neu,
+# waehrend der alte stromkreis-update noch laeuft - ein laufender Prozess
+# behaelt so seinen alten Inode (zusaetzlich zum Rumpf in main, siehe unten).
+updater_tmp="$(mktemp "$UPDATER.XXXXXX")"
+cat > "$updater_tmp" <<'UPD'
 #!/usr/bin/env bash
 # stromkreis-update - spielt das Gateway-Paket von stromkreis.net neu ein.
 # Erzeugt von 09-install-updater.sh; Aufruf durch stromkreis-update.timer (root).
@@ -117,13 +121,21 @@ fi
 exit "$rc"
 }
 main "$@"
+exit
 UPD
 sed -i -e "s|@GW_CONF@|$GATEWAY_CONF|g" \
        -e "s|@GW_UPDATE_FLAG@|$GW_UPDATE_FLAG|g" \
        -e "s|@GW_REQUEST_DIR@|$GW_REQUEST_DIR|g" \
-       -e "s|@GW_SETUP_DIR@|$GW_SETUP_DIR|g" "$UPDATER"
-chown root:root "$UPDATER"
-chmod 0755 "$UPDATER"
+       -e "s|@GW_SETUP_DIR@|$GW_SETUP_DIR|g" "$updater_tmp"
+chown root:root "$updater_tmp"
+chmod 0755 "$updater_tmp"
+if [ -f "$UPDATER" ] && cmp -s "$updater_tmp" "$UPDATER"; then
+  rm -f "$updater_tmp"
+  log "unveraendert: $UPDATER"
+else
+  mv -f "$updater_tmp" "$UPDATER"
+  log "geschrieben: $UPDATER"
+fi
 
 install_file "$UNIT_DIR/stromkreis-update.service" <<'UNIT'
 [Unit]

@@ -4,13 +4,13 @@ Gateway-Pakete für das Speichermanagement. Ein Gateway läuft beim Mitglied (op
 
 Fernwartung und Fernzugriff laufen ebenfalls über Stromkreis-Infrastruktur, beides als Container im Compose-Stack am Server (bei ISCHLSTROM war WireGuard nativ installiert):
 
-- **WireGuard-Fernwartung** (`deploy/wireguard/`): jeder Pi baut einen ausgehenden Tunnel ins Wartungsnetz `10.88.0.0/24` auf (Server ist `.1`, Anlagen ab `.11`; am Router des Mitglieds bleibt alles zu). Die Tunnel-IP vergibt die Plattform bei der Provisionierung; den Public-Key meldet der Pi in der Phase "Fernwartung", der WireGuard-Container gleicht die Peers jede Minute mit der Plattform ab (`/api/gateway/sync/wireguard-peers`). Zugriff: die SSH-Konsole auf der Anlagen-Detailseite (echtes SSH; die Plattform verbindet sich durch den SOCKS-Durchgang des WireGuard-Containers und meldet sich als `openhabian` mit dem Anlagen-Passwort an) oder `deploy/wg-ssh.sh <tunnel-ip>` vom Terminal.
+- **WireGuard-Fernwartung** (`deploy/wireguard/`): jeder Pi baut einen ausgehenden Tunnel ins Wartungsnetz `10.88.0.0/24` auf (Server ist `.1`, Anlagen ab `.11`; am Router des Mitglieds bleibt alles zu). Die Tunnel-IP vergibt die Plattform bei der Provisionierung; den Public-Key meldet der Pi in der Phase "Fernwartung", der WireGuard-Container gleicht die Peers jede Minute mit der Plattform ab (`/api/gateway/sync/wireguard-peers`). Zugriff: die Wartungsaktionen im Tab "Fernwartung" der Anlagen-Detailseite (Neustart, openHAB neu starten, Update, System-Update, dazu Abfragen wie Systemzustand und Protokolle; die Plattform verbindet sich per SSH durch den SOCKS-Durchgang des WireGuard-Containers, meldet sich als `openhabian` mit dem Anlagen-Passwort an und führt nur die fest hinterlegten Befehle aus) oder eine freie Shell mit `deploy/wg-ssh.sh <tunnel-ip>` vom Terminal.
 - **Stromkreis-eigene openHAB Cloud** (`hac.stromkreis.net`, Compose-Dienste `cloud-app`/`cloud-mongodb`/`cloud-redis`): Mitglieder erreichen ihre Main UI von unterwegs (openHAB-App mit `https://hac.stromkreis.net` als Remote-URL, Browser über `https://remote.hac.stromkreis.net`). Die Konten legt der Dienst `cloud-sync` automatisch an (Zugangsdaten auf der Anlagen-Detailseite); die Registrierung auf der Cloud ist abgeschaltet. Push-Benachrichtigungen der offiziellen Apps funktionieren über eine eigene Cloud prinzipbedingt nicht.
 
 **Sicherheitsregeln (Startvoraussetzung je Profil, nicht optional):**
 
 - **Fail-Safe:** Ist die Plattform nicht erreichbar, fällt die Anlage auf ihr Standardverhalten zurück.
-- **Auto-Revert:** Jede Steuerungsvorgabe läuft ohne Verlängerung automatisch ab; vor Ort getestet.
+- **Auto-Revert:** Jede Steuerungsvorgabe läuft ohne Verlängerung automatisch ab; vor Ort getestet. Wo der Wechselrichter das nicht selbst kann (Modbus-Profile: geschriebene Register bleiben stehen), setzt der root-Timer `stromkreis-failsafe` den Wechselrichter außerhalb von openHAB zurück: minütliche Prüfung des Heartbeats der Steuerung, Reset bei Heartbeat älter als 12 Minuten oder gestopptem openHAB, dazu ein Reset bei jedem Boot vor dem openHAB-Start (`setup/10-install-failsafe.sh`, Analyse und Testplan in `openhab/inverters/failsafe-modbus.md`). Derzeit hat nur `fronius-snapinverter` das nötige Reset-Skript; für `sigenergy`, `deye` und `victron` ist es offen. Steht der Hauptschalter auf Aus, rühren weder Steuerung noch Fail-Safe den Wechselrichter an.
 - **Risikoaufklärung:** Je Anlage wird das Restrisiko schriftlich dokumentiert und vom Mitglied bestätigt.
 
 ## Aufbau
@@ -33,7 +33,7 @@ Die Plattform baut je Anlage ein fertiges SD-Karten-Image (openHABian plus Konfi
 3. `install.sh` tauscht den Code gegen die Konfiguration samt Anlagen-Token (`POST /api/gateway/provision/v1`), lädt `stromkreis-gateway.tgz` (Prüfsummen-geprüft), entpackt nach `/opt/stromkreis/openhab` und startet `setup/install-gateway.sh`. Jeder Schritt meldet seine Phase (`POST /api/gateway/provision/v1/result`); der Fortschritt erscheint live auf der Anlagen-Detailseite.
 4. Exit 75 heißt "unvollständig, später erneut" (z. B. Wechselrichter nicht im Netz, Passwort fehlt noch): `stromkreis-firstboot` wiederholt den Lauf alle 10 Minuten, bis alles fertig ist.
 
-Updates laufen über denselben Bootstrap: der root-Timer `stromkreis-update` (alle 10 Minuten) prüft nachts die Paket-Prüfsumme auf der Plattform und spielt neue Stände automatisch ein.
+Updates laufen über denselben Bootstrap: der root-Timer `stromkreis-update` (alle 10 Minuten) prüft nachts die Paket-Prüfsumme auf der Plattform und spielt neue Stände automatisch ein. Betriebssystem-Updates spielt unattended-upgrades täglich ab 03:40 automatisch ein (`setup/11-install-apt-auto.sh`: Debian, Raspbian und das Archiv der Raspberry Pi Foundation inklusive Kernel und Pi-Firmware, bewusst ohne openHAB, Java und NodeSource); verlangt ein Update einen Neustart, rebootet der Pi um 10:00. Der Neustart liegt bewusst am Vormittag: kommt ein Pi danach nicht mehr hoch, fällt das sofort auf und es ist jemand erreichbar (`APT_AUTO_REBOOT_TIME`, `APT_AUTO_REBOOT=0` schaltet ihn ab).
 
 ## Plattform-Endpunkte für die Gateways
 
@@ -43,7 +43,7 @@ Alle mandantenbezogen über den Anlagen-Token (POST mit `{"token": ...}`):
 |---|---|
 | `POST /api/gateway/provision/v1` | Einrichtungscode gegen Konfiguration + Token tauschen |
 | `POST /api/gateway/provision/v1/result` | Einrichtungsphase melden (Antwort trägt z. B. das Profil) |
-| `POST /api/gateway/provision/v1/secret` | Wechselrichter-Passwort einmalig abholen |
+| `POST /api/gateway/provision/v1/secret` | Wechselrichter-Passwort abholen (bleibt verschlüsselt auf der Plattform, für Neuinstallationen) |
 | `POST /api/gateway/status/v1` | Status-Push (Ladestand, Leistungen, Einstellungen, Log, Systemwerte) |
 | `POST /api/gateway/ladefenster/v1` | Ladesperre-Fenster aus der Tagesprognose, je Anlage individualisiert |
 | `POST /api/gateway/crossover/v1` | mittlere Crossover-Zeiten der letzten vollständigen Messtage |
@@ -61,7 +61,7 @@ Voraussetzungen: Raspberry Pi (64-bit, empfohlen Pi 4 mit 2 GB oder mehr), SD-Ka
 3. **Image bauen und flashen:** auf der Anlagen-Detailseite "Image erstellen" (dauert einige Minuten; ein Deploy während des Baus bricht ihn ab), dann "Image herunterladen" und mit dem Raspberry Pi Imager ("Eigenes Image", ohne OS-Anpassungen) oder balenaEtcher flashen.
 4. **Booten und zusehen:** Karte in den Pi, LAN und Strom anstecken. openHABian installiert sich selbst (30 bis 45 Minuten, ein Neustart), danach laufen die Phasen auf der Anlagen-Detailseite durch: Konfiguration, Passwörter, openHAB-Erweiterungen, Wechselrichter, Datenpunkte, Steuerung, Oberfläche. Erwartetes Ende ohne Wechselrichter: "Wartet, wird automatisch fortgesetzt" - das ist der gewollte Endzustand des Tests, kein Fehler. Mit Wechselrichter im selben Netz läuft die Einrichtung bis "Einrichtung abgeschlossen".
 5. **Wechselrichter-Passwort (nur Fronius GEN24):** auf der Anlagen-Detailseite unter "Zugang zum Wechselrichter" eintragen; das Gateway holt es innerhalb weniger Minuten ab und trägt es ins Bridge-Thing ein.
-6. **Prüfen:** Die Anlage erscheint auf `/intern` als Online (Status-Push jede Minute); `http://<pi>:8080` zeigt die Main UI mit den Stromkreis-Seiten (Admin-Konto `admin`, Passwort = Linux-Passwort der Anlage, steht in der `openhabian.conf` des Images bzw. am Gateway in `/etc/stromkreis/gateway.conf`). Fernwartung: auf der Anlagen-Detailseite "SSH-Konsole öffnen" (Terminal direkt im Browser) oder `deploy/wg-ssh.sh <tunnel-ip>`. Cloud: Anmeldung auf `https://hac.stromkreis.net` mit dem Cloud-Konto der Anlage (Detailseite), die Anlage muss dort als Online erscheinen; `https://remote.hac.stromkreis.net` zeigt die Main UI. Am Pi: `journalctl -u stromkreis-firstboot -f` bzw. `/var/log/stromkreis-firstboot.log`.
+6. **Prüfen:** Die Anlage erscheint auf `/intern` als Online (Status-Push jede Minute); `http://<pi>:8080` zeigt die Main UI mit den Stromkreis-Seiten (Admin-Konto `admin`, Passwort = Linux-Passwort der Anlage, steht in der `openhabian.conf` des Images bzw. am Gateway in `/etc/stromkreis/gateway.conf`). Fernwartung: auf der Anlagen-Detailseite im Tab "Fernwartung" z.B. "Systemzustand" oder "Einrichtung prüfen" drücken, oder `deploy/wg-ssh.sh <tunnel-ip>`. Cloud: Anmeldung auf `https://hac.stromkreis.net` mit dem Cloud-Konto der Anlage (Detailseite), die Anlage muss dort als Online erscheinen; `https://remote.hac.stromkreis.net` zeigt die Main UI. Am Pi: `journalctl -u stromkreis-firstboot -f` bzw. `/var/log/stromkreis-firstboot.log`.
 7. **Wiederholen:** `sudo /opt/stromkreis/openhab/setup/purge-gateway.sh` baut alles zurück (Marker inklusive); mit "Neuer Code" und neu gebautem Image startet der Test von vorn.
 
 ## Profile
@@ -69,7 +69,7 @@ Voraussetzungen: Raspberry Pi (64-bit, empfohlen Pi 4 mit 2 GB oder mehr), SD-Ka
 | Profil | Status |
 |---|---|
 | `fronius-symo` (GEN24/Symo Hybrid) | Vor-Ort-Erprobung Aug 2026 (ISCHLSTROM), portiert |
-| `fronius-snapinverter` | Vor-Ort-Erprobung Aug 2026 (ISCHLSTROM), portiert |
+| `fronius-snapinverter` | Vor-Ort-Spike Sep 2026 (ISCHLSTROM) eingearbeitet: Model 124 ab 40303, kein geräteseitiges Revert-Timeout (daher Fail-Safe-Timer), Leistungswerte über die Solar API; Fail-Safe-Test am Gerät offen |
 | `sigenergy` | portiert; Spike offen (Auto-Revert, mySigen-Zugriff) |
 | `deye` (SG05LP3) | portiert; Spike offen (RS485-Gateway, TOU/EEPROM/Fail-Safe) |
 | `victron` | portiert; Spike offen (DVCC vs. MPPT, Reg 2700, Venus 3.50+) |

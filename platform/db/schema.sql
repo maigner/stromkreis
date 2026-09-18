@@ -1,6 +1,6 @@
 \restrict dbmate
 
--- Dumped from database version 17.10
+-- Dumped from database version 17.11 (Debian 17.11-1.pgdg13+2)
 -- Dumped by pg_dump version 18.6
 
 SET statement_timeout = 0;
@@ -127,6 +127,19 @@ CREATE TABLE public.battery_site (
     cloud_account_error text,
     CONSTRAINT battery_site_cloud_state_check CHECK ((cloud_account_state = ANY (ARRAY[''::text, 'pending'::text, 'reset'::text, 'created'::text, 'error'::text, 'delete'::text]))),
     CONSTRAINT battery_site_provision_code_format CHECK (((provision_code IS NULL) OR (provision_code ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$'::text)))
+);
+
+
+--
+-- Name: battery_site_counter_snapshot; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.battery_site_counter_snapshot (
+    tenant_id bigint NOT NULL,
+    site_id bigint NOT NULL,
+    day date NOT NULL,
+    battery_grid_kwh double precision NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -579,6 +592,14 @@ ALTER TABLE ONLY public.app_setup_token
 
 
 --
+-- Name: battery_site_counter_snapshot battery_site_counter_snapshot_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.battery_site_counter_snapshot
+    ADD CONSTRAINT battery_site_counter_snapshot_pkey PRIMARY KEY (tenant_id, site_id, day);
+
+
+--
 -- Name: battery_site battery_site_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -997,6 +1018,22 @@ ALTER TABLE ONLY public.app_setup_token
 
 
 --
+-- Name: battery_site_counter_snapshot battery_site_counter_snapshot_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.battery_site_counter_snapshot
+    ADD CONSTRAINT battery_site_counter_snapshot_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenant(id);
+
+
+--
+-- Name: battery_site_counter_snapshot battery_site_counter_snapshot_tenant_id_site_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.battery_site_counter_snapshot
+    ADD CONSTRAINT battery_site_counter_snapshot_tenant_id_site_id_fkey FOREIGN KEY (tenant_id, site_id) REFERENCES public.battery_site(tenant_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: battery_site battery_site_measurement_point_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1225,4 +1262,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260827100000'),
     ('20260828120000'),
     ('20260828150000'),
-    ('20260830190000');
+    ('20260830190000'),
+    ('20260917200000');

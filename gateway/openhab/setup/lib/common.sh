@@ -14,6 +14,17 @@ OPENHAB_USER="${OPENHAB_USER:-openhab}"
 # root-Timer stromkreis-update wertet sie aus - siehe 09-install-updater.sh).
 GW_REQUEST_DIR="${GW_REQUEST_DIR:-/var/lib/stromkreis/requests}"
 GW_UPDATE_FLAG="$GW_REQUEST_DIR/update-requested"
+# Fail-Safe (10-install-failsafe.sh): der Kern beruehrt den Heartbeat nach
+# jedem bestaetigten Reset; der root-Timer stromkreis-failsafe setzt den
+# Wechselrichter zurueck, wenn er ausbleibt, und legt seinen Zustand als
+# JSON ab (der Status-Push meldet ihn ans Dashboard).
+GW_HEARTBEAT_FILE="$GW_REQUEST_DIR/heartbeat"
+GW_FAILSAFE_STATUS="$GW_REQUEST_DIR/failsafe-status"
+# Standby-Marker: der Kern legt ihn beim Ausschalten des Hauptschalters nach
+# einem letzten Reset an (und entfernt ihn beim Einschalten) - solange er
+# existiert, ruehren weder Timer noch Boot-Reset den Wechselrichter an,
+# das Mitglied darf ihn anders steuern.
+GW_FAILSAFE_STANDBY="$GW_REQUEST_DIR/failsafe-standby"
 OPENHAB_GROUP="${OPENHAB_GROUP:-openhab}"
 
 # Verzeichnis, in dem die Setup-Skripte liegen
@@ -30,7 +41,9 @@ GW_INVERTER_DIR="${GW_INVERTER_DIR:-$GW_SCRIPT_DIR/inverters}"
 # die profilabhaengigen Werte.
 GATEWAY_CONF="${GATEWAY_CONF:-/etc/stromkreis/gateway.conf}"
 
-log()  { echo "[Stromkreis] $*"; }
+# GW_QUIET=1 unterdrueckt die Hinweise (stromkreis-failsafe laeuft minuetlich und
+# soll das Journal nicht mit "Profil geladen" fuellen); Warnungen bleiben.
+log()  { [ "${GW_QUIET:-0}" = "1" ] || echo "[Stromkreis] $*"; }
 warn() { echo "[Stromkreis] WARNUNG: $*" >&2; }
 die()  { echo "[Stromkreis] FEHLER: $*" >&2; exit 1; }
 
@@ -153,8 +166,10 @@ load_profile() {
         INVERTER_HOST_THING_PREFIX INVERTER_HOST_PARAM \
         INVERTER_REDISCOVER_SCRIPT INVERTER_DEFAULT_USERNAME \
         INVERTER_USER_PARAM INVERTER_PASSWORD_PARAM \
-        INVERTER_THING_EXTRA_CONFIG INVERTER_AUTO_THING_UID 2>/dev/null || true
-  unset -f inverter_scan_hosts inverter_things_json inverter_battery_items inverter_verify 2>/dev/null || true
+        INVERTER_THING_EXTRA_CONFIG INVERTER_AUTO_THING_UID \
+        INVERTER_EXTRA_HOST_THINGS 2>/dev/null || true
+  unset -f inverter_scan_hosts inverter_things_json inverter_battery_items inverter_verify \
+           inverter_failsafe_reset 2>/dev/null || true
 
   # shellcheck disable=SC1090
   . "$profile"
@@ -200,6 +215,9 @@ load_profile() {
   INVERTER_HOST_THING_PREFIX="${INVERTER_HOST_THING_PREFIX:-}"
   INVERTER_HOST_PARAM="${INVERTER_HOST_PARAM:-hostname}"
   INVERTER_REDISCOVER_SCRIPT="${INVERTER_REDISCOVER_SCRIPT:-}"
+  # Weitere Things mit derselben Adresse ("uid=parameter", Leerzeichen-
+  # getrennt) - Watchdog und Thing-Installer halten sie mit der Bridge gleich
+  INVERTER_EXTRA_HOST_THINGS="${INVERTER_EXTRA_HOST_THINGS:-}"
 
   # Optional: automatisches Anlegen der Things (02b-install-things.sh);
   # braucht INVERTER_HOST_THING_PREFIX als Bridge-Thing-Typ
@@ -218,6 +236,8 @@ load_profile() {
   #   inverter_things_json   - geordnetes JSON-Array der anzulegenden Things
   #   inverter_battery_items - .items-Zeilen der Batterie-/Steuer-Items
   #   inverter_verify        - zusaetzliche Pruefungen fuer 06-verify.sh
+  #   inverter_failsafe_reset - Werksverhalten ohne openHAB schreiben
+  #                            (Modbus-Profile; 10-install-failsafe.sh)
 
   log "Wechselrichter-Profil geladen: $INVERTER_LABEL ($type)"
 }
@@ -261,6 +281,24 @@ load_config() {
   INSTALL_OVERVIEW="${INSTALL_OVERVIEW:-1}"
   INSTALL_WATCHDOG="${INSTALL_WATCHDOG:-1}"
   INSTALL_AUTO_UPDATE="${INSTALL_AUTO_UPDATE:-1}"
+  # Status-Push ist Standard (jedes Gateway ist provisioniert); 04 schaltet
+  # ihn ohne Anlagen-Token selbst ab. Hier vorbelegt, weil auch
+  # 11-install-apt-auto.sh den Wert liest.
+  INSTALL_STATUS_PUSH="${INSTALL_STATUS_PUSH:-1}"
+  # Fail-Safe ausserhalb von openHAB (10-install-failsafe.sh; nur Profile mit
+  # inverter_failsafe_reset). Heartbeat aelter als FAILSAFE_STALE_MIN Minuten
+  # oder openHAB nicht aktiv -> Reset, wiederholt alle FAILSAFE_REPEAT_MIN
+  # Minuten, bis der Heartbeat zurueck ist. Der Hardware-Watchdog (Reboot
+  # bei eingefrorenem Pi) ist ein eigener Schalter, Vorgabe aus.
+  INSTALL_FAILSAFE="${INSTALL_FAILSAFE:-1}"
+  INSTALL_HW_WATCHDOG="${INSTALL_HW_WATCHDOG:-0}"
+  FAILSAFE_STALE_MIN="${FAILSAFE_STALE_MIN:-12}"
+  FAILSAFE_REPEAT_MIN="${FAILSAFE_REPEAT_MIN:-10}"
+  # Automatische Betriebssystem-Updates (11-install-apt-auto.sh): Debian und
+  # Raspberry-Pi-Archiv ueber unattended-upgrades, Neustart bei Bedarf.
+  INSTALL_APT_AUTO="${INSTALL_APT_AUTO:-1}"
+  APT_AUTO_REBOOT="${APT_AUTO_REBOOT:-1}"
+  APT_AUTO_REBOOT_TIME="${APT_AUTO_REBOOT_TIME:-10:00}"
   INVERTER_HOST_THING_UID="${INVERTER_HOST_THING_UID:-}"
   OH_API_TOKEN="${OH_API_TOKEN:-auto}"
   CRON_WATCHDOG="${CRON_WATCHDOG:-0 7/15 * * * ?}"
@@ -309,8 +347,9 @@ load_config() {
 # nur Schluessel, die in der gateway.conf noch gar nicht vorkommen (die Datei
 # stammt also von vor dem jeweiligen Feature), werden mit dem Wert ergaenzt,
 # den der Assistent heute vorgeben wuerde. Ein vorhandener, bewusst leer
-# gesetzter Schluessel bleibt unangetastet. Laeuft bei jedem load_config
-# und ist idempotent.
+# gesetzter Schluessel bleibt unangetastet - ausser bei den Leistungs-Items
+# der automatischen Einrichtung (siehe migrate_config_item). Laeuft bei
+# jedem load_config und ist idempotent.
 #
 # Interaktive Nachruestungen (Status-Push-Token) bleiben Sache der
 # Einzelschritte - hier wird nur ergaenzt, was ohne Rueckfrage entscheidbar
@@ -320,12 +359,19 @@ load_config() {
 # Ergaenzt ein fehlendes Leistungs-Item: bei der automatischen Einrichtung
 # der Standardname aus dem Profil (wie im Assistenten); am klassischen Weg
 # das bereits verknuepfte Item, ersatzweise ebenfalls der Standardname.
+# Bei der automatischen Einrichtung wird auch ein vorhandener LEERER
+# Schluessel ergaenzt: 00-provision.sh schreibt dort immer den Standardnamen
+# des Profils - leer heisst also, das Profil kannte das Item damals noch
+# nicht (fronius-snapinverter vor den Solar-API-Werten), nicht, dass jemand
+# bewusst darauf verzichtet hat.
 #   $1 Schluessel  $2 Profil-Standardname  $3 detect-Funktion
 migrate_config_item() {
   local key="$1" placeholder="$2" detect="$3" value=""
   [ -n "$placeholder" ] || return 0
-  grep -qE "^${key}=" "$GATEWAY_CONF" && return 0
-  if [ "$AUTO_CREATE_THING" = "1" ]; then
+  if grep -qE "^${key}=" "$GATEWAY_CONF"; then
+    [ "$AUTO_CREATE_THING" = "1" ] && [ -z "${!key:-}" ] || return 0
+    value="$placeholder"
+  elif [ "$AUTO_CREATE_THING" = "1" ]; then
     value="$placeholder"
   else
     value="$("$detect" "$INVERTER_THING_UID" | head -n 1)"
@@ -444,6 +490,30 @@ detect_thing_uids() {
     | tr -d '"' \
     | awk -F: 'NF>=3 && NF<=5' \
     | sort -u || true
+}
+
+# Konfigurationsparameter eines Things aus der JSONDB - lesbar ohne
+# laufendes openHAB (der Fail-Safe braucht die Adresse des Wechselrichters,
+# wenn openHAB gerade nicht antwortet; der Netzwerk-Watchdog pflegt sie im
+# Thing). Leer, wenn Datei, Thing oder Parameter fehlen.
+#   $1 Thing-UID  $2 Parametername
+thing_config_param() {
+  local db="$OPENHAB_USERDATA/jsondb/org.openhab.core.thing.Thing.json"
+  [ -f "$db" ] || return 0
+  GW_J_UID="$1" GW_J_PARAM="$2" python3 - "$db" <<'PY' 2>/dev/null || true
+import json, os, sys
+try:
+    with open(sys.argv[1]) as f:
+        db = json.load(f)
+    cfg = db.get(os.environ["GW_J_UID"], {}).get("value", {}).get("configuration", {})
+    # openHAB legt die Werte unter configuration.properties ab
+    cfg = cfg.get("properties", cfg)
+    value = cfg.get(os.environ["GW_J_PARAM"])
+    if value not in (None, ""):
+        print(value)
+except Exception:
+    pass
+PY
 }
 
 # Kandidaten fuer das SoC-Item. Zuerst ueber die Channel-Verknuepfung,

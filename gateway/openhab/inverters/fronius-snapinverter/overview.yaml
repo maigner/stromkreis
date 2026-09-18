@@ -5,8 +5,10 @@ version: 1
 # Gebaut fuer das Smartphone (openHAB-App): alles einspaltig, kurze Listen
 # statt nebeneinander gequetschter Karten. Die Seite "overview" zeigt oben
 # eine Hero-Karte mit Ladestand-Anzeige, Batterieleistung und Stromkreis-Status,
-# darunter die Tageszeiten der Gemeinschaft, den Hauptschalter und die
-# Navigation zu drei Unterseiten (Laden, Einspeisen, Pause). Jede
+# darunter die Tageszeiten der Gemeinschaft, die aus der Batterie in die
+# Gemeinschaft eingespeiste Energie (Woche und Monat kommen von der Plattform
+# mit der Status-Antwort, gesamt vom Einspeise-Zaehler), den Hauptschalter und
+# die Navigation zu drei Unterseiten (Laden, Einspeisen, Pause). Jede
 # Navigationszeile traegt ein Badge mit dem aktuellen Zustand, so sieht man
 # ohne Tippen, was eingeschaltet ist.
 #
@@ -32,10 +34,11 @@ version: 1
 # der Main UI anlegen (Settings -> Pages) und den Inhalt in der Code-Ansicht
 # einfuegen; die Seite "overview" ersetzt die vorhandene Overview.
 #
-# Profil fronius-snapinverter: abgeleitet von fronius/overview.yaml - gleiche Seiten, nur
-# der Item-Name des Ladestands ist ein anderer; die Hero-Karte zeigt nur den
-# Ladestand (die Generation liefert keine Batterieleistung per Modbus, siehe
-# profile.sh). Aenderungen bitte in allen Profilen nachziehen.
+# Profil fronius-snapinverter: abgeleitet von fronius-symo/overview.yaml - gleiche
+# Seiten, nur der Item-Name des Ladestands ist ein anderer (Modbus). Batterie-
+# und Netzleistung kommen wie beim GEN24 aus der Solar API (Fronius-Binding,
+# siehe profile.sh), die Hero-Karte ist deshalb identisch.
+# Aenderungen bitte in allen Profilen nachziehen.
 # ============================================================================
 pages:
   # --- Home-Konfiguration: nur der Overview-Tab ------------------------------
@@ -85,8 +88,9 @@ pages:
                         stylesheet: >
                           .sk-page-head { padding: 0 16px; font-size: 22px; font-weight: 600; line-height: 1.3; }
                         content: HALLOSKGREETING
-        # Hero-Karte: Ladestand als Halbkreis-Anzeige, unten der Stromkreis-Status.
-        # Tippen oeffnet den Verlauf des Ladestands.
+        # Hero-Karte: Ladestand als Halbkreis-Anzeige, daneben die aktuelle
+        # Batterieleistung und die Netzeinspeisung, unten der Stromkreis-Status.
+        # Tippen oeffnet den Verlauf von Ladestand und Batterieleistung.
         - component: oh-block
           config: {}
           slots:
@@ -112,12 +116,13 @@ pages:
                               action: analyzer
                               actionAnalyzerItems:
                                 - Stromkreis_MB_SoC
+                                - Fronius_Symo_Inverter_Battery_Power
                               actionAnalyzerCoordSystem: time
                               stylesheet: >
                                 .sk-hero-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
                                 .sk-hero-brand { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; font-weight: 600; }
                                 .sk-hero-title { font-size: 13px; opacity: 0.85; }
-                                .sk-hero-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+                                .sk-hero-row { display: flex; align-items: center; gap: 14px; }
                                 .sk-hero-gauge { flex: 0 0 auto; margin-top: 4px; }
                                 .sk-hero-stats { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
                                 .sk-stat { background: rgba(255, 255, 255, 0.14); border-radius: 12px; padding: 8px 12px; }
@@ -171,6 +176,41 @@ pages:
                                                 labelText: Ladestand
                                                 labelTextColor: rgba(255, 255, 255, 0.8)
                                                 labelFontSize: 12
+                                      - component: div
+                                        config:
+                                          class: [sk-hero-stats]
+                                        slots:
+                                          default:
+                                            # BEGIN batterie-stat (entfaellt ohne Batterieleistungs-Item)
+                                            - component: div
+                                              config:
+                                                class: [sk-stat]
+                                              slots:
+                                                default:
+                                                  - component: div
+                                                    config:
+                                                      class: [sk-stat-label]
+                                                      content: "=Number.isNaN(Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state)) ? 'Batterie' : (Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state) < -20 ? 'Batterie lädt' : (Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state) > 20 ? 'Batterie entlädt' : 'Batterie ruht'))"
+                                                  - component: div
+                                                    config:
+                                                      class: [sk-stat-value]
+                                                      content: "=Number.isNaN(Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state)) ? '-' : (Math.abs(Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state)) >= 1000 ? (Math.round(Math.abs(Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state)) / 100) / 10).toFixed(1).replace('.', ',') + ' kW' : Math.round(Math.abs(Number.parseFloat(items.Fronius_Symo_Inverter_Battery_Power.state))) + ' W')"
+                                            # END batterie-stat
+                                            # BEGIN netz-stat (entfaellt ohne Netzleistungs-Item)
+                                            - component: div
+                                              config:
+                                                class: [sk-stat]
+                                              slots:
+                                                default:
+                                                  - component: div
+                                                    config:
+                                                      class: [sk-stat-label]
+                                                      content: Davon ins Netz
+                                                  - component: div
+                                                    config:
+                                                      class: [sk-stat-value]
+                                                      content: "=Number.isNaN(Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG.state)) ? '-' : (Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG.state) >= 1000 ? (Math.round(Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG.state) / 100) / 10).toFixed(1).replace('.', ',') + ' kW' : Math.round(Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG.state)) + ' W')"
+                                            # END netz-stat
                                 - component: div
                                   config:
                                     class: [sk-hero-foot]
@@ -228,6 +268,51 @@ pages:
                                     icon: f7:sunset_fill
                                     iconColor: deeporange
                                     item: Stromkreis_Crossover_Ende
+
+              # Was die Batterie in die Gemeinschaft eingespeist hat - exakt
+              # die Werte des Betreiber-Dashboards: Woche und Monat rechnet
+              # die Plattform und schickt sie mit der Antwort auf die
+              # Statusmeldung (status_push.js), gesamt ist der lokale
+              # Einspeise-Zaehler (control/core.js).
+              - component: oh-grid-row
+                config: {}
+                slots:
+                  default:
+                    - component: oh-grid-col
+                      config: {}
+                      slots:
+                        default:
+                          - component: oh-list-card
+                            config:
+                              title: Aus der Batterie in die Gemeinschaft
+                              footer: >-
+                                Energie, die die Batterie ins Netz eingespeist
+                                hat - gezählt vom Speichermanagement seit der
+                                Inbetriebnahme. Woche und Monat beginnen am
+                                Montag bzw. am Monatsersten.
+                            slots:
+                              default:
+                                - component: oh-label-item
+                                  config:
+                                    title: Diese Woche
+                                    icon: f7:calendar
+                                    iconColor: blue
+                                    item: Stromkreis_BATTERIE_NETZEINSPEISUNG_WOCHE_KWH
+                                    after: "=Number.isNaN(Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG_WOCHE_KWH.state)) ? '-' : Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG_WOCHE_KWH.state).toFixed(1).replace('.', ',') + ' kWh'"
+                                - component: oh-label-item
+                                  config:
+                                    title: Dieses Monat
+                                    icon: f7:calendar_circle_fill
+                                    iconColor: purple
+                                    item: Stromkreis_BATTERIE_NETZEINSPEISUNG_MONAT_KWH
+                                    after: "=Number.isNaN(Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG_MONAT_KWH.state)) ? '-' : Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG_MONAT_KWH.state).toFixed(1).replace('.', ',') + ' kWh'"
+                                - component: oh-label-item
+                                  config:
+                                    title: Gesamt
+                                    icon: f7:bolt_fill
+                                    iconColor: green
+                                    item: Stromkreis_BATTERIE_NETZEINSPEISUNG_KWH
+                                    after: "=Number.isNaN(Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG_KWH.state)) ? '-' : Number.parseFloat(items.Stromkreis_BATTERIE_NETZEINSPEISUNG_KWH.state).toFixed(1).replace('.', ',') + ' kWh'"
 
         # Hauptschalter und Navigation zu den Unterseiten; Badges zeigen den
         # Zustand der Funktionen, ohne dass man die Seite oeffnen muss.
@@ -488,7 +573,8 @@ pages:
                                     title: Einspeisung bis
                                     icon: f7:sunrise_fill
                                     iconColor: orange
-                                    item: Stromkreis_Crossover_Start
+                                    item: Stromkreis_Entladeende
+                                    after: "=(items.Stromkreis_Entladeende.state && items.Stromkreis_Entladeende.state !== '-' && items.Stromkreis_Entladeende.state !== 'NULL' && items.Stromkreis_Entladeende.state !== 'UNDEF') ? items.Stromkreis_Entladeende.state : items.Stromkreis_Crossover_Start.state"
                                 - component: oh-label-item
                                   config:
                                     title: Geschätzte Hauslast

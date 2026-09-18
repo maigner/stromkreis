@@ -74,6 +74,9 @@ if [ "$INSTALL_WATCHDOG" = "1" ]; then
       "http://127.0.0.1:8080/rest/things/$INVERTER_HOST_THING_UID/status" || true)"
     if printf '%s' "$status_json" | grep -q '"status"'; then
       log "Watchdog-Bridge $INVERTER_HOST_THING_UID: $(printf '%s' "$status_json" | grep -o '"status"[[:space:]]*:[[:space:]]*"[A-Z]*"' | head -n1 | sed -e 's/.*"\([A-Z]*\)"/\1/')"
+      watch_json="$(curl -s -m 10 -H "Authorization: Bearer $OH_API_TOKEN" \
+        "http://127.0.0.1:8080/rest/things/$INVERTER_THING_UID/status" || true)"
+      log "Watchdog-Verbindungsthing $INVERTER_THING_UID: $(printf '%s' "$watch_json" | grep -o '"status"[[:space:]]*:[[:space:]]*"[A-Z]*"' | head -n1 | sed -e 's/.*"\([A-Z]*\)"/\1/')"
     else
       fail "Bridge-Status per REST nicht abrufbar - Token oder Thing-UID pruefen."
     fi
@@ -108,6 +111,35 @@ if grep -q '@GW_THING_UID@' "$control_src" 2>/dev/null; then
     log "Thing-UID korrekt eingesetzt: $INVERTER_THING_UID"
   else
     fail "Thing-UID '$INVERTER_THING_UID' steht nicht in stromkreis_battery_control.js."
+  fi
+fi
+
+# --- Fail-Safe (nur Profile mit inverter_failsafe_reset) -------------------
+if type inverter_failsafe_reset >/dev/null 2>&1 && [ "$INSTALL_FAILSAFE" = "1" ]; then
+  if systemctl is-active --quiet stromkreis-failsafe.timer 2>/dev/null; then
+    log "Fail-Safe-Timer aktiv: stromkreis-failsafe.timer"
+  else
+    fail "stromkreis-failsafe.timer nicht aktiv - beheben mit: sudo $GW_SETUP_DIR/10-install-failsafe.sh"
+  fi
+  if systemctl is-enabled --quiet stromkreis-failsafe-boot.service 2>/dev/null; then
+    log "Boot-Reset aktiv: stromkreis-failsafe-boot.service"
+  else
+    fail "stromkreis-failsafe-boot.service nicht aktiviert - beheben mit: sudo $GW_SETUP_DIR/10-install-failsafe.sh"
+  fi
+  if [ -f "$GW_HEARTBEAT_FILE" ]; then
+    log "Heartbeat vorhanden: $GW_HEARTBEAT_FILE ($(date -r "$GW_HEARTBEAT_FILE" '+%F %H:%M'))"
+  else
+    log "Noch kein Heartbeat ($GW_HEARTBEAT_FILE) - entsteht mit dem ersten bestaetigten Reset des Kerns."
+  fi
+fi
+
+# --- Automatische Betriebssystem-Updates ------------------------------------
+if [ "$INSTALL_APT_AUTO" = "1" ] && command -v apt-get >/dev/null 2>&1; then
+  if [ -f /etc/apt/apt.conf.d/52stromkreis-unattended-upgrades ] \
+     && systemctl is-active --quiet apt-daily-upgrade.timer 2>/dev/null; then
+    log "Automatische Updates aktiv: 52stromkreis-unattended-upgrades, apt-daily-upgrade.timer"
+  else
+    fail "Automatische Updates nicht eingerichtet - beheben mit: sudo $GW_SETUP_DIR/11-install-apt-auto.sh"
   fi
 fi
 

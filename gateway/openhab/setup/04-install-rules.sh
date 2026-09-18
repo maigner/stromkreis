@@ -39,6 +39,15 @@ js_dir="$OPENHAB_CONF/automation/js"
 mkdir -p "$js_dir"
 chown "$OPENHAB_USER:$OPENHAB_GROUP" "$js_dir" 2>/dev/null || true
 
+# Marker-Verzeichnis fuer Heartbeat und Standby des Kerns (und die
+# Dashboard-Anforderungen des Status-Push): die Regeln schreiben dort als
+# openHAB-Benutzer, das Verzeichnis liegt unter dem root-eigenen
+# /var/lib/stromkreis - hier anlegen, unabhaengig davon, ob Updater oder
+# Fail-Safe installiert werden.
+mkdir -p "$GW_REQUEST_DIR"
+chown "$OPENHAB_USER:$OPENHAB_GROUP" "$GW_REQUEST_DIR" 2>/dev/null || true
+chmod 0755 "$GW_REQUEST_DIR"
+
 # Sonderzeichen fuer die rechte Seite eines sed-Ausdrucks entschaerfen.
 sed_escape() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
 
@@ -88,6 +97,9 @@ render_payload() {
       -e "s|@GW_LOG_DIR@|${logdir_esc}|g" \
       -e "s|@GW_PAKET_VERSION@|${gw_version_esc}|g" \
       -e "s|@GW_UPDATE_FLAG@|$(sed_escape "$GW_UPDATE_FLAG")|g" \
+      -e "s|@GW_HEARTBEAT_FILE@|$(sed_escape "$GW_HEARTBEAT_FILE")|g" \
+      -e "s|@GW_FAILSAFE_STATUS@|$(sed_escape "$GW_FAILSAFE_STATUS")|g" \
+      -e "s|@GW_FAILSAFE_STANDBY@|$(sed_escape "$GW_FAILSAFE_STANDBY")|g" \
       "$1"
 }
 
@@ -226,49 +238,8 @@ if [ "$INSTALL_STATUS_PUSH" = "1" ]; then
     "$CRON_STATUS"
 
   # Der Status-Push meldet die Zahl ausstehender apt-Updates aus dem lokalen
-  # Paket-Cache; damit die stimmt, muessen die Paketlisten regelmaessig
-  # aktualisiert werden. Dafuer wird die Debian-eigene apt-daily-Mechanik
-  # aktiviert (apt-daily.timer laeuft taeglich zu einem randomisierten
-  # Zeitpunkt). Sicherheitsupdates spielt unattended-upgrades automatisch
-  # ein (Debian-Standardkonfiguration: nur das Security-Archiv, kein
-  # automatischer Reboot - openHAB und Pi-Firmware kommen aus anderen Repos
-  # und bleiben damit Handarbeit). Alles Uebrige zeigt nur das Dashboard.
-  apt_periodic="/etc/apt/apt.conf.d/02stromkreis-periodic"
-  if command -v apt-get >/dev/null 2>&1 && [ -d /etc/apt/apt.conf.d ]; then
-    # openHABian maskiert unattended-upgrades.service, damit waehrend der
-    # Ersteinrichtung kein apt dazwischenfunkt. Die Updates selbst laufen
-    # zwar ueber apt-daily-upgrade.timer, der Dienst laesst aber ein gerade
-    # laufendes Update beim Herunterfahren fertig werden - fuer den
-    # Regelbetrieb wird die Maskierung deshalb aufgehoben.
-    systemctl unmask unattended-upgrades.service \
-      apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
-    if ! dpkg -s unattended-upgrades >/dev/null 2>&1; then
-      log "Installiere unattended-upgrades (apt-get) ..."
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get install -y -qq unattended-upgrades \
-        || warn "unattended-upgrades konnte nicht installiert werden - Sicherheitsupdates bleiben Handarbeit."
-    fi
-    cat > "$apt_periodic" <<'EOF'
-// GENERIERT von Stromkreis (04-install-rules.sh) - nicht direkt bearbeiten.
-// Haelt die Paketlisten taeglich aktuell, damit der Status-Push die Zahl
-// ausstehender apt-Updates korrekt an das Betreiber-Dashboard meldet, und
-// laesst unattended-upgrades Sicherheitsupdates automatisch einspielen
-// (Debian-Standard: nur das Security-Archiv, kein automatischer Reboot).
-// Entfernt von purge-gateway.sh.
-APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Unattended-Upgrade "1";
-EOF
-    chmod 0644 "$apt_periodic"
-    systemctl enable --now apt-daily.timer >/dev/null 2>&1 \
-      || warn "apt-daily.timer konnte nicht aktiviert werden."
-    systemctl enable --now apt-daily-upgrade.timer >/dev/null 2>&1 \
-      || warn "apt-daily-upgrade.timer konnte nicht aktiviert werden."
-    systemctl enable --now unattended-upgrades.service >/dev/null 2>&1 \
-      || warn "unattended-upgrades.service konnte nicht aktiviert werden."
-    log "Taegliches apt-get update und automatische Sicherheitsupdates aktiviert ($apt_periodic)."
-  else
-    warn "apt-get nicht gefunden - taegliches apt-get update uebersprungen."
-  fi
+  # Paket-Cache. Das taegliche "apt-get update" dafuer und die automatischen
+  # Betriebssystem-Updates richtet 11-install-apt-auto.sh ein.
 else
   log "INSTALL_STATUS_PUSH=0 - Status-Push uebersprungen."
 fi
@@ -361,9 +332,12 @@ rules.JSRule({
 EOF
 
 # --- Netzwerk-Watchdog ------------------------------------------------------
-# Ueberwacht das Thing mit der Netzwerkadresse (bei Fronius die Bridge) und
-# startet bei OFFLINE die Netzwerksuche aus dem Wechselrichter-Profil, die
-# eine per DHCP geaenderte IP findet und per REST API in das Thing eintraegt.
+# Startet bei OFFLINE die Netzwerksuche aus dem Wechselrichter-Profil, die
+# eine per DHCP geaenderte IP findet und per REST API in das Thing mit der
+# Netzwerkadresse (bei Modbus die tcp-Bridge) eintraegt. Ob die Verbindung
+# steht, wird am Wechselrichter-Thing (INVERTER_THING_UID) abgelesen: die
+# Modbus-Bridge bleibt auch bei "Connection refused" ONLINE, nur Poller und
+# Daten-Things gehen OFFLINE.
 install_watchdog() {
   local src="$GW_SCRIPT_DIR/$INVERTER_REDISCOVER_SCRIPT"
   local state_dir="$OPENHAB_USERDATA/stromkreis"
@@ -398,7 +372,9 @@ install_watchdog() {
   log "API-Token abgelegt: $token_file"
 
   sed -e "s|@GW_HOST_THING_UID@|$(sed_escape "$INVERTER_HOST_THING_UID")|g" \
+      -e "s|@GW_WATCH_THING_UID@|$(sed_escape "$INVERTER_THING_UID")|g" \
       -e "s|@GW_HOST_PARAM@|$(sed_escape "$INVERTER_HOST_PARAM")|g" \
+      -e "s|@GW_EXTRA_HOST_THINGS@|$(sed_escape "$INVERTER_EXTRA_HOST_THINGS")|g" \
       -e "s|@GW_TOKEN_FILE@|$(sed_escape "$token_file")|g" \
       -e "s|@GW_STATE_DIR@|$(sed_escape "$state_dir")|g" \
       -e "s|@GW_COOLDOWN_MIN@|$(sed_escape "$WATCHDOG_COOLDOWN_MIN")|g" \
@@ -417,6 +393,7 @@ rules.JSRule({
   description: 'Findet den Wechselrichter nach einem IP-Wechsel im Netz wieder',
   tags: ['Stromkreis'],
   triggers: [
+    triggers.ThingStatusChangeTrigger('${INVERTER_THING_UID}', 'OFFLINE'),
     triggers.ThingStatusChangeTrigger('${INVERTER_HOST_THING_UID}', 'OFFLINE'),
     triggers.GenericCronTrigger('${CRON_WATCHDOG}')
   ],
