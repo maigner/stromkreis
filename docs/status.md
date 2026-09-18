@@ -1,6 +1,14 @@
-# Stand: 1. September 2026
+# Stand: 14. September 2026
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
+
+## Neu am 14.9.: Dummy-EEGs mit Energiedaten bis 13.9. nachgefüllt
+
+- **Energiedaten 26.8. bis 13.9.2026** (19 Tage, bis zum letzten vollständigen Tag wie echte EDA-Daten) für `TE100200`, `TE100300` und `TE100400` mit `gen-eeg.py` erzeugt (lokal in einem Wegwerf-venv mit openpyxl) und nur die Energiedatei per energystore-`singleUpload` eingespielt (am Server `data/<RC>-Energiedaten-2026-08-26_2026-09-13.xlsx`). Die Stammdaten wurden bewusst nicht erneut hochgeladen, weil `gen-eeg.py` "registriert seit" aus dem Startdatum ableitet. Die Uploads ergänzen die bestehenden Reihen, ältere Daten bleiben erhalten.
+- Plattform-Import per `insert into eegfaktura_sync_job (tenant_id) values (4),(5),(6)`; danach reichen alle drei Mandanten in `measurement_daily` bis 13.9., Prognoseläufe 78 (te100200), 79 (te100400) und 80 (te100300) neu.
+- **Zwischenfall:** um 12:33 startete ein unbeaufsichtigtes apt-Upgrade (docker-ce 29.7.2 auf 29.8.0) den Docker-Daemon am Server neu, alle Stacks liefen danach wieder von selbst. Dabei brach Auftrag 26 (te100300) mitten in der Phase `energy` ab und Auftrag 27 (te100400) scheiterte mit `Token-Refresh fehlgeschlagen (HTTP 502)`, weil Keycloak der Testinstanz noch startete; 27 wurde als 28 neu eingereiht. Verwaiste Aufträge übernimmt der Worker erst nach `STALE_MINUTES` (30 min ohne Heartbeat); Auftrag 26 lief so um 13:03 weiter und war 13:05 fertig.
+- Salzkammerstrom (Demo-Seed `demo-data.js`, 35 Tage bis 8.8.) wurde nicht angefasst: `seed` ersetzt alle Demo-Mitglieder und Anlagen samt Tokens.
+- Offen: die Daten veralten wieder; ein täglicher Nachschub (Cron am Server: gestern erzeugen, hochladen, Auftrag einreihen) wäre wenig Aufwand.
 
 ## Neu am 1.9.: Zero-Touch-Einrichtung von Pi 71 auf frischer SD-Karte beobachtet
 
