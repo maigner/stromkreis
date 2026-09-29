@@ -91,10 +91,8 @@ pages:
         # Hero-Karte: Ladestand als Halbkreis-Anzeige, daneben die aktuelle
         # Batterieleistung und die Netzeinspeisung, unten der Stromkreis-Status.
         # Tippen oeffnet den Verlauf von Ladestand und Batterieleistung.
-        - component: oh-block
-          config: {}
-          slots:
-            default:
+        # Im selben oh-block wie die Begruessung, damit sich die Block-Abstaende
+        # (Uebersicht-Navbar -> Begruessung -> Hero) nicht zweimal aufsummieren.
               - component: oh-grid-row
                 config: {}
                 slots:
