@@ -20,7 +20,9 @@ Vorher prüfen, ob gerade ein SD-Karten-Image gebaut wird (`ls data/images/ | gr
   .env                 # nur am Server: POSTGRES_PASSWORD, PUBLIC_ORIGIN, OIDC_ISSUER, OIDC_CLIENT_ID,
                        #   EEGFAKTURA_BASE_URL, TOKEN_SECRET, WORKER_PACE_SECONDS,
                        #   GATEWAY_SYNC_TOKEN, EXPRESS_KEY (je openssl rand -hex 32),
-                       #   WG_ENDPOINT, CLOUD_BASE_URL, CLOUD_DOMAIN, CLOUD_PROXY_HOST
+                       #   WG_ENDPOINT, CLOUD_BASE_URL, CLOUD_DOMAIN, CLOUD_PROXY_HOST,
+                       #   REVIEW_CLOUD_USERNAME, REVIEW_CLOUD_PASSWORD, REVIEW_CLOUD_UUID,
+                       #   REVIEW_CLOUD_SECRET (Demo-Anlage + Demo-openHAB der Seite /review)
   src/                 # rsync-Kopie des Repos (Build-Kontext)
   data/postgres/       # Datenbank-Volume
   data/images/         # SD-Karten-Images der Anlagen (gehört uid 1000)
@@ -35,6 +37,7 @@ Dienste:
 - `db` (Postgres), `platform` (lauscht auf `127.0.0.1:4000`), `worker` (Pipeline-Container, arbeitet die Import-Aufträge des EEGFaktura-Logins ab; `docker compose logs -f worker`), `demo-heartbeat`.
 - `wireguard`: Wartungsnetz `10.88.0.0/24` für die Gateways (UDP 51820 veröffentlicht, braucht eine Weiterleitung am Router), Peer-Abgleich minütlich aus der Plattform-DB, dazu der stack-interne SOCKS-Durchgang für die Fernwartungs-Aktionen der Anlagen-Detailseite (SSH). SSH vom Terminal: `deploy/wg-ssh.sh <tunnel-ip>`.
 - `cloud-app` (Stromkreis-eigene openHAB-Cloud, lauscht auf `127.0.0.1:4100`), `cloud-mongodb`, `cloud-redis`, `cloud-sync` (legt die Cloud-Konten der Anlagen automatisch an).
+- `demo-openhab` (openHAB 4.3 ohne Wechselrichter fuer die App-Pruefung, Seite `/review`; haengt mit `REVIEW_CLOUD_UUID/SECRET` an der Cloud, Simulation und Seiten aus `deploy/demo-openhab/`, Daten unter `data/demo-openhab/`, kein Port nach aussen). Die zugehoerige Demo-Anlage legt `demo-heartbeat` beim Start an (`demo-data.js review`).
 
 Die Datenbanken sind nicht veröffentlicht. Öffentlicher Zugang läuft über drei Einträge in `~/Container/caddy/Caddyfile` am Server (die DNS-A-Records für `hac` und `remote.hac` müssen auf den Server zeigen, sonst bekommt Caddy keine Zertifikate):
 

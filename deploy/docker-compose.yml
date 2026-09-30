@@ -51,6 +51,10 @@ services:
       WG_SOCKS_HOST: wireguard
       WG_SOCKS_PORT: "1080"
       CLOUD_BASE_URL: ${CLOUD_BASE_URL:-}
+      # Demo-Anlage fuer die App-Pruefung (Seite /review): Anlage mit diesem
+      # Cloud-Konto im Demo-Mandanten (legt demo-data.js review an)
+      REVIEW_TENANT: ${REVIEW_TENANT:-salzkammerstrom}
+      REVIEW_CLOUD_USERNAME: ${REVIEW_CLOUD_USERNAME:-app-review@stromkreis.net}
       TZ: Europe/Vienna
     ports:
       - "127.0.0.1:4000:3000"
@@ -81,16 +85,48 @@ services:
 
   # Demo-Heartbeat: simuliert die Status-Pushes der Salzkammerstrom-Gateways,
   # sonst fallen alle Demo-Anlagen 10 Minuten nach dem Seed auf Offline.
+  # Beim Start legt er ausserdem die Demo-Anlage der App-Pruefung an bzw.
+  # gleicht sie ab (demo-data.js review; Cloud-Konto per cloud-sync).
   demo-heartbeat:
     image: stromkreis-platform
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
+      TOKEN_SECRET: ${TOKEN_SECRET:-}
+      REVIEW_CLOUD_USERNAME: ${REVIEW_CLOUD_USERNAME:-app-review@stromkreis.net}
+      REVIEW_CLOUD_PASSWORD: ${REVIEW_CLOUD_PASSWORD:-}
+      REVIEW_CLOUD_UUID: ${REVIEW_CLOUD_UUID:-}
+      REVIEW_CLOUD_SECRET: ${REVIEW_CLOUD_SECRET:-}
       TZ: Europe/Vienna
     depends_on:
       db:
         condition: service_healthy
-    command: ["sh", "-c", "while true; do node scripts/demo-data.js heartbeat salzkammerstrom; sleep 300; done"]
+    command: ["sh", "-c", "node scripts/demo-data.js review salzkammerstrom; while true; do node scripts/demo-data.js heartbeat salzkammerstrom; sleep 300; done"]
+
+  # Demo-openHAB fuer die App-Pruefung (/review): ein openHAB ohne
+  # Wechselrichter, das mit der Cloud-Identitaet der Demo-Anlage an der
+  # Stromkreis-Cloud haengt und einen simulierten Tagesverlauf zeigt
+  # (deploy/demo-openhab/). Kein Port nach aussen, nur ueber die Cloud
+  # erreichbar. Erster Start: einige Minuten (Addons werden geladen).
+  demo-openhab:
+    image: openhab/openhab:4.3.3
+    restart: unless-stopped
+    environment:
+      REVIEW_CLOUD_UUID: ${REVIEW_CLOUD_UUID:-}
+      REVIEW_CLOUD_SECRET: ${REVIEW_CLOUD_SECRET:-}
+      CLOUD_INTERNAL_URL: http://cloud-app:3000/
+      EXTRA_JAVA_OPTS: "-Xms256m -Xmx768m -Duser.timezone=Europe/Vienna"
+      CRYPTO_POLICY: unlimited
+      TZ: Europe/Vienna
+    volumes:
+      - ./data/demo-openhab/conf:/openhab/conf
+      - ./data/demo-openhab/userdata:/openhab/userdata
+      - ./data/demo-openhab/addons:/openhab/addons
+      - ./src/deploy/demo-openhab/init.sh:/etc/cont-init.d/10-stromkreis-demo.sh:ro
+      - ./src/deploy/demo-openhab:/stromkreis:ro
+      - ./src/platform/static/gateway:/stromkreis-dist:ro
+    depends_on:
+      - cloud-app
 
   # WireGuard-Fernwartungsnetz der Gateways (10.88.0.0/24, Server ist .1):
   # ausgehende Tunnel der Pis, Peers kommen jede Minute von der Plattform

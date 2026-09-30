@@ -8,9 +8,12 @@
 // 'heartbeat' simuliert die regelmaessigen Status-Pushes der Gateways, damit
 // die Online-Anzeige (10-Minuten-Fenster) nicht nach dem Seed altert; laeuft
 // am Server als Compose-Dienst alle 5 Minuten.
-// Aufruf: node scripts/demo-data.js seed|heartbeat [tenant-slug]   (Default: salzkammerstrom)
+// 'review' legt die Demo-Anlage der App-Pruefung an (Seite /review): eine
+// Anlage mit festem Cloud-Konto (REVIEW_CLOUD_*), hinter der der Compose-
+// Dienst demo-openhab haengt; das Cloud-Konto legt der cloud-sync an.
+// Aufruf: node scripts/demo-data.js seed|heartbeat|review [tenant-slug]   (Default: salzkammerstrom)
 import postgres from 'postgres';
-import { createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 
 if (!process.env.DATABASE_URL) {
 	console.error('DATABASE_URL ist nicht gesetzt.');
@@ -439,6 +442,11 @@ async function seed(slug) {
 
 		console.log(`Demo-Daten fuer '${tenant.name}': ${members.length} Mitglieder, ${points.length} Zaehlpunkte, ${rows.length} Messwerte, ${weather.length} Wetterstunden, ${SITES.length} Anlagen.`);
 	});
+	// Der Seed loescht alle Anlagen des Mandanten, also auch die Demo-Anlage
+	// der App-Pruefung: wieder anlegen, sofern die Cloud-Werte gesetzt sind.
+	if (process.env.REVIEW_CLOUD_UUID && process.env.REVIEW_CLOUD_SECRET && process.env.REVIEW_CLOUD_PASSWORD) {
+		await review(slug);
+	}
 }
 
 // Frischer Status-Push fuer die Online-Anlagen; die Offline-Anlagen bleiben
@@ -519,6 +527,94 @@ async function heartbeat(slug) {
 	console.log(`Heartbeat: ${updated} Anlagen aktualisiert.`);
 }
 
+// Demo-Anlage der App-Pruefung: idempotent, Schluessel ist das Cloud-Konto
+// (REVIEW_CLOUD_USERNAME) im Mandanten. Passwort und Secret werden wie in der
+// Plattform verschluesselt (secrets.js: enc1, AES-256-GCM mit TOKEN_SECRET);
+// aendert sich eines davon oder ist das Konto noch nicht angelegt, geht die
+// Anlage auf cloud_account_state 'pending' und der cloud-sync uebernimmt.
+// Der Heartbeat haelt die Anlage online (sie steht nicht in SITES, hat aber
+// last_seen_at).
+function encryptSecret(plain) {
+	const hex = process.env.TOKEN_SECRET;
+	if (!hex || !/^[0-9a-fA-F]{64}$/.test(hex)) {
+		throw new Error('TOKEN_SECRET fehlt oder hat nicht 64 Hex-Zeichen (openssl rand -hex 32)');
+	}
+	const iv = randomBytes(12);
+	const cipher = createCipheriv('aes-256-gcm', Buffer.from(hex, 'hex'), iv);
+	const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final(), cipher.getAuthTag()]);
+	return `enc1:${iv.toString('base64')}:${ct.toString('base64')}`;
+}
+
+async function review(slug) {
+	const username = (process.env.REVIEW_CLOUD_USERNAME || 'app-review@stromkreis.net').trim().toLowerCase();
+	const password = process.env.REVIEW_CLOUD_PASSWORD || '';
+	const uuid = process.env.REVIEW_CLOUD_UUID || '';
+	const secret = process.env.REVIEW_CLOUD_SECRET || '';
+	if (!password || !uuid || !secret) {
+		console.error('REVIEW_CLOUD_PASSWORD, REVIEW_CLOUD_UUID und REVIEW_CLOUD_SECRET muessen gesetzt sein.');
+		process.exit(1);
+	}
+	if (password.length < 8) {
+		console.error('REVIEW_CLOUD_PASSWORD muss mindestens 8 Zeichen haben (Cloud-Vorgabe).');
+		process.exit(1);
+	}
+	const [tenant] = await sql`select id, name from tenant where slug = ${slug}`;
+	if (!tenant) {
+		console.error(`Mandant '${slug}' nicht gefunden.`);
+		process.exit(1);
+	}
+	const now = Date.now();
+	const status = {
+		inverter_type: 'fronius-symo',
+		inverter_status: 'running',
+		soc: 64,
+		battery_power_w: -1200,
+		pv_power_w: 4100,
+		load_power_w: 520,
+		grid_power_w: -2380,
+		hauptschalter: 'ON',
+		ladesperre_aktiv: 'ON',
+		batterie_kapazitaet: 10.2,
+		min_battery_charge: 20,
+		openhab_version: '4.3.3',
+		openhabian_version: 'Demo (Container)',
+		logs: []
+	};
+	const [existing] = await sql`
+		select id, cloud_uuid, cloud_account_state from battery_site
+		where tenant_id = ${tenant.id} and cloud_username = ${username}
+	`;
+	const needsSync = !existing || existing.cloud_uuid !== uuid || existing.cloud_account_state !== 'created';
+	if (existing) {
+		if (needsSync) {
+			await sql`
+				update battery_site
+				set cloud_uuid = ${uuid}, cloud_secret = ${encryptSecret(secret)},
+					cloud_password = ${encryptSecret(password)},
+					cloud_account_state = 'pending', cloud_account_error = null,
+					last_seen_at = ${new Date(now)}, updated_at = now()
+				where id = ${existing.id}
+			`;
+			console.log(`Demo-Anlage der App-Pruefung (id ${existing.id}) abgeglichen, Cloud-Konto wird angelegt.`);
+		} else {
+			console.log(`Demo-Anlage der App-Pruefung (id ${existing.id}) ist aktuell.`);
+		}
+		return;
+	}
+	const token = randomBytes(24).toString('base64url');
+	const [row] = await sql`
+		insert into battery_site (tenant_id, name, inverter_profile, token_hash, last_seen_at, status,
+			latitude, longitude, address, setup_phase, provisioned_at, capacity_kwh, pv_kwp,
+			cloud_uuid, cloud_secret, cloud_username, cloud_password, cloud_account_state)
+		values (${tenant.id}, ${'Demo-Anlage (App-Prüfung)'}, ${'fronius-symo'}, ${createHash('sha256').update(token).digest('hex')},
+			${new Date(now)}, ${sql.json(status)}, ${47.7117}, ${13.6197}, ${'Demo, kein realer Standort'},
+			${'fertig'}, ${new Date(now)}, ${10.2}, ${8.4},
+			${uuid}, ${encryptSecret(secret)}, ${username}, ${encryptSecret(password)}, ${'pending'})
+		returning id
+	`;
+	console.log(`Demo-Anlage der App-Pruefung angelegt (id ${row.id}, Cloud-Konto ${username}), Cloud-Konto wird angelegt.`);
+}
+
 function round(x, digits = 4) {
 	return Math.round(x * 10 ** digits) / 10 ** digits;
 }
@@ -529,8 +625,10 @@ try {
 		await seed(slugArg ?? 'salzkammerstrom');
 	} else if (cmd === 'heartbeat') {
 		await heartbeat(slugArg ?? 'salzkammerstrom');
+	} else if (cmd === 'review') {
+		await review(slugArg ?? 'salzkammerstrom');
 	} else {
-		console.error('Verwendung: node scripts/demo-data.js seed|heartbeat [tenant-slug]');
+		console.error('Verwendung: node scripts/demo-data.js seed|heartbeat|review [tenant-slug]');
 		process.exit(cmd ? 1 : 0);
 	}
 } finally {
