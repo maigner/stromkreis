@@ -101,6 +101,10 @@
 				href="https://ischlstrom.org"
 				class="font-medium text-brand-600 hover:underline dark:text-brand-500">ISCHLSTROM</a
 			>.
+			<nav class="mt-3 flex gap-4">
+				<a href="/impressum" class="hover:underline">Impressum</a>
+				<a href="/datenschutz" class="hover:underline">Datenschutz</a>
+			</nav>
 		</footer>
 	</main>
 </div>
