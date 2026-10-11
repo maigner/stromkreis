@@ -17,6 +17,16 @@ import { sql } from './db.js';
 import { decrypt, encrypt, readSecret } from './secrets.js';
 import firstbootScript from './gateway-firstboot/stromkreis-firstboot.sh?raw';
 import firstbootService from './gateway-firstboot/stromkreis-firstboot.service?raw';
+// Public-Key (Ed25519, base64 DER) fuer die Signatur des Gateway-Pakets:
+// der private Schluessel liegt nur auf dem Rechner, der deployt
+// (build-dist.sh signiert, install.sh am Pi prueft). Das Gateway bekommt
+// den Public-Key mit der Provisionierung und haelt ihn in gateway.conf fest.
+import packagePubkey from './stromkreis-gateway.pub?raw';
+
+/** Public-Key der Paketsignatur, wie er in gateway.conf landet. */
+export function packageSigningPubkey() {
+	return packagePubkey.trim();
+}
 
 // Einrichtungscode: drei Gruppen zu vier Zeichen aus 32 Symbolen = 60 Bit.
 // Der Code wird nie getippt (er steckt im Image und steht auf der
@@ -293,6 +303,7 @@ export async function consumeProvisionCode(code) {
 			STROMKREIS_ANLAGE_NAME: site.name,
 			STROMKREIS_TENANT: site.tenant_slug,
 			STROMKREIS_VORNAME: firstname,
+			STROMKREIS_PACKAGE_PUBKEY: packageSigningPubkey(),
 			INVERTER_PROFILE: site.inverter_profile,
 			BATTERIE_KAPAZITAET_KWH: site.capacity_kwh == null ? '' : String(site.capacity_kwh),
 			PV_KWP: site.pv_kwp == null ? '' : String(site.pv_kwp),

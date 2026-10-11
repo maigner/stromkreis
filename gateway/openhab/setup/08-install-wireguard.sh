@@ -126,9 +126,14 @@ handshake_ok() {
 }
 
 # Public-Key an die Plattform melden - der WireGuard-Container am Server
-# traegt den Peer innerhalb einer Minute ein, dann steht der Tunnel.
+# traegt den Peer innerhalb einer Minute ein, dann steht der Tunnel. Mit
+# dabei der SSH-Host-Key des Pi (ed25519): die Plattform verlangt bei jeder
+# Fernwartungs-Verbindung genau diesen Schluessel.
+SSH_HOST_KEY="$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null || true)"
+[ -n "$SSH_HOST_KEY" ] || warn "Kein ed25519-Host-Key unter /etc/ssh gefunden - Fernwartung ohne Host-Key-Pruefung."
 if [ -n "$STROMKREIS_SITE_TOKEN" ]; then
-  report_phase tunnel "Tunnel-IP ${WG_ADDRESS}, Public-Key gemeldet." "\"wg_public_key\":$(json_str "$PI_PUBLIC_KEY")"
+  report_phase tunnel "Tunnel-IP ${WG_ADDRESS}, Public-Key gemeldet." \
+    "\"wg_public_key\":$(json_str "$PI_PUBLIC_KEY")${SSH_HOST_KEY:+,\"ssh_host_key\":$(json_str "$SSH_HOST_KEY")}"
   waited=0
   until handshake_ok || [ "$waited" -ge 180 ]; do sleep 10; waited=$((waited + 10)); done
 fi

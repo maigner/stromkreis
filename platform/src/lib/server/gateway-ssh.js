@@ -12,9 +12,14 @@
 //
 // Die Anmeldung am Pi ist normales SSH mit Passwort (openhabian + Anlagen-
 // Passwort aus battery_site.linux_secret, verschluesselt); der Browser
-// bekommt das Passwort hier nie zu sehen. Ohne Host-Key-Pruefung (wie accept-new bei wg-ssh.sh): die
-// Gegenstellen wechseln mit jeder Neuinstallation, das Wartungsnetz ist
-// nur ueber den Tunnel erreichbar - dokumentiertes Restrisiko.
+// bekommt das Passwort hier nie zu sehen. Host-Key-Pruefung: das Gateway
+// meldet seinen ed25519-Host-Key in der Phase "tunnel" (authentifiziert mit
+// dem Anlagen-Token, battery_site.ssh_host_key); hier muss der Pi genau
+// diesen Schluessel vorzeigen, sonst bricht die Verbindung ab (Passwort
+// wird dann nie gesendet). Fehlt ein gemeldeter Schluessel (Anlage vor der
+// Migration ssh_host_key eingerichtet), wird der Schluessel der ersten
+// Verbindung uebernommen (TOFU) und ab dann verlangt. Eine Neuinstallation
+// meldet den neuen Schluessel wieder ueber die Phase tunnel.
 // ============================================================================
 import { connect as netConnect } from 'node:net';
 import { Client } from 'ssh2';
@@ -330,7 +335,7 @@ export async function runRemoteAction(tenantId, siteId, actionId) {
 	if (!action) throw new Error('Unbekannte Aktion.');
 
 	const [row] = await sql`
-		select name, wg_address, coalesce(wg_public_key, '') <> '' as wg_key_reported, linux_secret
+		select name, wg_address, coalesce(wg_public_key, '') <> '' as wg_key_reported, linux_secret, ssh_host_key
 		from battery_site where tenant_id = ${tenantId} and id = ${siteId}`;
 	if (!row) throw new Error('Anlage nicht gefunden.');
 	const site = { .../** @type {any} */ (row), linux_password: readSecret(row.linux_secret) };
@@ -348,8 +353,22 @@ export async function runRemoteAction(tenantId, siteId, actionId) {
 	const client = new Client();
 	try {
 		const sock = await socksConnect(site.wg_address, 22);
+		// Host-Key: gemeldeter Schluessel (OpenSSH-Form "ssh-ed25519 <base64>")
+		// gegen den rohen Schluessel aus dem Handshake; ohne gemeldeten
+		// Schluessel wird der erste gesehene uebernommen.
+		const expected = typeof site.ssh_host_key === 'string' ? (site.ssh_host_key.split(/\s+/)[1] ?? '') : '';
+		let seen = '';
+		let mismatch = false;
 		await new Promise((resolve, reject) => {
-			client.on('error', (e) => reject(new Error(`SSH fehlgeschlagen: ${e.message}`)));
+			client.on('error', (e) =>
+				reject(
+					new Error(
+						mismatch
+							? 'Host-Key des Gateways stimmt nicht mit dem gemeldeten überein. Nach einer Neuinstallation meldet das Gateway seinen neuen Schlüssel in der Phase Fernwartung; sonst bitte prüfen, ob wirklich das Gateway antwortet.'
+							: `SSH fehlgeschlagen: ${e.message}`
+					)
+				)
+			);
 			client.on('ready', () => resolve(undefined));
 			client.connect({
 				sock,
@@ -357,9 +376,21 @@ export async function runRemoteAction(tenantId, siteId, actionId) {
 				password: site.linux_password,
 				readyTimeout: 20000,
 				keepaliveInterval: 15000,
-				keepaliveCountMax: 3
+				keepaliveCountMax: 3,
+				algorithms: { serverHostKey: ['ssh-ed25519'] },
+				hostVerifier: (/** @type {Buffer} */ rawKey) => {
+					seen = rawKey.toString('base64');
+					if (!expected) return true;
+					mismatch = seen !== expected;
+					return !mismatch;
+				}
 			});
 		});
+		if (!expected && seen) {
+			await sql`update battery_site set ssh_host_key = ${`ssh-ed25519 ${seen}`}
+				where tenant_id = ${tenantId} and id = ${siteId} and ssh_host_key is null`;
+			console.log(`fernwartung: mandant ${tenantId} anlage ${siteId} (${site.name}): Host-Key bei der ersten Verbindung uebernommen (TOFU)`);
+		}
 
 		// Die Skripte laufen als root. openHABian erlaubt sudo je nach Stand
 		// ohne Passwort; sonst bekommt sudo das Anlagen-Passwort auf stdin.

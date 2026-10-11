@@ -5,7 +5,16 @@
 # Erzeugt in platform/static/gateway/:
 #   stromkreis-gateway.tgz          das Paket
 #   stromkreis-gateway.tgz.sha256   Pruefsumme (vom Bootstrap verifiziert)
+#   stromkreis-gateway.tgz.sig      Ed25519-Signatur (base64), install.sh prueft sie
+#   stromkreis-gateway.pub          Public-Key dazu (base64 DER; fuer Gateways
+#                                   ohne festgeschriebenen Schluessel, TOFU)
 #   VERSION                         Stand, den die Anlagen melden
+#
+# Signatur: privater Schluessel ausserhalb des Repos
+# (~/.config/stromkreis/package-signing.key oder $STROMKREIS_SIGNING_KEY,
+# Ed25519-PEM von "openssl genpkey -algorithm ed25519"); er muss zum
+# eingecheckten Public-Key platform/src/lib/server/stromkreis-gateway.pub
+# passen, sonst wuerden die Gateways das Paket ablehnen. Siehe docs/sicherheit.md.
 #
 # Endung .tgz statt .tar.gz: sirv (adapter-node) liefert *.gz-Dateien mit
 # "Content-Encoding: gzip" aus - Clients ohne Accept-Encoding bekommen dann
@@ -23,6 +32,9 @@ dist_dir="$repo_root/platform/static/gateway"
 
 tarball="$dist_dir/stromkreis-gateway.tgz"
 checksum="$tarball.sha256"
+signature="$tarball.sig"
+signing_key="${STROMKREIS_SIGNING_KEY:-$HOME/.config/stromkreis/package-signing.key}"
+pubkey_file="$repo_root/platform/src/lib/server/stromkreis-gateway.pub"
 
 log() { echo "[Stromkreis] $*"; }
 die() { echo "[Stromkreis] FEHLER: $*" >&2; exit 1; }
@@ -31,6 +43,13 @@ die() { echo "[Stromkreis] FEHLER: $*" >&2; exit 1; }
 [ -f "$openhab_dir/setup/install-gateway.sh" ] || die "setup/install-gateway.sh nicht gefunden in $openhab_dir"
 
 command -v python3 >/dev/null 2>&1 || die "python3 fehlt (wird fuer die Overview-Konvertierung gebraucht)."
+command -v openssl >/dev/null 2>&1 || die "openssl fehlt (signiert das Paket)."
+[ -f "$signing_key" ] || die "Signaturschluessel fehlt: $signing_key (auf dem Deploy-Rechner anlegen bzw. hinkopieren, siehe docs/sicherheit.md)."
+[ -f "$pubkey_file" ] || die "Public-Key fehlt: $pubkey_file"
+derived_pub="$(openssl pkey -in "$signing_key" -pubout -outform DER 2>/dev/null | base64 | tr -d '\n')" \
+  || die "Signaturschluessel nicht lesbar: $signing_key"
+[ "$derived_pub" = "$(tr -d '[:space:]' < "$pubkey_file")" ] \
+  || die "Signaturschluessel $signing_key passt nicht zum eingecheckten Public-Key $pubkey_file - die Gateways wuerden das Paket ablehnen."
 python3 -c 'import yaml' 2>/dev/null || die "PyYAML fehlt: sudo apt install python3-yaml"
 
 mkdir -p "$dist_dir"
@@ -90,6 +109,12 @@ rm -f "$build_info"
 
 ( cd "$dist_dir" && sha256sum "$(basename "$tarball")" > "$(basename "$checksum")" )
 
+# Signatur (rohe Ed25519-Signatur, base64 in einer Zeile) und Public-Key
+openssl pkeyutl -sign -inkey "$signing_key" -rawin -in "$tarball" | base64 | tr -d '\n' > "$signature" \
+  || die "Signieren fehlgeschlagen."
+tr -d '[:space:]' < "$pubkey_file" > "$dist_dir/stromkreis-gateway.pub"
+
 log "erzeugt: $tarball ($(du -h "$tarball" | cut -f1))"
 log "erzeugt: $checksum"
+log "erzeugt: $signature (signiert mit $signing_key)"
 log "Ausgeliefert wird das Paket ueber die Plattform unter /gateway/stromkreis-gateway.tgz."

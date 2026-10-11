@@ -8,7 +8,7 @@ Das Testdeployment läuft auf dem Homelab-Server `server` unter `/home/martin/Co
 deploy/deploy.sh
 ```
 
-Das Skript packt zuerst das Gateway-Paket (`gateway/openhab/setup/build-dist.sh` nach `platform/static/gateway/`), synchronisiert den Quelltext per rsync nach `server:/home/martin/Container/stromkreis/src/`, baut die Images für Plattform, Worker und WireGuard am Server, führt die Migrationen aus (dbmate-Container) und startet den Stack.
+Das Skript packt zuerst das Gateway-Paket (`gateway/openhab/setup/build-dist.sh` nach `platform/static/gateway/`; signiert mit dem privaten Schlüssel `~/.config/stromkreis/package-signing.key`, der auf jedem Deploy-Rechner liegen und zum eingecheckten `platform/src/lib/server/stromkreis-gateway.pub` passen muss, sonst bricht der Build ab; siehe `docs/sicherheit.md`), synchronisiert den Quelltext per rsync nach `server:/home/martin/Container/stromkreis/src/`, baut die Images für Plattform, Worker und WireGuard am Server, führt die Migrationen aus (dbmate-Container) und startet den Stack.
 
 Vorher prüfen, ob gerade ein SD-Karten-Image gebaut wird (`ls data/images/ | grep work` am Server): der Neustart des Plattform-Containers bricht einen laufenden Bau ab.
 

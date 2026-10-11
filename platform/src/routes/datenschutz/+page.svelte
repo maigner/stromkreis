@@ -96,6 +96,11 @@
 			über diese werden nur festgelegte Wartungsaktionen ausgeführt. Zweck ist die sichere Steuerung
 			des Speichers im Sinne der Gemeinschaft (Art. 6 Abs. 1 lit. b DSGVO, im Auftrag der EEG).
 		</p>
+		<p>
+			Was die Plattform auf einem Gateway kann und was nicht, wie ein Mitglied das nachprüfen oder
+			einschränken kann und welche Restrisiken bleiben, beschreibt offen die
+			<a href="https://github.com/maigner/stromkreis/blob/main/docs/sicherheit.md">Sicherheitsbeschreibung der Gateways</a>.
+		</p>
 	</section>
 
 	<section>

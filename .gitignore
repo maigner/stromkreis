@@ -29,3 +29,5 @@ ZUGANGSDATEN.md
 platform/static/gateway/stromkreis-gateway.tgz
 platform/static/gateway/stromkreis-gateway.tgz.sha256
 platform/static/gateway/VERSION
+platform/static/gateway/stromkreis-gateway.tgz.sig
+platform/static/gateway/stromkreis-gateway.pub

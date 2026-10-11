@@ -5,7 +5,7 @@ import { SETUP_PHASES } from '$lib/server/gateway-provision.js';
 import { deleteImage } from '$lib/server/gateway-image.js';
 
 // Fortschrittsmeldung des Gateways waehrend der Einrichtung:
-// POST {token, phase, message?, inverter_type?, hostname?, version?}.
+// POST {token, phase, message?, inverter_type?, hostname?, version?, wg_public_key?, ssh_host_key?}.
 // Authentifizierung ueber den Anlagen-Token aus der Provisionierung.
 // Antwort traegt Vorgaben der Plattform (z.B. vom Betreiber gesetztes Profil).
 export async function POST({ request }) {
@@ -31,10 +31,17 @@ export async function POST({ request }) {
 		typeof body.wg_public_key === 'string' && /^[A-Za-z0-9+/]{42,43}=$/.test(body.wg_public_key.trim())
 			? body.wg_public_key.trim()
 			: null;
+	// SSH-Host-Key des Gateways (Phase tunnel, OpenSSH-Form): die Plattform
+	// prueft ihn bei der Fernwartung; eine Neuinstallation meldet den neuen.
+	const sshKey =
+		typeof body.ssh_host_key === 'string' && /^ssh-ed25519 [A-Za-z0-9+/]{60,80}=*$/.test(body.ssh_host_key.trim())
+			? body.ssh_host_key.trim()
+			: null;
 	const [site] = await sql`
 		update battery_site set setup_phase = ${phase}, setup_message = ${message}, setup_phase_at = now(),
 			last_seen_at = now(), status = status || ${sql.json(/** @type {any} */ (patch))},
-			wg_public_key = coalesce(${wgKey}, wg_public_key)
+			wg_public_key = coalesce(${wgKey}, wg_public_key),
+			ssh_host_key = coalesce(${sshKey}, ssh_host_key)
 		where token_hash = ${hash}
 		returning id, inverter_profile`;
 	if (!site) return json({ error: 'Token unbekannt' }, { status: 401 });
