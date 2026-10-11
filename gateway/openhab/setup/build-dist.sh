@@ -42,7 +42,6 @@ die() { echo "[Stromkreis] FEHLER: $*" >&2; exit 1; }
 [ -d "$repo_root/platform/static" ] || die "platform/static nicht gefunden - Repository-Wurzel falsch erkannt: $repo_root"
 [ -f "$openhab_dir/setup/install-gateway.sh" ] || die "setup/install-gateway.sh nicht gefunden in $openhab_dir"
 
-command -v python3 >/dev/null 2>&1 || die "python3 fehlt (wird fuer die Overview-Konvertierung gebraucht)."
 command -v openssl >/dev/null 2>&1 || die "openssl fehlt (signiert das Paket)."
 [ -f "$signing_key" ] || die "Signaturschluessel fehlt: $signing_key (auf dem Deploy-Rechner anlegen bzw. hinkopieren, siehe docs/sicherheit.md)."
 [ -f "$pubkey_file" ] || die "Public-Key fehlt: $pubkey_file"
@@ -50,7 +49,16 @@ derived_pub="$(openssl pkey -in "$signing_key" -pubout -outform DER 2>/dev/null 
   || die "Signaturschluessel nicht lesbar: $signing_key"
 [ "$derived_pub" = "$(tr -d '[:space:]' < "$pubkey_file")" ] \
   || die "Signaturschluessel $signing_key passt nicht zum eingecheckten Public-Key $pubkey_file - die Gateways wuerden das Paket ablehnen."
-python3 -c 'import yaml' 2>/dev/null || die "PyYAML fehlt: sudo apt install python3-yaml"
+# Interpreter mit PyYAML suchen (fuer die Overview-Konvertierung): ein aktives
+# venv (z.B. pipeline/.venv) steht vorn im PATH und hat meist kein PyYAML,
+# daher auch die System- bzw. Homebrew-Interpreter probieren.
+python=""
+for cand in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+  if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import yaml' >/dev/null 2>&1; then
+    python="$(command -v "$cand")"; break
+  fi
+done
+[ -n "$python" ] || die "Kein python3 mit PyYAML gefunden (Linux: sudo apt install python3-yaml, macOS: brew install python && python3 -m pip install pyyaml)."
 
 mkdir -p "$dist_dir"
 
@@ -61,7 +69,7 @@ generated_pages=()
 for ov in "$openhab_dir"/inverters/*/overview.yaml; do
   [ -f "$ov" ] || continue
   dir="$(dirname "$ov")"
-  python3 - "$ov" "$dir" <<'PY' || die "Seiten-Konvertierung fehlgeschlagen: $ov"
+  "$python" - "$ov" "$dir" <<'PY' || die "Seiten-Konvertierung fehlgeschlagen: $ov"
 import json, os, sys, yaml
 src, dstdir = sys.argv[1], sys.argv[2]
 with open(src) as f:
