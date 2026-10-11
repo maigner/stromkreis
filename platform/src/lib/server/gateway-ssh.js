@@ -11,8 +11,8 @@
 // Befehlstext. Wer wirklich eine Shell braucht: deploy/wg-ssh.sh am Server.
 //
 // Die Anmeldung am Pi ist normales SSH mit Passwort (openhabian + Anlagen-
-// Passwort aus status.linux_password); der Browser bekommt das Passwort nie
-// zu sehen. Ohne Host-Key-Pruefung (wie accept-new bei wg-ssh.sh): die
+// Passwort aus battery_site.linux_secret, verschluesselt); der Browser
+// bekommt das Passwort hier nie zu sehen. Ohne Host-Key-Pruefung (wie accept-new bei wg-ssh.sh): die
 // Gegenstellen wechseln mit jeder Neuinstallation, das Wartungsnetz ist
 // nur ueber den Tunnel erreichbar - dokumentiertes Restrisiko.
 // ============================================================================
@@ -20,6 +20,7 @@ import { connect as netConnect } from 'node:net';
 import { Client } from 'ssh2';
 import { env } from '$env/dynamic/private';
 import { sql } from '$lib/server/db.js';
+import { readSecret } from '$lib/server/secrets.js';
 
 const OUTPUT_BYTES = 64 * 1024; // je Aktion behaltene Ausgabe (das Ende zaehlt)
 const SETUP_DIR = '/opt/stromkreis/openhab/setup'; // Ziel von static/gateway/install.sh
@@ -328,11 +329,11 @@ export async function runRemoteAction(tenantId, siteId, actionId) {
 	const action = ACTIONS.find((a) => a.id === actionId);
 	if (!action) throw new Error('Unbekannte Aktion.');
 
-	const [site] = await sql`
-		select name, wg_address, coalesce(wg_public_key, '') <> '' as wg_key_reported,
-			status->>'linux_password' as linux_password
+	const [row] = await sql`
+		select name, wg_address, coalesce(wg_public_key, '') <> '' as wg_key_reported, linux_secret
 		from battery_site where tenant_id = ${tenantId} and id = ${siteId}`;
-	if (!site) throw new Error('Anlage nicht gefunden.');
+	if (!row) throw new Error('Anlage nicht gefunden.');
+	const site = { .../** @type {any} */ (row), linux_password: readSecret(row.linux_secret) };
 	if (!site.wg_address) throw new Error('Die Anlage hat noch keine Tunnel-IP.');
 	if (!site.wg_key_reported) {
 		throw new Error('Das Gateway hat seinen Tunnel-Schlüssel noch nicht gemeldet.');

@@ -1,25 +1,27 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { Readable } from 'node:stream';
 import { sql } from '$lib/server/db.js';
+import { requireOperator } from '$lib/server/auth.js';
 import { imageDownload } from '$lib/server/gateway-image.js';
 
 /**
  * Download des fertigen SD-Karten-Images (site-<id>.img.gz), gebaut ueber
  * "Image erstellen" im Einrichtungs-Assistenten bzw. auf der Anlagenseite.
  * Mit dem Raspberry Pi Imager ("Eigenes Image") oder balenaEtcher auf die
- * Karte schreiben - Windows, macOS und Linux. Tenant-gescoped.
+ * Karte schreiben - Windows, macOS und Linux. Tenant-gescoped; nur fuer
+ * Betreiber (das Image traegt Linux- und WLAN-Passwort).
  */
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals, params }) {
-	if (!locals.user) redirect(303, '/');
+	const user = requireOperator(locals);
 	const id = Number(params.id);
 	const [site] = Number.isInteger(id)
 		? await sql`
 				select b.id, b.name, mem.name as member_name
 				from battery_site b
 				left join member mem on mem.tenant_id = b.tenant_id and mem.id = b.member_id
-				where b.tenant_id = ${locals.user.tenant_id} and b.id = ${id}`
+				where b.tenant_id = ${user.tenant_id} and b.id = ${id}`
 		: [];
 	if (!site) error(404, 'Anlage nicht gefunden');
 

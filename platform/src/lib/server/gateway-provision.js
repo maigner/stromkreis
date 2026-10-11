@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { env } from '$env/dynamic/public';
 import { env as priv } from '$env/dynamic/private';
 import { sql } from './db.js';
-import { decrypt, encrypt } from './secrets.js';
+import { decrypt, encrypt, readSecret } from './secrets.js';
 import firstbootScript from './gateway-firstboot/stromkreis-firstboot.sh?raw';
 import firstbootService from './gateway-firstboot/stromkreis-firstboot.service?raw';
 
@@ -222,18 +222,18 @@ export async function consumeProvisionCode(code) {
 		where b.tenant_id = t.id and b.provision_code = ${normalized}
 			and b.provision_expires_at > now() and b.setup_phase <> 'fertig'
 		returning b.id, b.tenant_id, b.name, b.inverter_profile, b.status, b.capacity_kwh, b.pv_kwp,
-			b.wg_address, b.cloud_uuid, b.cloud_secret, b.cloud_username, b.cloud_account_state,
+			b.linux_secret, b.wg_address, b.cloud_uuid, b.cloud_secret, b.cloud_username, b.cloud_account_state,
 			t.slug as tenant_slug, t.name as tenant_name,
 			(select m.name from member m where m.tenant_id = b.tenant_id and m.id = b.member_id) as member_name`;
 	if (!site) return null;
 	// openHAB-Admin-Konto: gleiches Passwort wie der Linux-Benutzer (steht in
-	// der openhabian.conf des Images und in der Anlagen-Detailansicht).
-	// Aeltere Anlagen ohne linux_password bekommen hier eines.
-	let linuxPassword = site.status?.linux_password;
+	// der openhabian.conf des Images und fuer Betreiber in der Anlagen-
+	// Detailansicht). Aeltere Anlagen ohne Passwort bekommen hier eines.
+	let linuxPassword = readSecret(site.linux_secret);
 	if (!linuxPassword) {
 		linuxPassword = randomPassword();
 		await sql`
-			update battery_site set status = status || ${sql.json({ linux_password: linuxPassword })}
+			update battery_site set linux_secret = ${encrypt(linuxPassword)}
 			where tenant_id = ${site.tenant_id} and id = ${site.id}`;
 	}
 	const firstname = typeof site.member_name === 'string' ? site.member_name.trim().split(/\s+/)[0] : '';

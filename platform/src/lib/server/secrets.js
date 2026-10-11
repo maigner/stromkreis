@@ -33,6 +33,19 @@ export function decrypt(value) {
 }
 
 /**
+ * Secret aus der Datenbank lesen: enc1-Chiffrat entschluesseln, Klartext
+ * (Altbestand vor der Verschluesselung, oder frisch von einer Migration
+ * kopiert, bis "admin.js secrets:encrypt" gelaufen ist) unveraendert
+ * zurueckgeben. null/leer bleibt null.
+ * @param {string | null | undefined} value
+ * @returns {string | null}
+ */
+export function readSecret(value) {
+    if (!value) return null;
+    return value.startsWith('enc1:') ? decrypt(value) : value;
+}
+
+/**
  * Signiertes Kurzzeit-Cookie: base64url(JSON).base64url(HMAC-SHA256).
  * @param {unknown} payload
  * @param {number} ttlSeconds

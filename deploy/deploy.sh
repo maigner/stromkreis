@@ -33,4 +33,6 @@ ssh "$HOST" "set -euo pipefail
     docker compose build platform worker wireguard
     docker compose run --rm migrate
     docker compose up -d
+    # Von Migrationen im Klartext kopierte Geheimnisse verschluesseln (idempotent)
+    docker compose exec -T platform node scripts/admin.js secrets:encrypt
     docker compose ps"

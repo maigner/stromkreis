@@ -90,6 +90,8 @@ docker compose exec platform node scripts/admin.js tenant:list
 docker compose exec platform node scripts/admin.js tenant:create <slug> <name> <breite> <laenge>
 docker compose exec platform node scripts/admin.js operator:create <tenant-slug> <name> <email>
 docker compose exec platform node scripts/admin.js invite <tenant-slug> <email>
+docker compose exec platform node scripts/admin.js secrets:encrypt
+docker compose exec platform node scripts/admin.js site:password <anlagen-id>
 ```
 
-`operator:create` und `invite` drucken einen Einmal-Login-Link (7 Tage gültig), der manuell an die Person übergeben wird. Betreiber mit EEGFaktura-Konto brauchen das nicht: "Anmelden mit EEGFaktura" auf der Startseite legt Mandant und Betreiber-Konto beim ersten Login an (Keycloak-Client `net.stromkreis.platform`, siehe `eegfaktura-local/kc-client.sh` und `docs/status.md`).
+`operator:create` und `invite` drucken einen Einmal-Login-Link (7 Tage gültig), der manuell an die Person übergeben wird. Rollen (`member.role`): `operator` darf im Betreiberbereich alles, `board` (Vorstand) sieht nur, `member` hat dort keinen Zugang (403). `secrets:encrypt` verschlüsselt Geheimnisse, die eine Migration im Klartext kopiert hat (läuft bei jedem Deploy automatisch, idempotent); `site:password` gibt das Linux-Passwort einer Anlage aus (nutzt `deploy/pi-ssh.sh`). Betreiber mit EEGFaktura-Konto brauchen das nicht: "Anmelden mit EEGFaktura" auf der Startseite legt Mandant und Betreiber-Konto beim ersten Login an (Keycloak-Client `net.stromkreis.platform`, siehe `eegfaktura-local/kc-client.sh` und `docs/status.md`).

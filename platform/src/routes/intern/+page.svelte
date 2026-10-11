@@ -71,7 +71,7 @@
 		<section>
 			<h2 class="sr-only">Anlagen</h2>
 			<div class="flex flex-wrap items-center justify-end gap-3">
-				{#if data.sites.length > 0 && !showNewSite}
+				{#if data.user.role === 'operator' && data.sites.length > 0 && !showNewSite}
 					<button
 						class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
 						onclick={() => (showNewSite = true)}
@@ -83,13 +83,15 @@
 
 			{#if data.sites.length === 0}
 				<p class="mt-4 text-sm text-stone-500 dark:text-stone-400">
-					Noch keine Anlagen angebunden. Lege die erste Anlage für ein Mitglied an; Mitglieder und Zählpunkte kommen aus dem EEGFaktura-Import.
+					Noch keine Anlagen angebunden. {data.user.role === 'operator' ? 'Lege die erste Anlage für ein Mitglied an; Mitglieder und Zählpunkte kommen aus dem EEGFaktura-Import.' : 'Anlagen legt der Betreiber an.'}
 				</p>
-				<div class="mt-4">
-					<NewSiteForm members={data.members} />
-				</div>
+				{#if data.user.role === 'operator'}
+					<div class="mt-4">
+						<NewSiteForm members={data.members} />
+					</div>
+				{/if}
 			{:else}
-				{#if showNewSite}
+				{#if showNewSite && data.user.role === 'operator'}
 					<div class="mt-4">
 						<NewSiteForm members={data.members} onclose={() => (showNewSite = false)} />
 					</div>

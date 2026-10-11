@@ -37,6 +37,7 @@
 			await update({ reset: false });
 		};
 	}
+	let showLinuxPassword = $state(false);
 	let pwCopied = $state(false);
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let pwCopiedTimer;
@@ -72,6 +73,9 @@
 	}
 
 	const site = $derived(data.site);
+	// Betreiber duerfen eingreifen (Codes, Passwoerter, Image, Fernwartung);
+	// der Vorstand sieht nur. Der Server prueft jede Aktion ohnehin.
+	const operator = $derived(data.user.role === 'operator');
 	const conn = $derived(connectionState(data.site));
 	const status = $derived(data.site.status);
 	const logs = $derived(Array.isArray(data.site.status.logs) ? data.site.status.logs : []);
@@ -180,26 +184,32 @@
 					{#if site.setup_message}
 						<p class="mt-2 font-mono text-xs text-stone-700 dark:text-stone-300">{site.setup_message}</p>
 					{/if}
-					<div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
-						{#if site.code_valid}
-							<span>Einrichtungscode <code class="rounded bg-white px-2 py-0.5 font-mono tracking-widest dark:bg-stone-950">{site.provision_code}</code> gültig bis {new Date(site.provision_expires_at).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>
-						{:else}
-							<span class="text-stone-600 dark:text-stone-400">Kein gültiger Einrichtungscode.</span>
-						{/if}
-						<form method="POST" action="?/code_erneuern">
-							<button class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900">Neuer Code</button>
-						</form>
-					</div>
-					<div class="mt-4">
-						<SdImage siteId={site.id} image={site.image} codeValid={site.code_valid} />
-					</div>
+					{#if operator}
+						<div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
+							{#if site.code_valid}
+								<span>Einrichtungscode <code class="rounded bg-white px-2 py-0.5 font-mono tracking-widest dark:bg-stone-950">{site.provision_code}</code> gültig bis {new Date(site.provision_expires_at).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>
+							{:else}
+								<span class="text-stone-600 dark:text-stone-400">Kein gültiger Einrichtungscode.</span>
+							{/if}
+							<form method="POST" action="?/code_erneuern">
+								<button class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900">Neuer Code</button>
+							</form>
+						</div>
+						<div class="mt-4">
+							<SdImage siteId={site.id} image={site.image} codeValid={site.code_valid} />
+						</div>
+					{:else}
+						<p class="mt-4 text-sm text-stone-600 dark:text-stone-400">
+							{site.code_valid ? 'Ein Einrichtungscode ist gültig' : 'Kein gültiger Einrichtungscode'}; Code und SD-Karten-Image verwaltet der Betreiber.
+						</p>
+					{/if}
 					{#if site.metering_point}
 						<p class="mt-3 text-xs text-stone-600 dark:text-stone-400">Zählpunkt: {site.point_direction === 'generation' ? 'Erzeugung' : 'Verbrauch'} {site.metering_point}</p>
 					{/if}
 				</section>
 			{/if}
 
-			{#if site.setup_phase !== 'fertig' || site.has_inverter_secret}
+			{#if operator && (site.setup_phase !== 'fertig' || site.has_inverter_secret)}
 				<section class="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900 {site.setup_phase === 'wartet_auf_passwort' ? 'border-amber-400 dark:border-amber-600' : ''}">
 					<h2 class="text-lg font-semibold">Zugang zum Wechselrichter</h2>
 					<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
@@ -346,11 +356,13 @@
 									Neues Passwort erzeugt; es wird innerhalb einer Minute gesetzt.
 								</p>
 							{/if}
-							<form method="POST" action="?/cloud_passwort_neu" class="mt-2">
-								<button class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900">
-									Neues Cloud-Passwort
-								</button>
-							</form>
+							{#if operator}
+								<form method="POST" action="?/cloud_passwort_neu" class="mt-2">
+									<button class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900">
+										Neues Cloud-Passwort
+									</button>
+								</form>
+							{/if}
 						{:else}
 							<p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Noch kein Cloud-Konto: wird bei der Einrichtung angelegt.</p>
 						{/if}
@@ -371,6 +383,11 @@
 					<p class="mt-3 text-sm text-stone-500 dark:text-stone-400">
 						Noch kein Cloud-Konto: wird bei der Einrichtung des Gateways angelegt. Danach kann hier
 						der Einrichtungscode für die App erzeugt werden.
+					</p>
+				{:else if !operator}
+					<p class="mt-3 text-sm text-stone-500 dark:text-stone-400">
+						{site.app_code ? 'Ein gültiger Einrichtungscode für die App existiert.' : 'Noch kein Einrichtungscode für die App.'}
+						Codes erzeugt der Betreiber.
 					</p>
 				{:else}
 					{#if form?.app_setup}
@@ -448,7 +465,11 @@
 						</div>
 					</dl>
 
-					{#if site.wg_key_reported}
+					{#if site.wg_key_reported && !operator}
+						<p class="mt-3 text-sm text-stone-500 dark:text-stone-400">
+							Wartungsaktionen (Neustart, Updates, Abfragen) führt der Betreiber aus.
+						</p>
+					{:else if site.wg_key_reported}
 						<!-- use:enhance: kein voller Seiten-Reload, der Tab bleibt stehen -->
 						<form method="POST" action="?/fernwartung" class="mt-4 flex flex-col gap-3" use:enhance={submitRemote}>
 							{#each remoteGroups as group (group.title)}
@@ -473,10 +494,25 @@
 							{/each}
 						</form>
 						<p class="mt-3 text-xs text-stone-500 dark:text-stone-400">
-							Die Aktionen laufen per SSH über den Wartungstunnel (Anmeldung als openhabian mit dem Anlagen-Passwort, es verlässt den Server nie).
+							Die Aktionen laufen per SSH über den Wartungstunnel (Anmeldung als openhabian mit dem Anlagen-Passwort).
 							Update und System-Update laufen am Gateway im Hintergrund weiter; den Verlauf zeigen die Protokoll-Abfragen.
 							Für alles Weitere vom Server: <code class="font-mono">deploy/wg-ssh.sh {site.wg_address}</code>
 						</p>
+						{#if site.linux_password}
+							<p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+								Anlagen-Passwort (Benutzer openhabian, auch openHAB-Admin):
+								<button
+									type="button"
+									class="rounded-md border border-stone-300 px-2 py-0.5 hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
+									onclick={() => (showLinuxPassword = !showLinuxPassword)}
+								>
+									{showLinuxPassword ? 'Verbergen' : 'Anzeigen'}
+								</button>
+								{#if showLinuxPassword}
+									<code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-stone-800 dark:bg-stone-800 dark:text-stone-200">{site.linux_password}</code>
+								{/if}
+							</p>
+						{/if}
 
 						{#if remoteRunning}
 							<p class="mt-3 rounded-md bg-stone-100 px-3 py-2 text-sm text-stone-700 dark:bg-stone-800 dark:text-stone-300">

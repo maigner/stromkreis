@@ -4,6 +4,7 @@
 //   docker compose exec platform node scripts/admin.js tenant:list
 import postgres from 'postgres';
 import { createHash, randomBytes } from 'node:crypto';
+import { encrypt, readSecret } from './secrets.js';
 
 const INVITE_DAYS = 7;
 
@@ -13,6 +14,8 @@ const usage = `Verwendung: node scripts/admin.js <befehl> [argumente]
   tenant:create <slug> <name> <breite> <laenge>
   operator:create <tenant-slug> <name> <email>   legt Betreiber an und druckt Login-Link
   invite <tenant-slug> <email>                   neuer Login-Link fuer bestehendes Mitglied
+  secrets:encrypt                                Klartext-Geheimnisse der Anlagen verschluesseln (idempotent, deploy.sh)
+  site:password <anlagen-id>                     Linux-Passwort einer Anlage (fuer deploy/pi-ssh.sh, wg-ssh.sh)
 `;
 
 if (!process.env.DATABASE_URL) {
@@ -93,6 +96,44 @@ try {
 			}
 			console.log(`Login-Link fuer ${member.name} (einmalig, ${INVITE_DAYS} Tage gueltig):`);
 			console.log(await loginLink(tenant.id, member.id));
+			break;
+		}
+		// Nach der Migration battery_site_gateway_secrets liegen Linux- und
+		// WLAN-Passwort zunaechst im Klartext in ihren Spalten (dbmate kennt
+		// TOKEN_SECRET nicht); hier verschluesseln. Laeuft bei jedem Deploy,
+		// tut nichts, wenn alles schon enc1: traegt.
+		case 'secrets:encrypt': {
+			const rows = await sql`
+				select id, tenant_id, linux_secret, wifi_secret, inverter_secret from battery_site
+				where (linux_secret is not null and linux_secret not like 'enc1:%')
+					or (wifi_secret is not null and wifi_secret not like 'enc1:%')
+					or (inverter_secret is not null and inverter_secret not like 'enc1:%')
+			`;
+			for (const r of rows) {
+				const enc = (/** @type {string | null} */ v) => (v && !v.startsWith('enc1:') ? encrypt(v) : v);
+				await sql`
+					update battery_site set linux_secret = ${enc(r.linux_secret)}, wifi_secret = ${enc(r.wifi_secret)},
+						inverter_secret = ${enc(r.inverter_secret)}
+					where tenant_id = ${r.tenant_id} and id = ${r.id}
+				`;
+			}
+			console.log(`secrets:encrypt: ${rows.length} Anlage(n) verschluesselt.`);
+			break;
+		}
+		case 'site:password': {
+			const id = Number(args[0]);
+			if (!Number.isInteger(id)) throw new Error(usage);
+			const [site] = await sql`select linux_secret from battery_site where id = ${id}`;
+			if (!site) {
+				console.error(`Anlage ${id} nicht gefunden.`);
+				process.exit(1);
+			}
+			const pw = readSecret(site.linux_secret);
+			if (!pw) {
+				console.error(`Anlage ${id} hat kein Linux-Passwort.`);
+				process.exit(1);
+			}
+			console.log(pw);
 			break;
 		}
 		default:

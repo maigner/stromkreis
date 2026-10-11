@@ -9,6 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { sql } from './db.js';
+import { encrypt, readSecret } from './secrets.js';
 import {
 	platformBaseUrl,
 	randomPassword,
@@ -189,7 +190,7 @@ async function ensureBaseImage() {
  */
 export async function startImageBuild(tenantId, siteId) {
 	const [site] = await sql`
-		select id, name, status, provision_code, provision_expires_at
+		select id, name, status, provision_code, provision_expires_at, linux_secret, wifi_ssid, wifi_secret
 		from battery_site where tenant_id = ${tenantId} and id = ${siteId}
 	`;
 	if (!site) throw new Error('Anlage nicht gefunden.');
@@ -205,12 +206,12 @@ export async function startImageBuild(tenantId, siteId) {
 	}
 
 	// Aeltere Anlagen (vor der Provisionierung angelegt) haben noch kein
-	// Linux-Passwort im Status; hier nachziehen, es steht in der openhabian.conf.
-	let linuxPassword = site.status?.linux_password;
+	// Linux-Passwort; hier nachziehen, es steht in der openhabian.conf.
+	let linuxPassword = readSecret(site.linux_secret);
 	if (!linuxPassword) {
 		linuxPassword = randomPassword();
 		await sql`
-			update battery_site set status = status || ${sql.json({ linux_password: linuxPassword })}
+			update battery_site set linux_secret = ${encrypt(linuxPassword)}
 			where tenant_id = ${tenantId} and id = ${siteId}
 		`;
 	}
@@ -225,8 +226,8 @@ export async function startImageBuild(tenantId, siteId) {
 		'openhabian.conf': renderOpenhabianConf({
 			hostname: `stromkreis-${site.id}`,
 			userPassword: linuxPassword,
-			wifiSsid: site.status?.wifi_ssid ?? null,
-			wifiPassword: site.status?.wifi_password ?? null
+			wifiSsid: site.wifi_ssid ?? null,
+			wifiPassword: readSecret(site.wifi_secret)
 		}),
 		'stromkreis-provision.conf': renderProvisionConf({ code: site.provision_code, baseUrl: platformBaseUrl() }),
 		'user-data': renderUserData()

@@ -14,7 +14,8 @@ target="$1"; shift
 if [[ "$target" =~ ^([0-9]+)(@(.+))?$ ]]; then
   id="${BASH_REMATCH[1]}"
   host="${BASH_REMATCH[3]:-stromkreis-${id}.local}"
-  pw="$(ssh server "cd /home/martin/Container/stromkreis && docker compose exec -T db psql -U stromkreis -d stromkreis -Atc \"select status->>'linux_password' from battery_site where id=${id}\"")"
+  # Das Passwort liegt verschluesselt in der DB; admin.js im Plattform-Container entschluesselt es.
+  pw="$(ssh server "cd /home/martin/Container/stromkreis && docker compose exec -T platform node scripts/admin.js site:password ${id}")"
 else
   host="$target"
   pw="${STROMKREIS_PI_PASSWORD:-}"

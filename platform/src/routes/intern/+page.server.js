@@ -1,5 +1,7 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { sql } from '$lib/server/db.js';
+import { isOperator, requireOperator, requireUser } from '$lib/server/auth.js';
+import { encrypt } from '$lib/server/secrets.js';
 import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, randomPassword } from '$lib/server/gateway-provision.js';
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { loadEnergie } from '$lib/server/energie.js';
@@ -9,10 +11,9 @@ const TABS = ['anlagen', 'standorte', 'energie', 'prognose'];
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals, url }) {
-	if (!locals.user) {
-		redirect(303, '/');
-	}
-	const tenantId = locals.user.tenant_id;
+	const user = requireUser(locals);
+	const tenantId = user.tenant_id;
+	const operator = isOperator(locals);
 
 	// Aktiver Tab aus der URL (?tab=), damit die Energie-Auswertung nur bei Bedarf
 	// gerechnet wird und Tab-Links bzw. Lesezeichen funktionieren
@@ -21,9 +22,14 @@ export async function load({ locals, url }) {
 	const energie = tab === 'energie' ? await loadEnergie(tenantId) : null;
 	const prognose = tab === 'prognose' ? await loadPrognose(tenantId) : null;
 
+	// Der Status geht als Ganzes an den Browser: Geheimnisse (Linux-Passwort,
+	// WLAN) liegen seit der Migration battery_site_gateway_secrets in eigenen
+	// Spalten; die Subtraktion faengt Altbestand ab. Den Einrichtungscode
+	// sehen nur Betreiber.
 	const sites = await sql`
-		select b.id, b.name, b.inverter_profile, b.status, b.latitude, b.longitude, b.address, b.last_seen_at,
-			b.setup_phase, b.setup_message, b.provision_code, b.provision_expires_at,
+		select b.id, b.name, b.inverter_profile, b.status - 'linux_password' - 'wifi_ssid' - 'wifi_password' as status,
+			b.latitude, b.longitude, b.address, b.last_seen_at,
+			b.setup_phase, b.setup_message, case when ${operator} then b.provision_code end as provision_code, b.provision_expires_at,
 			coalesce(b.last_seen_at > now() - interval '10 minutes', false) as online,
 			extract(epoch from now() - b.last_seen_at)::int as seen_seconds_ago,
 			mem.name as member_name
@@ -65,7 +71,7 @@ export async function load({ locals, url }) {
 		select count(distinct m2.tenant_id) as n
 		from member m1 join member m2 on m2.role = 'operator'
 			and (m2.oidc_sub = m1.oidc_sub or (m1.email is not null and m2.email = m1.email))
-		where m1.tenant_id = ${tenantId} and m1.id = ${locals.user.member_id}
+		where m1.tenant_id = ${tenantId} and m1.id = ${user.member_id}
 	`;
 
 	return {
@@ -115,8 +121,7 @@ export const actions = {
 	// Erstkontakt des Gateways (nur Hash gespeichert). Die Anlage bleibt offline
 	// (last_seen_at null), bis der erste Status-Push kommt.
 	anlegen: async ({ locals, request }) => {
-		if (!locals.user) redirect(303, '/');
-		const tenantId = locals.user.tenant_id;
+		const tenantId = requireOperator(locals).tenant_id;
 
 		const form = await request.formData();
 		let name = String(form.get('name') ?? '').trim();
@@ -212,18 +217,21 @@ export const actions = {
 			inverter_status: 'unknown',
 			...(capacityKwh == null ? {} : { batterie_kapazitaet: capacityKwh }),
 			pv_kwp: pvKwp,
-			min_battery_charge: 20,
-			linux_password: randomPassword(),
-			wifi_ssid: wifiSsid,
-			wifi_password: wifiPassword
+			min_battery_charge: 20
 		};
+		// Linux-Passwort (= openHAB-Admin) und WLAN-Passwort verschluesselt in
+		// eigenen Spalten, nie im Status (der geht an den Browser).
+		const linuxSecret = encrypt(randomPassword());
+		const wifiSecret = wifiSsid && wifiPassword ? encrypt(wifiPassword) : null;
 		const code = newProvisionCode();
 		const [site] = await sql`
 			insert into battery_site (tenant_id, member_id, measurement_point_id, name, inverter_profile, token_hash, status,
-				latitude, longitude, address, capacity_kwh, pv_kwp, provision_code, provision_expires_at, setup_phase)
+				latitude, longitude, address, capacity_kwh, pv_kwp, provision_code, provision_expires_at, setup_phase,
+				linux_secret, wifi_ssid, wifi_secret)
 			values (${tenantId}, ${memberId}, ${pointId}, ${name}, ${profile}, ${tokenHash}, ${status},
 				${latitude}, ${longitude}, ${address}, ${capacityKwh}, ${pvKwp}, ${code},
-				now() + make_interval(days => ${PROVISION_CODE_DAYS}), 'neu')
+				now() + make_interval(days => ${PROVISION_CODE_DAYS}), 'neu',
+				${linuxSecret}, ${wifiSsid}, ${wifiSecret})
 			returning id, provision_expires_at
 		`;
 
@@ -233,12 +241,12 @@ export const actions = {
 	// SD-Karten-Image einer Anlage bauen (dauert einige Minuten; Fortschritt
 	// kommt ueber die Image-Statusanzeige der Anlage).
 	image_bauen: async ({ locals, request }) => {
-		if (!locals.user) redirect(303, '/');
+		const user = requireOperator(locals);
 		const form = await request.formData();
 		const id = Number(form.get('site_id'));
 		if (!Number.isInteger(id)) return fail(400, { message: 'Anlage nicht gefunden.' });
 		try {
-			await startImageBuild(locals.user.tenant_id, id);
+			await startImageBuild(user.tenant_id, id);
 		} catch (e) {
 			return fail(409, { message: e instanceof Error ? e.message : 'Image-Bau fehlgeschlagen.' });
 		}
@@ -247,7 +255,7 @@ export const actions = {
 
 	// Neuen Einrichtungscode fuer eine Anlage (abgelaufen oder verloren).
 	code_erneuern: async ({ locals, request }) => {
-		if (!locals.user) redirect(303, '/');
+		const user = requireOperator(locals);
 		const form = await request.formData();
 		const id = Number(form.get('site_id'));
 		if (!Number.isInteger(id)) return fail(400, { message: 'Anlage nicht gefunden.' });
@@ -255,7 +263,7 @@ export const actions = {
 		const [site] = await sql`
 			update battery_site set provision_code = ${code}, provision_expires_at = now() + make_interval(days => ${PROVISION_CODE_DAYS}),
 				setup_phase = case when setup_phase = 'fertig' then 'neu' else setup_phase end
-			where tenant_id = ${locals.user.tenant_id} and id = ${id}
+			where tenant_id = ${user.tenant_id} and id = ${id}
 			returning id, provision_expires_at
 		`;
 		if (!site) return fail(404, { message: 'Anlage nicht gefunden.' });
