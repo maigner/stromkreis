@@ -99,3 +99,46 @@ def test_geocode_members_und_anlagen_nachziehen(db_conn, tenant_id):
         assert cur.fetchone() == (None, "Unbekannt 1, 4802 Ebensee am Traunsee")
         cur.execute("select latitude, address from battery_site where id = %s", (site_id,))
         assert cur.fetchone() == (47.81, "Unbekannt 1, 4802 Ebensee am Traunsee")
+
+
+def test_geocode_fehler_loggt_keine_adresse(caplog):
+    """Adressen sind personenbezogen und gehoeren nicht ins Log (S7)."""
+    def fetch(params):
+        raise OSError("timeout")
+
+    with caplog.at_level("WARNING"):
+        assert geocode.geocode_address("Ischlerstraße 37b, 4802 Ebensee am Traunsee", fetch) is None
+    assert "Ischlerstraße" not in caplog.text
+    assert "fehlgeschlagen" in caplog.text
+
+
+def test_geocode_tenants_und_anlagen_auf_dem_mittelpunkt(db_conn, tenant_id, caplog):
+    with db_conn.cursor() as cur:
+        # Mandant wie vom Login angelegt: Adresse da, Platzhalter-Standort, noch nicht geokodiert
+        cur.execute("update tenant set latitude = 47.59, longitude = 14.14, address = '4820 Bad Ischl' where id = %s", (tenant_id,))
+        # Anlage auf dem Mittelpunkt (Fallback beim Anlegen) und eine mit eigenem Standort
+        cur.execute(
+            "insert into battery_site (tenant_id, name, inverter_profile, token_hash, latitude, longitude) "
+            "values (%s, 'Mitte', 'fronius-symo', 'pytest-tok-t1', 47.59, 14.14), (%s, 'Eigen', 'fronius-symo', 'pytest-tok-t2', 47.5, 13.5) returning id",
+            (tenant_id, tenant_id),
+        )
+        ids = [r[0] for r in cur.fetchall()]
+
+    assert geocode.geocode_tenants(db_conn, lambda p: [{"lat": "47.71", "lon": "13.62"}]) == (1, 0)
+    assert geocode.geocode_tenants(db_conn, lambda p: [{"lat": "0", "lon": "0"}]) == (0, 0)  # nichts mehr zu tun
+    with db_conn.cursor() as cur:
+        cur.execute("select latitude, longitude, geocoded_address from tenant where id = %s", (tenant_id,))
+        assert cur.fetchone() == (47.71, 13.62, "4820 Bad Ischl")
+        cur.execute("select latitude, longitude from battery_site where id = %s", (ids[0],))
+        assert cur.fetchone() == (47.71, 13.62)
+        cur.execute("select latitude, longitude from battery_site where id = %s", (ids[1],))
+        assert cur.fetchone() == (47.5, 13.5)
+
+        # Kein Treffer: Standort bleibt, geocoded_address gesetzt, Adresse nicht im Log
+        cur.execute("update tenant set address = 'Nirgendwo 1, 9999 Irgendwo' where id = %s", (tenant_id,))
+    with caplog.at_level("WARNING"):
+        assert geocode.geocode_tenants(db_conn, lambda p: []) == (0, 1)
+    assert "Nirgendwo" not in caplog.text
+    with db_conn.cursor() as cur:
+        cur.execute("select latitude, geocoded_address from tenant where id = %s", (tenant_id,))
+        assert cur.fetchone() == (47.71, "Nirgendwo 1, 9999 Irgendwo")

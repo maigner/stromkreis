@@ -149,6 +149,9 @@ def run_job(conn, job):
         point_ids = load.ensure_measurement_points(conn, tenant_id, points)
         load.link_points_to_members(conn, tenant_id, participants)
         conn.commit()
+        # Erst der Mandant (der Login legt ihn mit Platzhalter-Standort an),
+        # dann die Mitglieder
+        geocode.geocode_tenants(conn)
         geocoded, missed = geocode.geocode_members(conn, tenant_id)
         conn.commit()
         if geocoded or missed:
@@ -214,6 +217,16 @@ def refresh_forecast(conn, tenant_id, slug):
 def maintenance(conn):
     """Alle Mandanten: Wetter aktuell halten und veraltete Prognosen neu
     rechnen (Schleife ueber Mandanten, laeuft nur bei leerer Auftragsschlange)."""
+    # Mandanten mit neuer Adresse (Login ohne folgenden Import, z. B. nach
+    # der Migration tenant_address) zuerst geokodieren, das Wetter haengt am Standort
+    try:
+        found, missed = geocode.geocode_tenants(conn)
+        conn.commit()
+        if found or missed:
+            log.info("Mandanten geokodiert: %d, ohne Treffer: %d", found, missed)
+    except Exception:  # noqa: BLE001
+        conn.rollback()
+        log.exception("Geokodierung der Mandanten fehlgeschlagen")
     for tenant in weather.load_tenants(conn):
         try:
             weather.import_weather(conn, tenant)

@@ -7,34 +7,17 @@
 // fuer den Benutzer, das Refresh-Token fuer den Hintergrund-Import und ein
 // Import-Auftrag, falls fuer den Mandanten noch nie importiert wurde.
 //
-// Standort des Mandanten: EEG-Faktura liefert nur die Adresse; fuer bekannte
-// Orte im Salzkammergut gibt es eine kleine Tabelle, sonst Bad Ischl als
-// Voreinstellung (vom Betreiber spaeter zu korrigieren).
+// Standort des Mandanten: EEG-Faktura liefert nur die Adresse (PLZ, Ort,
+// teils Strasse). Sie wird in tenant.address abgelegt, der Worker geokodiert
+// sie (geocode.py, Nominatim); bis dahin steht der Mandant als Platzhalter
+// auf der Mitte Oesterreichs. Keine Ortstabelle und keine Vorgabe "Bad Ischl"
+// mehr (Befund S7 der Sicherheitspruefung 9/2026).
 import { env } from '$env/dynamic/private';
 import { sql } from './db.js';
 import { encrypt } from './secrets.js';
 
-/** @type {Record<string, [number, number]>} lat, lon */
-const PLACES = {
-    'bad ischl': [47.7126, 13.6197],
-    'bad goisern': [47.6414, 13.6208],
-    'bad goisern am hallstättersee': [47.6414, 13.6208],
-    ebensee: [47.8075, 13.7736],
-    'ebensee am traunsee': [47.8075, 13.7736],
-    gmunden: [47.9181, 13.7996],
-    hallstatt: [47.5622, 13.6493],
-    obertraun: [47.5567, 13.6889],
-    gosau: [47.5844, 13.5325],
-    'st. wolfgang': [47.7383, 13.4481],
-    'strobl': [47.7167, 13.4833],
-    'bad aussee': [47.6097, 13.7819],
-    altmünster: [47.9022, 13.7633],
-    traunkirchen: [47.8467, 13.7867],
-    'st. gilgen': [47.7667, 13.3667],
-    mondsee: [47.8547, 13.3486],
-    fuschl: [47.8, 13.3],
-};
-const DEFAULT_PLACE = /** @type {[number, number]} */ ([47.7126, 13.6197]);
+/** Platzhalter bis zur Geokodierung: geographische Mitte Oesterreichs (lat, lon). */
+export const AUSTRIA_CENTER = /** @type {[number, number]} */ ([47.59, 14.14]);
 
 export function eegfakturaBaseUrl() {
     return (env.EEGFAKTURA_BASE_URL || 'https://eegfaktura.at').replace(/\/$/, '');
@@ -56,15 +39,21 @@ export async function fetchEeg(rc, accessToken) {
         communityId: /** @type {string | null} */ (eeg?.communityId ? String(eeg.communityId).toUpperCase() : null),
         rcNumber: /** @type {string} */ (String(eeg?.rcNumber || rc).toUpperCase()),
         city: /** @type {string | null} */ (eeg?.city || eeg?.contact?.city || eeg?.address?.city || null),
-        zip: /** @type {string | null} */ (eeg?.zip || eeg?.contact?.zip || eeg?.address?.zip || null)
+        zip: /** @type {string | null} */ (eeg?.zip || eeg?.contact?.zip || eeg?.address?.zip || null),
+        street: /** @type {string | null} */ (eeg?.street || eeg?.contact?.street || eeg?.address?.street || null)
     };
 }
 
-/** @param {string | null} city */
-function coordsFor(city) {
-    if (!city) return DEFAULT_PLACE;
-    const key = city.trim().toLowerCase();
-    return PLACES[key] || PLACES[key.split(' am ')[0]] || DEFAULT_PLACE;
+/**
+ * Adresse fuer die Geokodierung ("Strasse 1, 4820 Bad Ischl" bzw. "4820 Bad
+ * Ischl"); null, wenn EEG-Faktura weder PLZ noch Ort liefert.
+ * @param {{ city: string | null, zip: string | null, street?: string | null } | null} eeg
+ */
+export function tenantAddress(eeg) {
+    const place = [eeg?.zip, eeg?.city].filter(Boolean).join(' ').trim();
+    if (!place) return null;
+    const street = (eeg?.street ?? '').trim();
+    return street ? `${street}, ${place}` : place;
 }
 
 /**
@@ -82,16 +71,19 @@ export async function ensureTenantForRc(p) {
     return sql.begin(async (tx) => {
         let created = false;
         let [tenant] = await tx`select id, name from tenant where slug = ${slug}`;
+        const address = tenantAddress(eeg);
         if (!tenant) {
-            const [lat, lon] = coordsFor(eeg?.city ?? null);
+            const [lat, lon] = AUSTRIA_CENTER;
             [tenant] = await tx`
-                insert into tenant (slug, name, latitude, longitude)
-                values (${slug}, ${eeg?.name || `EEG ${rc}`}, ${lat}, ${lon})
+                insert into tenant (slug, name, latitude, longitude, address)
+                values (${slug}, ${eeg?.name || `EEG ${rc}`}, ${lat}, ${lon}, ${address})
                 returning id, name`;
             created = true;
-        } else if (eeg?.name && eeg.name !== tenant.name) {
-            await tx`update tenant set name = ${eeg.name} where id = ${tenant.id}`;
-            tenant.name = eeg.name;
+        } else {
+            // Name nachziehen; Adresse nur setzen, solange keine da ist (eine
+            // geaenderte Adresse wuerde einen von Hand gesetzten Standort ueberschreiben)
+            if (eeg?.name && eeg.name !== tenant.name) tenant.name = eeg.name;
+            await tx`update tenant set name = ${tenant.name}, address = coalesce(address, ${address}) where id = ${tenant.id}`;
         }
 
         await tx`

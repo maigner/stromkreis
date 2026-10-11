@@ -532,6 +532,9 @@ CREATE TABLE public.tenant (
     longitude double precision NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    address text,
+    geocoded_address text,
+    geocoded_at timestamp with time zone,
     CONSTRAINT tenant_slug_check CHECK ((slug ~ '^[a-z0-9-]+$'::text))
 );
 
@@ -1270,4 +1273,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260917200000'),
     ('20261011200000'),
     ('20261011210000'),
-    ('20261011220000');
+    ('20261011220000'),
+    ('20261012100000');

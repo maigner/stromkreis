@@ -1,4 +1,7 @@
-"""Geokodierung der Mitgliedsadressen (Nominatim, OpenStreetMap).
+"""Geokodierung der Mitglieds- und Mandantenadressen (Nominatim, OpenStreetMap).
+
+Adressen sind personenbezogene Daten und erscheinen deshalb nie im Log, nur
+Mandant und Mitglieds-ID (Befund S7 der Sicherheitspruefung 9/2026).
 
 Nach jedem Mitgliederimport bekommen Mitglieder, deren Adresse sich seit der
 letzten Geokodierung geaendert hat (member.address <> member.geocoded_address),
@@ -68,7 +71,7 @@ def geocode_address(address, fetch=nominatim_fetch):
         try:
             hits = fetch(params)
         except Exception as err:  # Netz, Timeout, 429: der naechste Import versucht es erneut
-            log.warning("Geokodierung %r fehlgeschlagen: %s", address, err)
+            log.warning("Geokodierung fehlgeschlagen (naechster Lauf versucht es erneut): %s", err)
             return None
         if hits:
             return float(hits[0]["lat"]), float(hits[0]["lon"])
@@ -103,7 +106,7 @@ def geocode_members(conn, tenant_id, fetch=nominatim_fetch):
             else:
                 lat = lon = None
                 missed += 1
-                log.warning("Tenant %s, Mitglied %s: keine Koordinaten fuer %r", tenant_id, member_id, address)
+                log.warning("Tenant %s, Mitglied %s: Adresse nicht geokodierbar", tenant_id, member_id)
             cur.execute(
                 """
                 update member set latitude = %s, longitude = %s, geocoded_address = %s, geocoded_at = now()
@@ -129,5 +132,54 @@ def geocode_members(conn, tenant_id, fetch=nominatim_fetch):
                         (latitude = %s and longitude = %s) or (latitude = %s and longitude = %s))
                     """,
                     (lat, lon, tenant_id, member_id, address, old_lat, old_lon, center[0], center[1]),
+                )
+    return found, missed
+
+
+def geocode_tenants(conn, fetch=nominatim_fetch):
+    """Mandanten mit neuer Adresse (tenant.address <> geocoded_address) geokodieren.
+
+    Der Login legt einen Mandanten mit der Adresse aus EEG-Faktura und einem
+    Platzhalter-Standort (Mitte Oesterreichs) an; hier bekommt er seine
+    echten Koordinaten. Anlagen, die auf dem alten Mittelpunkt liegen
+    (Fallback beim Anlegen), ziehen mit. Ohne Treffer bleiben die
+    Koordinaten, geocoded_address wird trotzdem gesetzt (kein Dauerversuch).
+    Rueckgabe: (geokodiert, ohne Treffer). Commit macht der Aufrufer.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select id, address, latitude, longitude from tenant
+            where address is not null and address is distinct from geocoded_address
+            order by id
+            """
+        )
+        todo = cur.fetchall()
+        found = missed = 0
+        for tenant_id, address, old_lat, old_lon in todo:
+            coords = geocode_address(address, fetch)
+            if coords:
+                lat, lon = coords
+                found += 1
+                cur.execute(
+                    """
+                    update tenant set latitude = %s, longitude = %s, geocoded_address = %s, geocoded_at = now()
+                    where id = %s
+                    """,
+                    (lat, lon, address, tenant_id),
+                )
+                cur.execute(
+                    """
+                    update battery_site set latitude = %s, longitude = %s
+                    where tenant_id = %s and latitude = %s and longitude = %s
+                    """,
+                    (lat, lon, tenant_id, old_lat, old_lon),
+                )
+            else:
+                missed += 1
+                log.warning("Tenant %s: Adresse nicht geokodierbar, Standort bleibt", tenant_id)
+                cur.execute(
+                    "update tenant set geocoded_address = %s, geocoded_at = now() where id = %s",
+                    (address, tenant_id),
                 )
     return found, missed

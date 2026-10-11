@@ -50,7 +50,8 @@ export async function GET({ cookies, url }) {
                 rc, eeg, claims, refreshToken: login.refreshToken, scope: login.scope, issuer: cfg.issuer, clientId: cfg.clientId
             }));
         } catch (err) {
-            console.error(`Mandant ${rc} konnte nicht angelegt werden:`, err, 'claims:', JSON.stringify({ ...claims }));
+            // Keine Claims ins Log (E-Mail, Name, Gruppen): sub und RC-Nummer reichen zur Fehlersuche
+            console.error(`Mandant ${rc} konnte nicht angelegt werden (sub ${claims.sub}):`, err);
             fail(`Energiegemeinschaft ${rc} konnte nicht eingerichtet werden`);
         }
     }
