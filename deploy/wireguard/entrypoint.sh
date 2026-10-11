@@ -9,6 +9,15 @@
 # und wird beim ersten Start erzeugt. Die Plattform liest server.pub ueber
 # dasselbe Volume und gibt ihn den Gateways in der Provisionierungsantwort
 # mit (WG_SERVER_PUBLIC_KEY).
+#
+# Sicherheitsmodell des Wartungsnetzes: Verbindungen gehen ausschliesslich
+# vom Server zu den Gateways. Ein Gateway (kompromittierter Pi, gestohlene
+# SD-Karte) darf ueber den Tunnel weder andere Gateways noch den
+# Compose-Stack erreichen. Drei Schichten:
+#   1. microsocks lauscht nur auf der Compose-Adresse (eth0), nie auf wg0;
+#   2. ip_forward ist aus (compose: sysctls), kein Peer-zu-Peer-Routing;
+#   3. iptables: auf wg0 kommen nur Antworten auf Verbindungen des Servers
+#      herein, FORWARD ist komplett zu.
 # ============================================================================
 set -eu
 
@@ -40,14 +49,41 @@ ip addr add "${SUBNET_PREFIX}.1/24" dev "$WG_IF"
 ip link set "$WG_IF" up
 log "wg0 laeuft (${SUBNET_PREFIX}.1/24, UDP 51820)."
 
-# --- SOCKS-Durchgang fuer die SSH-Konsole der Plattform ----------------------
+# --- Abschottung des Wartungsnetzes ------------------------------------------
+# Kein Routing zwischen den Peers: die Compose-Datei setzt die sysctl
+# (/proc/sys ist im Container read-only, der Versuch hier ist nur Rueckfall).
+{ echo 0 > /proc/sys/net/ipv4/ip_forward; } 2>/dev/null || true
+if [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)" != "0" ]; then
+  log "FEHLER: ip_forward laesst sich nicht abschalten (compose: sysctls net.ipv4.ip_forward=0 fehlt?)."
+  exit 1
+fi
+# Auf wg0 nur Antworten auf Verbindungen hereinlassen, die der Server selbst
+# aufgebaut hat (SSH der Fernwartung); alles andere von den Gateways verwerfen.
+if iptables -w -P FORWARD DROP \
+  && iptables -w -F INPUT \
+  && iptables -w -A INPUT -i "$WG_IF" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT \
+  && iptables -w -A INPUT -i "$WG_IF" -j DROP; then
+  log "Firewall aktiv: wg0 nur Antworten, kein FORWARD."
+else
+  # Die Bindung von microsocks an eth0 (unten) schuetzt auch ohne diese
+  # Regeln; trotzdem laut melden, damit es im Log auffaellt.
+  log "WARNUNG: iptables-Regeln konnten nicht gesetzt werden (Kernelmodule am Host?)."
+fi
+
+# --- SOCKS-Durchgang fuer die Fernwartungs-Aktionen der Plattform -------------
 # Das Wartungsnetz existiert nur in diesem Container; microsocks reicht der
 # Plattform TCP-Verbindungen zu den Gateways durch (Anlagen-Detailseite,
-# "SSH-Konsole oeffnen"). Der Port ist nirgends veroeffentlicht und nur aus
-# dem Compose-Netz erreichbar.
-microsocks -i 0.0.0.0 -p "${WG_SOCKS_PORT:-1080}" &
+# Tab Fernwartung). Gebunden ausschliesslich an die Adresse im Compose-Netz:
+# auf 0.0.0.0 waere der Durchgang auch unter ${SUBNET_PREFIX}.1 fuer jedes
+# Gateway erreichbar und damit ein unauthentifizierter Weg zu allen anderen
+# Gateways und in den Stack (Befund S4 der Sicherheitspruefung 9/2026).
+SOCKS_BIND="$(ip -4 -o addr show dev eth0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)"
+case "$SOCKS_BIND" in
+  "${SUBNET_PREFIX}".*|"") log "FEHLER: keine Compose-Adresse auf eth0 gefunden (SOCKS_BIND='$SOCKS_BIND')."; exit 1 ;;
+esac
+microsocks -i "$SOCKS_BIND" -p "${WG_SOCKS_PORT:-1080}" &
 SOCKS_PID=$!
-log "SOCKS-Durchgang laeuft (Port ${WG_SOCKS_PORT:-1080}, nur stack-intern)."
+log "SOCKS-Durchgang laeuft auf ${SOCKS_BIND}:${WG_SOCKS_PORT:-1080} (nur Compose-Netz, nicht auf wg0)."
 
 trap 'kill "$SOCKS_PID" 2>/dev/null || true; ip link del "$WG_IF" 2>/dev/null || true; exit 0' INT TERM
 

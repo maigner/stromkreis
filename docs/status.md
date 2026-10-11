@@ -1,6 +1,17 @@
-# Stand: 30. September 2026
+# Stand: 11. Oktober 2026
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
+
+## Neu am 11.10.: Sicherheitspruefung von aussen, Phase 1 umgesetzt (Wartungsnetz abgeschottet, Cloud-Datenbanken mit Anmeldung)
+
+Eine KI-gestuetzte Quelltextpruefung des oeffentlichen Repos (Stand ddf7063, privat uebermittelt) hat sieben Befunde S1 bis S7 geliefert; alle sind gegen den Code bestaetigt (Details im Gespraech vom 11.10., Plan in fuenf Phasen). Die ausnutzbare Kette war S4 plus S5: der SOCKS-Durchgang im WireGuard-Container lauschte auf 0.0.0.0, also auch unter 10.88.0.1 auf wg0, und jeder Pi routet das ganze /24 in den Tunnel. Ein kompromittierter Pi (oder eine gestohlene SD-Karte) kam damit ohne Anmeldung per SOCKS zu allen anderen Gateways (SSH 22, openHAB 8080) und in den Compose-Stack, wo Mongo und Redis der Cloud ohne Passwort liefen (alle Cloud-Konten, openHAB-Identitaeten, Sitzungen). Die Plattform-DB blieb durch das Postgres-Passwort geschuetzt, die EEGFaktura-Refresh-Tokens zusaetzlich durch TOKEN_SECRET.
+
+- **S4, Wartungsnetz** (`deploy/wireguard/entrypoint.sh`, `Dockerfile`, `docker-compose.yml`): microsocks bindet nur noch an die Compose-Adresse auf eth0 (Start bricht ab, wenn keine gefunden wird oder sie im Wartungsnetz liegt); `sysctls: net.ipv4.ip_forward=0` am Dienst (der Entrypoint prueft das und bricht sonst ab); iptables (neu im Image) mit `FORWARD DROP` und auf wg0 nur `ESTABLISHED,RELATED`, Rest DROP. Verbindungen gehen damit ausschliesslich vom Server zu den Gateways. Lokal im Container geprueft: Regeln gesetzt, 1080 nur auf 172.x, ip_forward 0, wg0 oben.
+- **S5, Cloud-Datenbanken**: Mongo mit Konto `openhab` (`MONGO_INITDB_ROOT_*`, Healthcheck mit Anmeldung), Redis mit `--requirepass` (`REDISCLI_AUTH` fuer den Healthcheck); `MONGO_USER/MONGO_PASSWORD/REDIS_PASSWORD` an `cloud-app` und `cloud-sync`, `config.json.template` um `authSource` (admin) ergaenzt. Im Cloud-Image nachgesehen: `mongoconnect.ts` uebergibt user/password als Connect-Option, `redis.ts` setzt `password`, `cli/db-connect` (vom cloud-sync benutzt) liest dieselbe config.json. Neue `.env`-Schluessel `MONGO_PASSWORD`, `REDIS_PASSWORD`.
+- **Einmaliger Server-Schritt vor dem Deploy** (das Mongo-Image legt das Konto nur auf leerem Datenverzeichnis an, schaltet `--auth` aber immer ein): Konto per `mongosh admin --eval "db.createUser(...)"` auf dem laufenden alten Stack anlegen, dann deployen; Ablauf und Pruefbefehle in `deploy/README.md` ("Mongo-Anmeldung"). Lokal mit mongo:6 durchgespielt: Daten ohne Auth angelegt, Konto erzeugt, Neustart mit `MONGO_INITDB_ROOT_*`, ohne Anmeldung "requires authentication", mit Anmeldung Daten da; Redis-Healthcheck mit Passwort ok; Template rendert gueltiges JSON mit user/password/authSource.
+- **Noch nicht deployt.** Beim Deploy haengen die Gateway-Tunnel fuer rund zwei Minuten (WireGuard-Container wird neu gebaut, bekannter Effekt), Cloud-Verbindungen der openHABs bauen sich nach dem Cloud-Neustart selbst wieder auf.
+- **Offen (Phasen 2 bis 5):** S1 Rollenpruefung unter `/intern` (jede Sitzung ist heute Betreiber), S2 `linux_password`/WLAN aus `battery_site.status` in verschluesselte Spalten und raus aus der Anlagenliste, S3 Einrichtungscode laenger (60 Bit), kuerzer gueltig, Bremse am Provisionierungs-Endpunkt, S6/S7 Host-Key-Pinning der Gateways, signiertes Paket, Restrisiko-Dokument, Adress-/Claims-Logging, Bad-Ischl-Vorgabe, Row-Level-Security.
+- Nicht committet (Martin macht git): `deploy/wireguard/entrypoint.sh`, `deploy/wireguard/Dockerfile`, `deploy/docker-compose.yml`, `deploy/openhab-cloud/config.json.template`, `deploy/README.md`, diese Datei.
 
 ## Neu am 30.9.: Seite `/review` fuer die App-Pruefung mit Demo-openHAB im Container (deployt)
 

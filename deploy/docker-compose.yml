@@ -138,6 +138,10 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
+    # Kein Routing zwischen den Gateways: der Container ist Endpunkt, kein
+    # Router (entrypoint.sh prueft das und schottet wg0 per iptables ab).
+    sysctls:
+      - net.ipv4.ip_forward=0
     ports:
       - "51820:51820/udp"
     environment:
@@ -163,6 +167,9 @@ services:
       DOMAIN_NAME: ${CLOUD_DOMAIN:-hac.stromkreis.net}
       PROXY_HOST: ${CLOUD_PROXY_HOST:-remote.hac.stromkreis.net}
       EXPRESS_KEY: ${EXPRESS_KEY:?EXPRESS_KEY fehlt in .env}
+      MONGO_USER: openhab
+      MONGO_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD fehlt in .env}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}
       NODE_ENV: production
       REGISTRATION_ENABLED: "false"
       LOG_LEVEL: ${CLOUD_LOG_LEVEL:-info}
@@ -179,13 +186,20 @@ services:
       cloud-redis:
         condition: service_healthy
 
+  # Mongo und Redis nur mit Anmeldung (Befund S5 der Sicherheitspruefung
+  # 9/2026). Das Mongo-Image schaltet mit MONGO_INITDB_ROOT_* "--auth" ein;
+  # das Konto selbst legt es nur auf einem leeren Datenverzeichnis an - bei
+  # bestehenden Daten einmalig von Hand (deploy/README.md, "Mongo-Anmeldung").
   cloud-mongodb:
     image: mongo:6
     restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: openhab
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD fehlt in .env}
     volumes:
       - ./data/mongo:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1})"]
+      test: ["CMD", "mongosh", "--quiet", "-u", "openhab", "-p", "${MONGO_PASSWORD}", "--authenticationDatabase", "admin", "--eval", "db.runCommand({ping:1})"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -193,11 +207,13 @@ services:
   cloud-redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
     volumes:
       - ./data/redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -212,6 +228,9 @@ services:
     environment:
       DOMAIN_NAME: ${CLOUD_DOMAIN:-hac.stromkreis.net}
       EXPRESS_KEY: ${EXPRESS_KEY:?EXPRESS_KEY fehlt in .env}
+      MONGO_USER: openhab
+      MONGO_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD fehlt in .env}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}
       GATEWAY_SYNC_TOKEN: ${GATEWAY_SYNC_TOKEN:?GATEWAY_SYNC_TOKEN fehlt in .env}
       PLATFORM_URL: http://platform:3000
       TZ: Europe/Vienna
