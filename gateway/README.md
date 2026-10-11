@@ -26,7 +26,7 @@ Die Konfiguration einer Anlage liegt in `/etc/stromkreis/gateway.conf` (schreibt
 
 ## Einrichtung (SD-Karten-Image von der Plattform)
 
-Die Plattform baut je Anlage ein fertiges SD-Karten-Image (openHABian plus Konfigurationsdateien auf der Boot-Partition, `platform/src/lib/server/gateway-image.js`); der Betreiber flasht es mit dem Raspberry Pi Imager. Auf der Karte liegt kein Token und kein Plattform-Passwort, nur der Einrichtungscode (60 Tage gültig) und die Plattform-URL. Ablauf beim ersten Boot:
+Die Plattform baut je Anlage ein fertiges SD-Karten-Image (openHABian plus Konfigurationsdateien auf der Boot-Partition, `platform/src/lib/server/gateway-image.js`); der Betreiber flasht es mit dem Raspberry Pi Imager. Auf der Karte liegt kein Token und kein Plattform-Passwort, nur der Einrichtungscode (14 Tage gültig, bei Bedarf "Neuer Code" auf der Detailseite) und die Plattform-URL. Ablauf beim ersten Boot:
 
 1. cloud-init (NoCloud, `user-data` auf der Boot-Partition) installiert die systemd-Unit `stromkreis-firstboot`.
 2. `stromkreis-firstboot` wartet die openHABian-Erstinstallation ab (30 bis 45 Minuten), lädt dann `https://stromkreis.net/gateway/install.sh` und führt es aus.

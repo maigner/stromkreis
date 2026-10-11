@@ -129,7 +129,7 @@ CREATE TABLE public.battery_site (
     wifi_ssid text,
     wifi_secret text,
     CONSTRAINT battery_site_cloud_state_check CHECK ((cloud_account_state = ANY (ARRAY[''::text, 'pending'::text, 'reset'::text, 'created'::text, 'error'::text, 'delete'::text]))),
-    CONSTRAINT battery_site_provision_code_format CHECK (((provision_code IS NULL) OR (provision_code ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$'::text)))
+    CONSTRAINT battery_site_provision_code_format CHECK (((provision_code IS NULL) OR (provision_code ~ '^[A-Z0-9]{4}(-[A-Z0-9]{4}){1,2}$'::text)))
 );
 
 
@@ -1267,4 +1267,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260828150000'),
     ('20260830190000'),
     ('20260917200000'),
-    ('20261011200000');
+    ('20261011200000'),
+    ('20261011210000');

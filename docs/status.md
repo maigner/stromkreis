@@ -2,6 +2,17 @@
 
 Arbeitsstand zum Weiterarbeiten (z.B. am MacBook).
 
+## Neu am 11.10. (nachts): Sicherheitspruefung Phase 3 (Einrichtungscode laenger, kuerzer gueltig, Bremse am Provisionierungs-Endpunkt)
+
+Befund S3 der Pruefung: 8 Zeichen aus 32 Symbolen (40 Bit), 60 Tage gueltig, keine Bremse; ein Treffer liefert Anlagen-Token, Linux-Passwort und Cloud-Secret und entwertet den Token des echten Gateways.
+
+- **Code** (`gateway-provision.js`): drei Vierergruppen `XXXX-XXXX-XXXX` (60 Bit, `CODE_GROUPS`), `PROVISION_CODE_DAYS` 14 statt 60 (vom Image-Bau bis zum Flashen; danach "Neuer Code"). Alte Codes mit zwei Gruppen bleiben bis Ablauf einloesbar (`CODE_PATTERN` erlaubt beide Formen). Migration `20261011210000_battery_site_provision_code_length` weitet den Check-Constraint entsprechend (down verwirft lange Codes). Der Code wird nie getippt (steckt im Image, steht auf der Detailseite), `install.sh` prueft kein Format. `schema.sql` regeneriert.
+- **Bremse** (`lib/server/rate-limit.js`, neu, gleitendes Fenster im Speicher; `createRateLimiter({max, windowMs})` mit `hit()`/`limited()`, `clientKey(event)`): `POST /api/gateway/provision/v1` zaehlt nur Fehlversuche (ungueltiger oder abgelaufener Code), damit ein Gateway, das nach einem Neustart seinen gueltigen Code erneut einloest, nie ausgebremst wird. Je Adresse 10 Fehlversuche in 10 Minuten, gemeinsames Kontingent 100 fuer alle Adressen, danach 429 mit `retry-after: 600`; Fehlversuche stehen mit Adresse im Plattform-Log. Die Seite `/review` nutzt jetzt denselben Begrenzer (30 Aufrufe je Adresse und 10 Minuten wie bisher).
+- **Echte Client-Adresse hinter Caddy**: Compose setzt `ADDRESS_HEADER=X-Forwarded-For` und `XFF_DEPTH=1` fuer die Plattform (Port 4000 ist nur fuer Caddy am Host erreichbar, der Header also vertrauenswuerdig). Vorher sahen beide Bremsen nur 127.0.0.1, also ein gemeinsames Kontingent fuer alle.
+- **Geprueft lokal** (Wegwerf-Postgres 17, Build Node 22, `npm run check` 0 Fehler): Migration up (zwei- und dreigruppige Codes angenommen, `ABCDEFGH` abgelehnt), down (langer Code verworfen), up; Begrenzer-Einheitentest (3 durch, 4. abgewiesen, anderer Schluessel frei, nach dem Fenster wieder frei); gebauter Server mit `ADDRESS_HEADER`: alter Code 200, neuer Code klein geschrieben 200, 10 Fehlversuche von einer Adresse 404, der 11. 429 mit `retry-after`, gueltiger Code von anderer Adresse weiter 200, 10 Logzeilen mit Adresse.
+- **Deployt am 11.10. nachts und live geprueft:** Migration angewendet (Constraint in der DB wie geplant), Plattform mit `ADDRESS_HEADER`/`XFF_DEPTH`; drei Fehlversuche ueber `https://stromkreis.net` ergeben 404 und stehen mit der oeffentlichen Adresse (nicht 127.0.0.1) im Plattform-Log, kaputtes JSON 400. Die 429-Sperre wurde live nicht ausgeloest (haette die eigene Adresse 10 Minuten gesperrt), nur lokal.
+- Nicht committet (Martin macht git): `platform/db/migrations/20261011210000_*.sql`, `platform/db/schema.sql`, `platform/src/lib/server/{gateway-provision,rate-limit}.js`, `platform/src/routes/api/gateway/provision/v1/+server.js`, `platform/src/routes/review/+page.server.js`, `platform/src/routes/intern/+page.server.js` (Kommentar), `deploy/docker-compose.yml`, `gateway/README.md`, diese Datei.
+
 ## Neu am 11.10. (spaeter): Sicherheitspruefung Phase 2 (Rollen unter /intern, Gateway-Passwoerter aus dem Status)
 
 Befunde S1 und S2 der Pruefung. Deployt am 11.10. abends (Deploy-Ablauf und Live-Pruefung unten).

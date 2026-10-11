@@ -116,7 +116,7 @@ const PROFILES = ['fronius-symo', 'fronius-snapinverter', 'sigenergy', 'deye', '
 
 /** @type {import('./$types').Actions} */
 export const actions = {
-	// Einrichtungs-Assistent Schritt 2: Anlage anlegen. Einrichtungscode (60 Tage)
+	// Einrichtungs-Assistent Schritt 2: Anlage anlegen. Einrichtungscode (PROVISION_CODE_DAYS)
 	// und Linux-Passwort fuer die SD-Karte; der Anlagen-Token entsteht erst beim
 	// Erstkontakt des Gateways (nur Hash gespeichert). Die Anlage bleibt offline
 	// (last_seen_at null), bis der erste Status-Push kommt.

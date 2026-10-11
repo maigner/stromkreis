@@ -1,6 +1,6 @@
 // Einrichtung eines Gateways (openHABian auf Raspberry Pi) nach dem ISCHLSTROM-Modell
 // (Energiegemeinschaft/website/src/lib/server/db/members/openhabProvision.js):
-// Die Plattform vergibt je Anlage einen Einrichtungscode XXXX-XXXX (60 Tage) und
+// Die Plattform vergibt je Anlage einen Einrichtungscode XXXX-XXXX-XXXX (14 Tage) und
 // einen Anlagen-Token (nur Hash gespeichert). Stromkreis gibt ausschliesslich fertige
 // SD-Karten-Images aus (openHABian plus openhabian.conf mit Hostname, Benutzer, WLAN,
 // Zeitzone, stromkreis-provision.conf mit Code + Plattform-URL und user-data mit dem
@@ -18,8 +18,17 @@ import { decrypt, encrypt, readSecret } from './secrets.js';
 import firstbootScript from './gateway-firstboot/stromkreis-firstboot.sh?raw';
 import firstbootService from './gateway-firstboot/stromkreis-firstboot.service?raw';
 
-export const PROVISION_CODE_DAYS = 60;
+// Einrichtungscode: drei Gruppen zu vier Zeichen aus 32 Symbolen = 60 Bit.
+// Der Code wird nie getippt (er steckt im Image und steht auf der
+// Detailseite), die Laenge kostet also nichts; 14 Tage reichen vom Image-Bau
+// bis zum Flashen, danach gibt es "Neuer Code". Dazu die Bremse in
+// /api/gateway/provision/v1 (rate-limit.js). Befund S3 der
+// Sicherheitspruefung 9/2026; davor XXXX-XXXX und 60 Tage.
+export const PROVISION_CODE_DAYS = 14;
+const CODE_GROUPS = 3;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I, O, 0, 1
+// Zwei Gruppen: Altbestand, bis Ablauf oder "Neuer Code" weiter einloesbar.
+const CODE_PATTERN = /^[A-Z0-9]{4}(-[A-Z0-9]{4}){1,2}$/;
 
 /** Phasen der Einrichtung, wie sie das Gateway meldet (Untermenge von ISCHLSTROM setupPhases.js). */
 export const SETUP_PHASES = /** @type {Record<string, { label: string, percent: number }>} */ ({
@@ -55,7 +64,7 @@ export function describePhase(phase) {
 
 export function newProvisionCode() {
 	const part = () => Array.from({ length: 4 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
-	return `${part()}-${part()}`;
+	return Array.from({ length: CODE_GROUPS }, part).join('-');
 }
 
 export function newSiteToken() {
@@ -212,7 +221,7 @@ export function platformBaseUrl() {
  */
 export async function consumeProvisionCode(code) {
 	const normalized = code.trim().toUpperCase();
-	if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalized)) return null;
+	if (!CODE_PATTERN.test(normalized)) return null;
 	const { token, hash } = newSiteToken();
 	const [site] = await sql`
 		update battery_site b set token_hash = ${hash}, provisioned_at = now(),

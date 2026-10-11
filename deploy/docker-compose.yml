@@ -36,6 +36,10 @@ services:
       DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
       ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4000}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4000}
+      # Echte Client-Adresse fuer die Bremsen (Einrichtungscodes, /review):
+      # der Port ist nur fuer Caddy am Host erreichbar, der Header also vertrauenswuerdig
+      ADDRESS_HEADER: X-Forwarded-For
+      XFF_DEPTH: "1"
       # Anmelden mit EEGFaktura (OIDC) und Hintergrund-Import; ohne diese Werte nur Einladungslinks
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-net.stromkreis.platform}
