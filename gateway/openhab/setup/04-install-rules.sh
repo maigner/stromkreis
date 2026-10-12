@@ -44,9 +44,7 @@ chown "$OPENHAB_USER:$OPENHAB_GROUP" "$js_dir" 2>/dev/null || true
 # openHAB-Benutzer, das Verzeichnis liegt unter dem root-eigenen
 # /var/lib/stromkreis - hier anlegen, unabhaengig davon, ob Updater oder
 # Fail-Safe installiert werden.
-mkdir -p "$GW_REQUEST_DIR"
-chown "$OPENHAB_USER:$OPENHAB_GROUP" "$GW_REQUEST_DIR" 2>/dev/null || true
-chmod 0755 "$GW_REQUEST_DIR"
+ensure_state_dirs
 
 # Sonderzeichen fuer die rechte Seite eines sed-Ausdrucks entschaerfen.
 sed_escape() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
@@ -128,7 +126,7 @@ generate_rule() {
     render_payload "$src"
     echo "  }"
     echo "});"
-  } | install_file "$target"
+  } | install_file "$target" 0640
 }
 
 generate_rule \

@@ -35,6 +35,7 @@ sudo cat /usr/local/sbin/stromkreis-update      # was der Updater genau tut
 sudo tail /var/log/stromkreis-update.log        # wann was eingespielt wurde
 sudo journalctl -u ssh | grep 10.88.0.1         # jede Fernwartungs-Anmeldung der Plattform
 sudo wg show wg0                                # Tunnel: Gegenstelle, letzter Handshake, Datenmenge
+sudo stromkreis-failsafe --status               # Fail-Safe ausserhalb von openHAB (sofern das Profil einen hat)
 ls /opt/stromkreis/openhab/setup                # die Einrichtungsskripte, die als root laufen
 ```
 
@@ -56,7 +57,8 @@ Wer beides abschaltet, betreibt den Pi faktisch selbst. Das ist zulaessig, nimmt
 - **Ein Server fuer alle Gemeinschaften.** Mandanten sind in der Anwendung getrennt (jede Abfrage ist mandantengebunden, Fremdschluessel verhindern Querverweise), aber noch nicht auf Datenbankebene (Row-Level-Security steht auf der Liste). Ein Fehler in der Plattform koennte Daten einer anderen Gemeinschaft zeigen.
 - **Einrichtungscode.** 60 Bit, 14 Tage gueltig, Fehlversuche werden gebremst. Wer ihn innerhalb der Frist errät oder von der SD-Karte liest, kann die Konfiguration samt Anlagen-Token abholen und das echte Gateway ausloggen. Darum: Images nicht herumliegen lassen, nach dem Flashen "Einrichtung abgeschlossen" abwarten (dann ist der Code tot).
 - **Lokales Netz des Mitglieds.** Der Pi haengt im Heimnetz und spricht mit dem Wechselrichter meist unverschluesselt (Modbus, lokale APIs). Ein Angreifer im Heimnetz kann den Wechselrichter ohnehin direkt erreichen; der Pi vergroessert diese Flaeche um einen SSH-Dienst (Passwort) und die openHAB-Oberflaeche (Port 8080, Admin-Passwort = Anlagen-Passwort).
-- **Fail-Safe.** Faellt die Plattform aus, laufen Auto-Revert bzw. der Fail-Safe-Timer am Gateway und setzen den Wechselrichter auf Werksverhalten zurueck; das ist dokumentiert und getestet, aber ein Fehler dort wuerde den Speicher in einem ungewollten Zustand lassen.
+- **Fail-Safe.** Faellt die Plattform aus, setzt die Steuerung am Gateway den Wechselrichter in jedem Zyklus auf Werksverhalten zurueck. Faellt openHAB selbst aus, haengt es vom Wechselrichter ab: beim Fronius GEN24 (Profil `fronius-symo`) laufen die Kommandos am Geraet von selbst ab; beim Fronius SnapINverter (Profil `fronius-snapinverter`, SunSpec-Register) setzt ein Timer ausserhalb von openHAB zurueck (`stromkreis-failsafe`). Fuer Sigenergy, Deye und Victron gibt es diesen Reset seit Oktober 2026 im Paket, aber nur am Simulator geprueft; bis zum bestandenen Test am echten Geraet bleibt der Timer dort **abgeschaltet**, die Anlage meldet das als "Fail-Safe fehlt/ungeprueft" an die Plattform, und ein gesetztes Kommando (z. B. Nachteinspeisung) bleibt bei einem openHAB-Ausfall stehen, bis openHAB wieder laeuft oder die geraeteseitige Entladeuntergrenze greift. Welche Profile wie abgesichert sind, steht in `gateway/openhab/inverters/failsafe-modbus.md`.
+- **Zustandsdateien am Pi.** Marker des openHAB-Benutzers (`/var/lib/stromkreis/requests`) und Zustand der root-Timer (`/var/lib/stromkreis/state`) liegen seit Oktober 2026 getrennt; vorher konnte, wer als openHAB-Benutzer Code ausfuehren durfte (jedes Konto mit Zugang zur openHAB-Oberflaeche, also auch das Cloud-Konto der Anlage), darueber root werden. Ein Mitglied kann das pruefen: `ls -la /var/lib/stromkreis/requests /var/lib/stromkreis/state`.
 
 ## 7. Fuer den Serverbetreiber: Signaturschluessel
 

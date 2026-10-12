@@ -69,6 +69,10 @@ log "=== Schritt 3/14: WireGuard-Fernwartung ==="
 step tunnel 08-install-wireguard.sh 1
 
 log "=== Schritt 4/14: Standardpasswoerter ==="
+# Steht der Linux-Benutzer noch auf dem openHABian-Standardpasswort (die
+# openhabian.conf des Images hat nicht gegriffen), bekommt er das Anlagen-
+# Passwort der Plattform - dasselbe, das die Fernwartung erwartet.
+export GW_NEW_PASSWORD="${GW_NEW_PASSWORD:-${OH_ADMIN_PASSWORD:-}}"
 step passwoerter 10-change-passwords.sh 1
 
 log "=== Schritt 5/14: Addons ==="

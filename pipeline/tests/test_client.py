@@ -131,3 +131,16 @@ def test_client_credentials_cached_token_und_retry_bei_401(fake_api):
         client.masterdata()
     token_requests = [r for r in fake_api.requests if r[1] == "/token"]
     assert len(token_requests) == 2
+
+
+def test_token_antwort_ohne_access_token_ist_fehler(fake_api):
+    fake_api.responses[("POST", "/token")] = (200, {"expires_in": 300})
+    auth = ClientCredentialsAuth(fake_api.url + "/token", "client-id", "geheim")
+    with pytest.raises(EegfakturaError) as excinfo:
+        auth.headers()
+    assert "access_token" in str(excinfo.value)
+
+    from stromkreis_pipeline.eegfaktura.client import RefreshTokenAuth
+    auth = RefreshTokenAuth(fake_api.url + "/token", "c", "RT1")
+    with pytest.raises(EegfakturaError):
+        auth.headers()

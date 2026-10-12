@@ -149,3 +149,27 @@ def test_sync_tenant_gegen_fake_api(db_conn, tenant_id, fake_api):
 
     share = load.daily_reporting_share(db_conn, tenant_id, START, START + timedelta(days=1))
     assert share == 1.0
+
+
+def test_sync_tenant_stoppsignal_nach_gesichertem_chunk(db_conn, tenant_id, fake_api):
+    day_ms = 24 * 3600 * 1000
+    fake_api.responses[("GET", "/api/master/masterdata")] = (200, [])
+    fake_api.responses[("POST", "/energystore/query/RC_TEST/metadata")] = (200, {
+        "periodBegin": TS, "periodEnd": TS + 45 * day_ms,  # zwei 30-Tage-Stuecke
+    })
+    fake_api.responses[("POST", "/energystore/query/rawdata")] = (200, {
+        "AT_V": {"direction": "CONSUMPTION", "data": [{"ts": TS, "value": [0.5, 0.3, 0.2], "qov": [1, 1, 1]}]},
+    })
+    source = TenantSource(
+        tenant_id=tenant_id, slug="pytest-eeg", rc_number="RC_TEST", community_id=None,
+        base_url=fake_api.url, auth_mode="basic", token_url=None, active=True,
+    )
+    client = EegfakturaClient(source.base_url, source.rc_number, BasicAuth("u", "p"))
+    seen = []
+    stats = sync.sync_tenant(db_conn, source, client, full=True, pace_seconds=0, use_masterdata=False,
+                             on_chunk=lambda st, a, b: seen.append(b), should_stop=lambda: bool(seen))
+    assert stats.interrupted and stats.chunks == 1 and stats.rows == 3
+    assert seen == [START + timedelta(days=30)]
+    with db_conn.cursor() as cur:
+        cur.execute("select count(*) from measurement where tenant_id = %s", (tenant_id,))
+        assert cur.fetchone()[0] == 3  # erster Chunk ist gesichert

@@ -6,7 +6,14 @@ sind seit 2026-09-17 **umgesetzt** und ins Stromkreis-Gateway-Paket portiert
 (am Simulator geprueft, am Geraet noch nicht). Offen: der Vor-Ort-Test an
 der ISCHLSTROM-Testanlage (Fronius Symo Hybrid 5.0-3-S mit
 Datamanager 2.0), die geraeteseitigen Hebel aus Abschnitt 5 und die
-Reset-Skripte der anderen Modbus-Profile.
+Geraetetests der Reset-Skripte der anderen Modbus-Profile.
+
+**Nachtrag 2026-10-12:** die Reset-Skripte fuer `sigenergy`, `deye` und
+`victron` (`tools/failsafe_reset.py` je Profil, `inverter_failsafe_reset`
+in `profile.sh`) sind geschrieben und am jeweiligen Simulator geprueft
+(Abschnitt 8b). Am Geraet sind sie unbelegt; jedes Modbus-Profil traegt
+deshalb `INVERTER_FAILSAFE_VERIFIED` (1 nur bei `fronius-snapinverter`),
+und der Installer richtet den Timer nur bei 1 ein.
 
 **Abweichung bei Stromkreis:** Schicht L4 (serverseitiger Offline-Alarm per
 Mail, Abschnitte 4 und 7) beschreibt die ISCHLSTROM-Website. Die
@@ -25,13 +32,13 @@ moeglich waere und was am Testtag gemessen werden muss.
 
 ## 1. Warum das profiluebergreifend ist
 
-| Profil | Steuerweg | Geraeteseitiges Auto-Revert | Geraeteseitiger SoC-Boden |
-| --- | --- | --- | --- |
-| `fronius` (GEN24) | Config-API, Schedules | **ja** - der Schedule laeuft nach `minutes` ab | entfaellt |
-| `fronius-snapinverter` | SunSpec Model 124, Modbus | **nein** - `InOutWRte_RvrtTms` "Not supported", am Geraet belegt (Spike 2026-09-10: Write angenommen, Read-back bleibt 65535) | `MinRsvPct` liest **0**; Web-UI-"Min SoC" ungeprueft (Abschnitt 5) |
-| `sigenergy` | Remote EMS, Modbus | **nein** (Protokoll V1.7; "Interaction timeout" ist nur Request-Timing) - Spike-Punkt 9 offen | Entladeuntergrenze der Anlage, Wert unbekannt |
-| `deye` | TOU-Register | **nein** | `DEYE_SOC_FLOOR` 10 % je Slot plus BMS-Untergrenze |
-| `victron` | ESS-Settings-Register | **nein** - ESS Mode 3 haette einen 60-s-Watchdog, wurde aber bewusst verworfen (schaltet den Multi bei Kommunikationsverlust dauerhaft in Passthru) | **ESS Minimum SoC = harter Boden** (Spike offen) |
+| Profil | Steuerweg | Geraeteseitiges Auto-Revert | Geraeteseitiger SoC-Boden | Reset ohne openHAB (`inverter_failsafe_reset`) |
+| --- | --- | --- | --- | --- |
+| `fronius` (GEN24) | Config-API, Schedules | **ja** - der Schedule laeuft nach `minutes` ab | entfaellt | nicht noetig |
+| `fronius-snapinverter` | SunSpec Model 124, Modbus | **nein** - `InOutWRte_RvrtTms` "Not supported", am Geraet belegt (Spike 2026-09-10: Write angenommen, Read-back bleibt 65535) | `MinRsvPct` liest **0**; Web-UI-"Min SoC" ungeprueft (Abschnitt 5) | **ja**: `InWRte`/`OutWRte` 100%, `StorCtl_Mod` 0; Writes am Geraet belegt, `INVERTER_FAILSAFE_VERIFIED=1` |
+| `sigenergy` | Remote EMS, Modbus | **nein** (Protokoll V1.7; "Interaction timeout" ist nur Request-Timing) - Spike-Punkt 9 offen | Entladeuntergrenze der Anlage, Wert unbekannt | ja: `Remote EMS enable` 40029 = 0; Simulator 2026-10-12, Geraet offen, `INVERTER_FAILSAFE_VERIFIED=0` |
+| `deye` | TOU-Register | **nein** | `DEYE_SOC_FLOOR` 10 % je Slot plus BMS-Untergrenze | ja: `Time of Use enable` 146 = 0 (nur bei Aenderung, EEPROM); Simulator 2026-10-12, Geraet offen, `INVERTER_FAILSAFE_VERIFIED=0` |
+| `victron` | ESS-Settings-Register | **nein** - ESS Mode 3 haette einen 60-s-Watchdog, wurde aber bewusst verworfen (schaltet den Multi bei Kommunikationsverlust dauerhaft in Passthru) | **ESS Minimum SoC = harter Boden** (Spike offen) | ja: `grid setpoint` 2700 und `DVCC MaxChargeCurrent` 2705 auf die gemerkten Werkswerte (ersatzweise 50 W / -1 A); Simulator 2026-10-12, Geraet offen, `INVERTER_FAILSAFE_VERIFIED=0` |
 
 Vier von fuenf Profilen haengen also allein am zyklischen Reset des Kerns.
 Ein Fail-Safe am Pi ist damit **keine Fronius-Reparatur, sondern eine
@@ -102,10 +109,19 @@ Funktion `inverter_failsafe_reset <host>` (Kontrakt in `README.md`):
 eigenstaendig, ohne openHAB, Exit 0 nur bei per Read-back bestaetigtem
 Reset. `fronius-snapinverter` hat sie
 (`tools/failsafe_reset.py`, Modbus-Client wie im Spike-Werkzeug, Guard auf
-Model-ID 124 wie im Adapter). Fuer `sigenergy` (`Remote EMS enable = 0`),
-`deye` und `victron` ist sie **noch zu schreiben** - bis dahin richtet der
-Installer dort keinen Timer ein und sagt das. Das GEN24-Profil braucht
-keine.
+Model-ID 124 wie im Adapter). Seit 2026-10-12 haben auch `sigenergy`
+(`Remote EMS enable` 40029 = 0), `deye` (`Time of Use enable` 146 = 0,
+wie im Adapter nur bei Aenderung) und `victron` (`grid setpoint` 2700 und
+`DVCC MaxChargeCurrent` 2705 auf die gemerkten Werkswerte aus den
+`Stromkreis_VIC_Reset*`-Items, solange openHAB per REST antwortet, sonst
+`VICTRON_RESET_*` aus `gateway.conf` bzw. die Adapter-Rueckfallwerte
+50 W / -1 A) ein eigenes `tools/failsafe_reset.py`: dieselben Writes wie
+`gwReset()` des Adapters, derselbe Plausibilitaets-Guard, Read-back,
+Socket-Timeout 5 s, `--reads` zum reinen Lesen. Am Simulator geprueft
+(Abschnitt 8b), am Geraet nicht: jedes Modbus-Profil traegt
+`INVERTER_FAILSAFE_VERIFIED` (0 bei den dreien, 1 bei
+`fronius-snapinverter`), der Installer richtet den Timer nur bei 1 ein
+und sagt sonst, warum nicht. Das GEN24-Profil braucht keine.
 
 Umgesetzte Feinheiten: der Heartbeat entsteht nur nach `ok=true` des
 Resets (schlaegt das Binding fehl, uebernimmt der Timer mit eigener
@@ -264,6 +280,30 @@ Energiesparmodus bis zu 10 Minuten brauchen.
 Ausgangswerte von Min SoC und `ChaGriSet` **vor** der Aenderung notieren -
 beides sind persistente Geraeteeinstellungen, keine Kommandos.
 
+## 8b. Testplan Fail-Safe-Reset `sigenergy`, `deye`, `victron`
+
+Werkzeug je Profil: `tools/failsafe_reset.py --host <ip> [--port] [--unit]`
+(`--reads` liest nur). Der Simulatortest ist je Profil derselbe Ablauf:
+stehendes Kommando per FC06 injizieren, `--reads`, Reset, `--reads`;
+dazu die Negativfaelle Guard verletzt (Exit 2, nichts geschrieben),
+geschlossener Port (Exit 1), Listener ohne Antwort (Exit 1 nach 5 s
+Socket-Timeout) und ein Geraet, das Writes quittiert, aber nicht haelt
+(Exit 3, "ABWEICHUNG"). Erst nach bestandenem Geraetetest wird
+`INVERTER_FAILSAFE_VERIFIED=1` gesetzt; danach gelten Tests 11 bis 14 aus
+Abschnitt 8 sinngemaess (Timer, Boot-Reset, Heartbeat-Gating, Dashboard).
+
+| # | Profil | Test | Erwartung | Ergebnis |
+| --- | --- | --- | --- | --- |
+| S1 | `sigenergy` | Simulator `tools/sim_sigenstor.py`: 40029 = 1, Modus 6, Entladelimit 2000 W, PV-Limit 25000 W; dann Reset | 40029 auf 0 bestaetigt, Modus/Limits unangetastet; Guard bei EMS work mode 11; Negativfaelle wie oben | **bestanden 2026-10-12** |
+| S2 | `sigenergy` | Geraet (Slave 247): `--reads` als Ausgangsbild; per `spike_sigenstor.py` Entladung kommandieren, openHAB stoppen, `sudo stromkreis-failsafe --now` | 40029 = 0 per Read-back, Anlage faellt in ihren EMS-Modus zurueck (App, 30003 nicht mehr 7); Plausibilitaet "ok" | offen |
+| S3 | `sigenergy` | `INVERTER_FAILSAFE_VERIFIED=1`, Installer, Tests 11/12 | wie Abschnitt 8 | offen |
+| D1 | `deye` | Simulator `tools/sim_deye.py`: 146 = 1, Slots 2000 W / Ziel-SoC 10%; Reset; zweiter Reset | 146 auf 0 bestaetigt, Slot-Register unangetastet; zweiter Aufruf "bereits 0 - nichts geschrieben" ohne Write im Sim-Log; Guard bei Work Mode 5; Negativfaelle wie oben | **bestanden 2026-10-12** |
+| D2 | `deye` | Geraet (ueber das RS485-Gateway, Slave 1): `--reads` als Ausgangsbild (TOU-Seite am Display fotografieren); TOU mit Entladung setzen, openHAB stoppen, `sudo stromkreis-failsafe --now`; zweiten Aufruf pruefen | 146 = 0 per Read-back, Anlage im Grundmodus; zweiter Aufruf schreibt nicht (EEPROM); Semantik von 146 (0/1 oder Bitmaske) stimmt mit `DEYE_TOU_ON` ueberein | offen |
+| D3 | `deye` | `INVERTER_FAILSAFE_VERIFIED=1`, Installer, Tests 11/12 | wie Abschnitt 8 | offen |
+| V1 | `victron` | Simulator `tools/sim_venus.py`: 2700 = -2000, 2705 = 0; Reset mit Rueckfallwerten, mit `--setpoint 30 --max-charge 100` und ueber `profile.sh` (ohne openHAB, mit `VICTRON_RESET_MAX_CHARGE_A=70`) | 2700/2705 auf die uebergebenen Werte bestaetigt; Guard bei ESS-Modus 3; Negativfaelle wie oben | **bestanden 2026-10-12** |
+| V2 | `victron` | Geraet (Unit 100): `--reads` als Ausgangsbild, Werkswerte der Anlage notieren; Setpoint per openHAB kommandieren, openHAB stoppen, `sudo stromkreis-failsafe --now` einmal mit laufendem openHAB (REST-Werte) und einmal ohne (Rueckfallwerte) | 2700/2705 per Read-back auf den Werkswerten, Remote Console zeigt sie; ohne openHAB landen 50 W / -1 A, bei abweichenden Anlagenwerten `VICTRON_RESET_*` in `gateway.conf` setzen | offen |
+| V3 | `victron` | `INVERTER_FAILSAFE_VERIFIED=1`, Installer, Tests 11/12 | wie Abschnitt 8 | offen |
+
 ## 9. Offene Punkte
 
 * [x] L1 (Deadman) mit `inverter_failsafe_reset` und Heartbeat in `core.js` (2026-09-17)
@@ -272,7 +312,8 @@ beides sind persistente Geraeteeinstellungen, keine Kommandos.
 * [x] Offline-Alarm im Website-Cron mit Entwarnung (2026-09-17) - Migration 0035 vor dem Deploy
 * [ ] Paket bauen (`build-dist.sh`), an der Testanlage einspielen, Testplan Abschnitt 8 abarbeiten, Ergebnisse hier eintragen
 * [ ] Danach entscheiden: reicht der geraeteseitige SoC-Boden als Absicherung des toten Pi? Und L3 (`INSTALL_HW_WATCHDOG=1`) einschalten?
-* [ ] Reset-Skripte ohne openHAB fuer `sigenergy`, `deye`, `victron` (Kontrakt `inverter_failsafe_reset`)
+* [x] Reset-Skripte ohne openHAB fuer `sigenergy`, `deye`, `victron` (Kontrakt `inverter_failsafe_reset`) - 2026-10-12, am Simulator (Abschnitt 8b)
+* [ ] Geraetetests S2, D2, V2 aus Abschnitt 8b, danach je Profil `INVERTER_FAILSAFE_VERIFIED=1`
 * [x] Stromkreis-Plattform: Feld `failsafe` aus dem Status-Push auf der Anlagen-Detailseite anzeigen (2026-09-17)
 * [ ] Stromkreis-Plattform: aktiver Offline-Alarm an den Betreiber (braucht Mailversand)
 * [ ] Mitglieder-Kurzanleitung "Speichermanagement-Pi tot: was tun" nach `docs/setup/`, erst nach Test 6 und 7

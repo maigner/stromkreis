@@ -19,7 +19,10 @@ Vorher prüfen, ob gerade ein SD-Karten-Image gebaut wird (`ls data/images/ | gr
   docker-compose.yml   # aus deploy/ synchronisiert
   .env                 # nur am Server: POSTGRES_PASSWORD, PUBLIC_ORIGIN, OIDC_ISSUER, OIDC_CLIENT_ID,
                        #   EEGFAKTURA_BASE_URL, TOKEN_SECRET, WORKER_PACE_SECONDS,
-                       #   GATEWAY_SYNC_TOKEN, EXPRESS_KEY, MONGO_PASSWORD, REDIS_PASSWORD
+                       #   GATEWAY_SYNC_TOKEN, EXPRESS_KEY, MONGO_PASSWORD, REDIS_PASSWORD,
+                       #   OPENHABIAN_IMAGE und OPENHABIAN_IMAGE_SHA256 (Pin des Basis-Images der
+                       #   SD-Karten: Dateiname und sha256sum, openHABian liefert keine Pruefsumme;
+                       #   ohne Pin baut die Plattform kein Image), optional OPENHABIAN_RELEASE (Tag)
                        #   (je openssl rand -hex 32),
                        #   WG_ENDPOINT, CLOUD_BASE_URL, CLOUD_DOMAIN, CLOUD_PROXY_HOST,
                        #   REVIEW_CLOUD_USERNAME, REVIEW_CLOUD_PASSWORD, REVIEW_CLOUD_UUID,

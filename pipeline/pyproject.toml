@@ -4,13 +4,14 @@ version = "0.1.0"
 description = "Stromkreis data pipeline: EEG-Faktura import, weather import, forecast runs"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-only" }
+# Untergrenzen; die exakten Versionen des Docker-Images stehen in requirements.lock
 dependencies = [
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "requests",
-    "psycopg[binary]",
-    "cryptography",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "requests>=2.32",
+    "psycopg[binary]>=3.2",
+    "cryptography>=43",
 ]
 
 [project.optional-dependencies]

@@ -6,8 +6,8 @@
 # Wartungsnetz der Plattform auf. Damit bleibt die Anlage fuer Updates und
 # Fehlersuche per SSH erreichbar, ohne dass am Router des Mitglieds etwas
 # geoeffnet wird (PersistentKeepalive haelt das NAT-Mapping offen; durch
-# den Tunnel laeuft ausschliesslich das Wartungsnetz /24, nicht der
-# Internetverkehr des Mitglieds).
+# den Tunnel laeuft ausschliesslich die Verbindung zum Server im Wartungsnetz,
+# nicht der Internetverkehr des Mitglieds).
 #
 # Braucht in gateway.conf (kommt alles von der Plattform): INSTALL_WIREGUARD=1,
 # WG_ADDRESS (eindeutige Tunnel-IP der Anlage), WG_SERVER_ENDPOINT
@@ -47,9 +47,11 @@ esac
 [ "${#WG_SERVER_PUBLIC_KEY}" -eq 44 ] \
   || warn "Server-Public-Key hat unerwartete Laenge (${#WG_SERVER_PUBLIC_KEY} statt 44 Zeichen)."
 
-# Nur das /24 rund um die Tunnel-IP wird durch den Tunnel geroutet -
-# der normale Internetverkehr des Mitglieds bleibt unberuehrt.
-WG_SUBNET="${WG_ADDRESS%.*}.0/24"
+# Durch den Tunnel geht nur der Server selbst (.1 des Wartungsnetzes), nicht
+# das ganze /24: so erreicht ein Pi auch dann keine anderen Gateways, wenn am
+# Server einmal versehentlich Weiterleitung aktiv waere. Der normale
+# Internetverkehr des Mitglieds bleibt unberuehrt.
+WG_SUBNET="${WG_ADDRESS%.*}.1/32"
 
 # --- WireGuard installieren -------------------------------------------------
 if command -v wg >/dev/null 2>&1; then

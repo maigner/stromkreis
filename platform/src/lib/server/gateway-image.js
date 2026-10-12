@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -33,7 +34,16 @@ import {
 // Fortschritt steckt im Prozess (Neustart bricht den Bau ab, der Zustand
 // faellt dann auf die Dateien zurueck).
 
-const RELEASES_API = 'https://api.github.com/repos/openhab/openhabian/releases/latest';
+// Basis-Image: openHABian-Release von GitHub. OPENHABIAN_RELEASE (Server-.env)
+// pinnt den Release-Tag (Vorgabe "latest"), OPENHABIAN_IMAGE den Dateinamen
+// des Assets (Vorgabe: das juengste raspios64-Image des Releases) und
+// OPENHABIAN_IMAGE_SHA256 (64 Hex) die Pruefsumme; ersatzweise gilt eine
+// .sha256-Datei bzw. SHA256SUMS des Releases (openHABian liefert derzeit
+// keine, der Pin ist also noetig). Ohne Pruefsumme wird kein Image geladen -
+// was auf die SD-Karten der Mitglieder kommt, muss nachpruefbar sein
+// (Befund der Pruefung 10/2026). Pin ermitteln: sha256sum des Images unter
+// IMAGE_DIR/base/.
+const RELEASES_API = 'https://api.github.com/repos/openhab/openhabian/releases';
 const NEEDED_BYTES = 7e9; // Basis-Image + entpacktes Arbeits-Image + Ergebnis
 
 /** Laufender Bau (nur einer gleichzeitig, ueber alle Mandanten).
@@ -140,41 +150,94 @@ async function bootPartitionOffset(img) {
 	}
 }
 
+/** SHA-256 (hex) einer Datei. @param {string} file */
+async function sha256File(file) {
+	const hash = createHash('sha256');
+	for await (const chunk of createReadStream(file)) hash.update(chunk);
+	return hash.digest('hex');
+}
+
 /**
- * Aktuelles openHABian-Basis-Image (64-bit) in den Cache laden; bei
- * Netzproblemen wird das neueste bereits gecachte verwendet.
+ * Erwartete Pruefsumme des Release-Assets: aus der Server-.env oder aus der
+ * .sha256-Datei (bzw. SHA256SUMS) desselben Releases. Null, wenn keine da ist.
+ * @param {any[]} assets @param {string} name
+ */
+async function expectedSha256(assets, name) {
+	const pinned = (env.OPENHABIAN_IMAGE_SHA256 || '').trim().toLowerCase();
+	if (/^[0-9a-f]{64}$/.test(pinned)) return pinned;
+	const sums = assets.filter((a) => a.name === `${name}.sha256` || /^sha256sums?(\.txt)?$/i.test(a.name));
+	for (const a of sums) {
+		const text = await (await fetch(a.browser_download_url, { signal: AbortSignal.timeout(30000) })).text();
+		for (const line of text.split('\n')) {
+			const m = /^([0-9a-fA-F]{64})\s+\*?(\S+)/.exec(line.trim());
+			if (m && (path.basename(m[2]) === name || sums.length === 1)) return m[1].toLowerCase();
+		}
+	}
+	return null;
+}
+
+/**
+ * openHABian-Basis-Image (64-bit) in den Cache laden und per SHA-256
+ * pruefen; ein gecachtes Image gilt nur mit Pruefmarker (<datei>.sha256).
+ * Bei Netzproblemen wird das neueste geprueft gecachte verwendet.
  */
 async function ensureBaseImage() {
 	const baseDir = path.join(imageDir(), 'base');
 	await fs.mkdir(baseDir, { recursive: true });
-	const cached = (await fs.readdir(baseDir)).filter((f) => f.endsWith('.img.xz')).sort();
+	const entries = await fs.readdir(baseDir);
+	const verified = entries.filter((f) => f.endsWith('.img.xz') && entries.includes(`${f}.sha256`)).sort();
 
+	const tag = (env.OPENHABIAN_RELEASE || 'latest').trim();
 	let name = '';
 	let url = '';
+	/** @type {any[]} */
+	let assets = [];
 	try {
-		const release = await (await fetch(RELEASES_API)).json();
-		const assets = (release.assets ?? [])
-			.filter((/** @type {any} */ a) => a.name.startsWith('openhabian-raspios64') && a.name.endsWith('.img.xz'))
-			.sort((/** @type {any} */ a, /** @type {any} */ b) => a.name.localeCompare(b.name));
-		const asset = assets.at(-1);
+		const api = tag === 'latest' ? `${RELEASES_API}/latest` : `${RELEASES_API}/tags/${encodeURIComponent(tag)}`;
+		const res = await fetch(api, { signal: AbortSignal.timeout(30000) });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const release = await res.json();
+		assets = Array.isArray(release.assets) ? release.assets : [];
+		const wanted = (env.OPENHABIAN_IMAGE || '').trim();
+		const images = assets
+			.filter((a) => typeof a.name === 'string' && a.name.startsWith('openhabian-raspios64') && a.name.endsWith('.img.xz'))
+			.filter((a) => !wanted || a.name === wanted)
+			.sort((a, b) => a.name.localeCompare(b.name));
+		const asset = images.at(-1);
+		if (wanted && !asset) throw new Error(`Asset ${wanted} nicht im Release ${tag}`);
 		if (asset) ({ name, browser_download_url: url } = asset);
-	} catch {
-		// unten: Cache-Fallback
+	} catch (e) {
+		console.warn('openHABian-Release nicht abrufbar:', e instanceof Error ? e.message : e);
 	}
 	if (!name) {
-		const newest = cached.at(-1);
-		if (!newest) throw new Error('openHABian-Releaseliste nicht erreichbar und kein Basis-Image im Cache.');
+		const newest = verified.at(-1);
+		if (!newest) throw new Error('openHABian-Release nicht erreichbar und kein geprueftes Basis-Image im Cache.');
+		console.warn(`Basis-Image aus dem Cache: ${newest}`);
 		return path.join(baseDir, newest);
 	}
 
 	const file = path.join(baseDir, name);
-	if (!cached.includes(name)) {
-		const res = await fetch(url);
+	if (verified.includes(name)) return file;
+
+	const expected = await expectedSha256(assets, name);
+	if (!expected) throw new Error(`Keine Pruefsumme fuer ${name} (OPENHABIAN_IMAGE_SHA256 setzen oder Release mit .sha256-Datei waehlen).`);
+
+	if (!entries.includes(name)) {
+		const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
 		if (!res.ok || !res.body) throw new Error(`Basis-Image nicht ladbar (HTTP ${res.status}).`);
 		await pipeline(Readable.fromWeb(/** @type {any} */ (res.body)), createWriteStream(`${file}.part`));
 		await fs.rename(`${file}.part`, file);
-		// alte Basis-Images aufraeumen
-		for (const old of cached) await fs.rm(path.join(baseDir, old), { force: true });
+	}
+	const actual = await sha256File(file);
+	if (actual !== expected) {
+		await fs.rm(file, { force: true });
+		throw new Error(`Pruefsumme des Basis-Images stimmt nicht (${name}): erwartet ${expected}, erhalten ${actual}.`);
+	}
+	await fs.writeFile(`${file}.sha256`, `${expected}  ${name}\n`);
+	// alte Basis-Images aufraeumen
+	for (const old of entries.filter((f) => f.endsWith('.img.xz') && f !== name)) {
+		await fs.rm(path.join(baseDir, old), { force: true });
+		await fs.rm(path.join(baseDir, `${old}.sha256`), { force: true });
 	}
 	return file;
 }

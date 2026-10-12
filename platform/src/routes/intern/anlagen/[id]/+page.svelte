@@ -141,7 +141,11 @@
 					? 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
 					: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300'}"
 			>
-				{#if failsafe.ergebnis === 'reset'}
+				{#if failsafe.ergebnis === 'fehlt' || failsafe.ergebnis === 'ungeprueft'}
+					Kein aktiver Fail-Safe außerhalb von openHAB ({failsafe.ergebnis === 'fehlt' ? 'für dieses Profil nicht vorhanden' : 'Reset am Gerät noch nicht geprüft'}):
+					fällt openHAB aus, bleiben gesetzte Kommandos am Wechselrichter stehen, bis openHAB wieder läuft.
+					{#if failsafe.meldung}{failsafe.meldung}{/if}
+				{:else if failsafe.ergebnis === 'reset'}
 					Fail-Safe hat eingegriffen ({failsafe.zeit}): Der Wechselrichter wurde ohne openHAB auf Werksverhalten
 					zurückgesetzt. Grund: {failsafe.grund ?? 'unbekannt'}.
 				{:else}

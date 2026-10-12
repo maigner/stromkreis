@@ -9,6 +9,7 @@ Verbraucher value[0..2] = G.01, G.02, G.03; Erzeuger value[0..1] = G.01, P.01.
 """
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -81,8 +82,22 @@ def _dedupe(records):
     return list(by_key.values())
 
 
+def normalize_quality(raw):
+    """qov-Wert zu quality: ganze Zahl 0..3, alles andere (None, Text, Bruch,
+    ausserhalb des Bereichs) zu None. Rueckgabe (quality, ungueltig)."""
+    if raw is None:
+        return None, False
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or (isinstance(raw, float) and not raw.is_integer()):
+        return None, True
+    q = int(raw)
+    if q < 0 or q > 3:
+        return None, True
+    return q, False
+
+
 def _records(payload):
     records = []
+    bad_values = bad_qov = 0
     for metering_point, block in payload.items():
         if not isinstance(block, dict) or "data" not in block:
             raise EegfakturaError(f"rawdata: unerwarteter Block fuer {metering_point}")
@@ -95,15 +110,31 @@ def _records(payload):
             for slot, kind in enumerate(kinds):
                 if slot >= len(values) or values[slot] is None:
                     continue
-                quality = qov[slot] if slot < len(qov) else None
+                # Nicht-numerische Werte (Text, bool, NaN/inf) ueberspringen
+                raw_value = values[slot]
+                try:
+                    value = float(raw_value)
+                except (TypeError, ValueError):
+                    value = None
+                if value is None or isinstance(raw_value, bool) or not math.isfinite(value):
+                    bad_values += 1
+                    continue
+                quality, invalid = normalize_quality(qov[slot] if slot < len(qov) else None)
+                if invalid:
+                    bad_qov += 1
                 records.append(Record(
                     metering_point=metering_point,
                     direction=direction,
                     kind=kind,
                     measured_at=measured_at,
-                    value=float(values[slot]),
+                    value=value,
                     quality=quality,
                 ))
+    # Eine Warnung je Chunk (normalize_rawdata laeuft je Chunk), nicht je Wert
+    if bad_values:
+        log.warning("%d nicht-numerische Messwerte uebersprungen", bad_values)
+    if bad_qov:
+        log.warning("%d ungueltige qov-Werte (nicht ganzzahlig oder ausserhalb 0..3) als unbekannt uebernommen", bad_qov)
     return records
 
 

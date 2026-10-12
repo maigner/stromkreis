@@ -18,6 +18,11 @@ rsync -az --delete \
     --exclude .svelte-kit \
     --exclude build \
     --exclude '.env' \
+    --exclude 'ZUGANGSDATEN.md' \
+    --exclude 'docs/drafts' \
+    --exclude 'pipeline/.venv' \
+    --exclude 'pipeline/.pytest_cache' \
+    --exclude 'platform/data' \
     "$REPO/" "$HOST:$DIR/src/"
 
 # Compose-Datei liegt direkt im Deploy-Verzeichnis (Konvention in ~/Container)

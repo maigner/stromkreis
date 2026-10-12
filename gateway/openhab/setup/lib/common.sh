@@ -10,16 +10,23 @@ OPENHAB_CONF="${OPENHAB_CONF:-/etc/openhab}"
 OPENHAB_USERDATA="${OPENHAB_USERDATA:-/var/lib/openhab}"
 OPENHAB_LOGDIR="${OPENHAB_LOGDIR:-/var/log/openhab}"
 OPENHAB_USER="${OPENHAB_USER:-openhab}"
-# Anforderungen des Dashboards an den Pi (Status-Push legt Marker ab, der
-# root-Timer stromkreis-update wertet sie aus - siehe 09-install-updater.sh).
+# Zwei Zustandsverzeichnisse, streng getrennt (Befund der Pruefung 10/2026:
+# ein vom openHAB-Benutzer beschreibbares Verzeichnis, in dem root liest und
+# schreibt, ist ein Weg zu root):
+#   GW_REQUEST_DIR  gehoert openhab - dort legen die Regeln ihre Marker ab
+#                   (Update-Anforderung, Heartbeat, Standby). root liest sie
+#                   nur als Existenz-/Zeitstempelpruefung regulaerer Dateien.
+#   GW_STATE_DIR    gehoert root - Stempel, Zaehler und Zustand der root-Timer.
+#                   openhab liest dort hoechstens (Fail-Safe-Zustand).
 GW_REQUEST_DIR="${GW_REQUEST_DIR:-/var/lib/stromkreis/requests}"
+GW_STATE_DIR="${GW_STATE_DIR:-/var/lib/stromkreis/state}"
 GW_UPDATE_FLAG="$GW_REQUEST_DIR/update-requested"
 # Fail-Safe (10-install-failsafe.sh): der Kern beruehrt den Heartbeat nach
 # jedem bestaetigten Reset; der root-Timer stromkreis-failsafe setzt den
 # Wechselrichter zurueck, wenn er ausbleibt, und legt seinen Zustand als
 # JSON ab (der Status-Push meldet ihn ans Dashboard).
 GW_HEARTBEAT_FILE="$GW_REQUEST_DIR/heartbeat"
-GW_FAILSAFE_STATUS="$GW_REQUEST_DIR/failsafe-status"
+GW_FAILSAFE_STATUS="$GW_STATE_DIR/failsafe-status"
 # Standby-Marker: der Kern legt ihn beim Ausschalten des Hauptschalters nach
 # einem letzten Reset an (und entfernt ihn beim Einschalten) - solange er
 # existiert, ruehren weder Timer noch Boot-Reset den Wechselrichter an,
@@ -167,7 +174,7 @@ load_profile() {
         INVERTER_REDISCOVER_SCRIPT INVERTER_DEFAULT_USERNAME \
         INVERTER_USER_PARAM INVERTER_PASSWORD_PARAM \
         INVERTER_THING_EXTRA_CONFIG INVERTER_AUTO_THING_UID \
-        INVERTER_EXTRA_HOST_THINGS 2>/dev/null || true
+        INVERTER_EXTRA_HOST_THINGS INVERTER_FAILSAFE_VERIFIED INVERTER_HAS_AUTO_REVERT 2>/dev/null || true
   unset -f inverter_scan_hosts inverter_things_json inverter_battery_items inverter_verify \
            inverter_failsafe_reset 2>/dev/null || true
 
@@ -1041,10 +1048,33 @@ ensure_regional_settings() {
 # Dateien
 # ---------------------------------------------------------------------------
 
+# Beide Zustandsverzeichnisse anlegen bzw. in Ordnung bringen (siehe Kopf
+# der Datei). Altbestand: Dateien der root-Timer wandern aus dem openhab-
+# Verzeichnis in das root-Verzeichnis; Symlinks dort werden entfernt.
+ensure_state_dirs() {
+  local f
+  mkdir -p "$GW_REQUEST_DIR" "$GW_STATE_DIR"
+  chown root:root "$GW_STATE_DIR"
+  chmod 0755 "$GW_STATE_DIR"
+  chown "$OPENHAB_USER:$OPENHAB_GROUP" "$GW_REQUEST_DIR" 2>/dev/null || true
+  chmod 0755 "$GW_REQUEST_DIR"
+  for f in last-check failsafe-last-reset failsafe-count failsafe-status; do
+    if [ -L "$GW_REQUEST_DIR/$f" ]; then
+      rm -f "$GW_REQUEST_DIR/$f"
+    elif [ -f "$GW_REQUEST_DIR/$f" ]; then
+      [ -e "$GW_STATE_DIR/$f" ] || mv -f "$GW_REQUEST_DIR/$f" "$GW_STATE_DIR/$f"
+      rm -f "$GW_REQUEST_DIR/$f"
+    fi
+  done
+  find "$GW_REQUEST_DIR" -mindepth 1 -type l -delete 2>/dev/null || true
+}
+
 # Datei aus stdin schreiben - idempotent, mit Backup und korrekten Rechten.
-# Verwendung:  irgendwas | install_file /pfad/zur/datei
+# Verwendung:  irgendwas | install_file /pfad/zur/datei [modus]
+# Modus-Vorgabe 0644; Dateien mit Geheimnissen (Anlagen-Token in den
+# Regeln) bekommen 0640 - lesbar nur fuer openhab und root.
 install_file() {
-  local target="$1"
+  local target="$1" mode="${2:-0644}"
   local tmp
   tmp="$(mktemp)"
   cat > "$tmp"
@@ -1066,7 +1096,7 @@ install_file() {
   rm -f "$tmp"
   chown "$OPENHAB_USER:$OPENHAB_GROUP" "$target" 2>/dev/null || \
     warn "chown auf $OPENHAB_USER:$OPENHAB_GROUP fehlgeschlagen: $target"
-  chmod 0644 "$target"
+  chmod "$mode" "$target"
   log "geschrieben: $target"
 }
 

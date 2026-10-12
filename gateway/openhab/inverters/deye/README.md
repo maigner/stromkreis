@@ -12,7 +12,7 @@ einem RS485-Ethernet-Gateway** und den **Time-of-Use-Verkaufsfahrplan
 | Ladesperre | TOU an + alle 6 Slot-Leistungen (154-159) = 0 + Netzladen-Flags (172-177) = 0 |
 | Laderegelung | KEIN `gwLimitCharge` - ein Ladestrom-Limit-Register ist nicht verifiziert, und laufend nachgefuehrte Limits wuerden EEPROM-Schreibzyklen kosten; der Kern nutzt die PWM ueber die Ladesperre (15-Minuten-Bloecke, EEPROM-schonend) |
 | Forcierte Entladung | TOU an + Slot-Leistungen in Watt + Slot-Ziel-SoC (166-171) auf der Entladeuntergrenze |
-| Fail-Safe | KEIN geraeteseitiges Auto-Revert bekannt - siehe Fail-Safe-Analyse |
+| Fail-Safe | KEIN geraeteseitiges Auto-Revert bekannt; root-Timer `stromkreis-failsafe` mit `tools/failsafe_reset.py` ausserhalb von openHAB, bisher nur am Simulator geprueft (`INVERTER_FAILSAFE_VERIFIED=0`) - siehe Fail-Safe-Analyse |
 
 Der Adapter beschreibt alle 6 Slots **identisch** - die Slot-Zeitgrenzen
 (148-153) bleiben unangetastet und sind damit egal: jede Uhrzeit faellt in
@@ -156,8 +156,23 @@ SunSpec-`InOutWRte_RvrtTms`.
   Display des Wechselrichters** beenden (TOU/Zeitplan abschalten) - kein
   Installateur-Zugang noetig. Ein Neustart des Pi genuegt ebenfalls: der
   Kern setzt im naechsten 5-Minuten-Zyklus zurueck.
-- Zusaetzlich moeglich (bisher nicht umgesetzt): ein systemd-Timer am Pi,
-  der `Time of Use enable = 0` schreibt, wenn openHAB nicht laeuft.
+- **Fail-Safe-Reset ausserhalb von openHAB (2026-10-12):** der root-Timer
+  `stromkreis-failsafe` und der Boot-Reset (`setup/10-install-failsafe.sh`)
+  rufen `inverter_failsafe_reset` aus `profile.sh` auf, das
+  `tools/failsafe_reset.py` mit eigener Modbus-TCP-Verbindung zum
+  RS485-Gateway (Slave 1, `MODBUS_PORT`, Socket-Timeout 5 s, nur
+  Standardbibliothek) startet. Es schreibt genau den einen Write von
+  `gwReset()`, `Time of Use enable (146) = 0`, und bestaetigt ihn per
+  Read-back (FC03); die Slot-Register bleiben unangetastet. Wie im
+  Adapter wird **nur bei Aenderung** geschrieben (EEPROM-Schonung - der
+  Timer ruft waehrend eines Ausfalls alle 10 Minuten erneut auf): steht
+  146 schon auf 0, meldet das Skript "nichts geschrieben" und Exit 0.
+  Geschrieben wird nur, wenn das Geraet wie ein Deye antwortet (Work Mode
+  0..2, TOU 0..255 - derselbe Guard wie im Adapter). `--reads` zeigt nur
+  die aktuellen Werte. Bisher **nur am Simulator** geprueft
+  (`tools/sim_deye.py`): `INVERTER_FAILSAFE_VERIFIED=0` in `profile.sh`,
+  der Installer richtet den Timer erst nach bestandenem Geraetetest ein
+  (`../failsafe-modbus.md`, Abschnitt 8b).
 
 ### Moegliche Haertung EEPROM (bisher nicht umgesetzt)
 

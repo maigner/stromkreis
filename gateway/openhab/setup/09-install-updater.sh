@@ -34,11 +34,9 @@ if [ "$INSTALL_AUTO_UPDATE" != "1" ]; then
   exit 0
 fi
 
-# Marker-Verzeichnis: der Status-Push laeuft als openHAB-Benutzer und muss
-# die Anforderung dort ablegen koennen; der Timer laeuft als root.
-mkdir -p "$GW_REQUEST_DIR"
-chown "$OPENHAB_USER:$OPENHAB_GROUP" "$GW_REQUEST_DIR" 2>/dev/null || true
-chmod 0755 "$GW_REQUEST_DIR"
+# Marker-Verzeichnis (openhab, Anforderung des Dashboards) und Zustands-
+# verzeichnis (root, Stempel der naechtlichen Pruefung) getrennt anlegen.
+ensure_state_dirs
 
 # Atomar ersetzen (Tempdatei + mv): das Update schreibt diese Datei neu,
 # waehrend der alte stromkreis-update noch laeuft - ein laufender Prozess
@@ -61,7 +59,7 @@ main() {
 
 CONF=@GW_CONF@
 FLAG=@GW_UPDATE_FLAG@
-STAMP=@GW_REQUEST_DIR@/last-check
+STAMP=@GW_STATE_DIR@/last-check
 LOG=/var/log/stromkreis-update.log
 INSTALLED=@GW_SETUP_DIR@/../PACKAGE-SHA256
 LOCK=/run/stromkreis-update.lock
@@ -78,7 +76,8 @@ base=https://stromkreis.net
 reason=""
 if [ "${1:-}" = "--now" ]; then
   reason="von Hand"
-elif [ -f "$FLAG" ]; then
+elif [ -f "$FLAG" ] && [ ! -L "$FLAG" ]; then
+  # Nur eine regulaere Datei zaehlt (das Verzeichnis gehoert openhab)
   reason="vom Dashboard angefordert"
 else
   hour=$(date +%H); today=$(date +%F)
@@ -125,7 +124,7 @@ exit
 UPD
 sed -i -e "s|@GW_CONF@|$GATEWAY_CONF|g" \
        -e "s|@GW_UPDATE_FLAG@|$GW_UPDATE_FLAG|g" \
-       -e "s|@GW_REQUEST_DIR@|$GW_REQUEST_DIR|g" \
+       -e "s|@GW_STATE_DIR@|$GW_STATE_DIR|g" \
        -e "s|@GW_SETUP_DIR@|$GW_SETUP_DIR|g" "$updater_tmp"
 chown root:root "$updater_tmp"
 chmod 0755 "$updater_tmp"

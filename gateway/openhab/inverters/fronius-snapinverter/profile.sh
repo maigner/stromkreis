@@ -307,3 +307,12 @@ inverter_failsafe_reset() {
   python3 "$GW_INVERTER_DIR/fronius-snapinverter/tools/failsafe_reset.py" \
     --host "$1" --port "$MODBUS_PORT" --unit "$MODBUS_UNIT_ID" --base "$MODBUS_M124_BASE"
 }
+
+# Hardware-Freigabe des Fail-Safe-Resets: 1 = die drei Writes sind am
+# Geraet belegt (Spike 2026-09-10 an der ISCHLSTROM-Testanlage: der
+# explizite Modbus-Reset raeumte das stehende Entladefenster, Read-back
+# bestaetigt; gwReset() des Adapters schreibt dieselben Register dort in
+# jedem Zyklus). Der Timer selbst steht noch im Testplan
+# (failsafe-modbus.md, Test 11). Nur bei 1 richtet 10-install-failsafe.sh
+# den Timer ein.
+INVERTER_FAILSAFE_VERIFIED=1

@@ -43,6 +43,19 @@ class EegfakturaError(RuntimeError):
         self.body = body
 
 
+def _access_token(resp):
+    """access_token aus einer Token-Antwort (HTTP 200); fehlt es oder ist die
+    Antwort kein JSON-Objekt, ist das ein Fehler (keine stille Weiterarbeit
+    mit "Bearer None")."""
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = None
+    if not isinstance(payload, dict) or not payload.get("access_token"):
+        raise EegfakturaError("Token-Antwort ohne access_token", status=resp.status_code, body=resp.text[:500])
+    return payload
+
+
 def to_ms(dt):
     """Aware datetime zu Unix-Millisekunden."""
     if dt.tzinfo is None:
@@ -112,7 +125,7 @@ class ClientCredentialsAuth:
                 status=resp.status_code,
                 body=resp.text[:500],
             )
-        payload = resp.json()
+        payload = _access_token(resp)
         self._token = payload["access_token"]
         expires_in = payload.get("expires_in", DEFAULT_TOKEN_EXPIRES)
         self._expires_at = time.monotonic() + max(expires_in - TOKEN_LEEWAY, 5)
@@ -156,7 +169,7 @@ class RefreshTokenAuth:
             if self.on_refresh:
                 self.on_refresh(None, error=error)
             raise EegfakturaError(error, status=resp.status_code, body=resp.text[:500])
-        payload = resp.json()
+        payload = _access_token(resp)
         self._token = payload["access_token"]
         expires_in = payload.get("expires_in", DEFAULT_TOKEN_EXPIRES)
         self._expires_at = time.monotonic() + max(expires_in - TOKEN_LEEWAY, 5)

@@ -68,7 +68,9 @@ export async function POST({ request }) {
 	const hash = createHash('sha256').update(token).digest('hex');
 	const [site] = await sql`
 		update battery_site set last_seen_at = now(),
-			status = case when ${isFull} then ${sql.json(patch)}::jsonb else status || ${sql.json(patch)}::jsonb end
+			status = case when ${isFull}
+				then jsonb_strip_nulls(jsonb_build_object('hostname', status->'hostname', 'version', status->'version')) || ${sql.json(patch)}::jsonb
+				else status || ${sql.json(patch)}::jsonb end
 		where token_hash = ${hash}
 		returning id, tenant_id`;
 	if (!site) {

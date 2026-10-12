@@ -437,7 +437,9 @@ async function seed(slug) {
 				values (${tenant.id}, ${members[s.member].id}, ${s.name}, ${s.profile}, ${hash},
 					${new Date(now - s.minutesAgo * 60000)}, ${status}, ${s.lat}, ${s.lon}, ${s.address})
 			`;
-			console.log(`Anlage '${s.name}' (${s.profile}), Gateway-Token: ${token}`);
+			// Token bewusst nicht ausgeben (landet sonst im Container-Log); der
+			// Heartbeat arbeitet ueber die DB, nicht ueber die API.
+			console.log(`Anlage '${s.name}' (${s.profile}) angelegt.`);
 		}
 
 		console.log(`Demo-Daten fuer '${tenant.name}': ${members.length} Mitglieder, ${points.length} Zaehlpunkte, ${rows.length} Messwerte, ${weather.length} Wetterstunden, ${SITES.length} Anlagen.`);

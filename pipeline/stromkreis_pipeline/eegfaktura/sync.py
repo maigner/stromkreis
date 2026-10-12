@@ -55,6 +55,7 @@ class SyncStats:
     points: int = 0
     warnings: list = field(default_factory=list)
     point_ids: dict = field(default_factory=dict)
+    interrupted: bool = False  # Abbruch per should_stop nach einem gesicherten Chunk
 
 
 @dataclass(frozen=True)
@@ -83,8 +84,19 @@ def determine_window(conn, tenant_id, client, since=None, until=None, full=False
     return period_begin, min(end, period_end) if until is None else end
 
 
+def _pause(seconds, should_stop):
+    """Pause zwischen zwei Chunks, in Sekundenschritten, damit ein Stoppsignal
+    nicht erst nach der vollen Pause wirkt."""
+    deadline = time.monotonic() + seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or (should_stop is not None and should_stop()):
+            return
+        time.sleep(min(1.0, remaining))
+
+
 def sync_tenant(conn, source, client, since=None, until=None, full=False, on_chunk=None, use_masterdata=True,
-                pace_seconds=5.0):
+                pace_seconds=5.0, should_stop=None):
     """Einen Mandanten importieren. Commit je Chunk; wirft EegfakturaError
     bei Zugangs-/API-Fehlern (der Aufrufer isoliert je Mandant).
 
@@ -92,7 +104,10 @@ def sync_tenant(conn, source, client, since=None, until=None, full=False, on_chu
     (Fortschrittsanzeige). use_masterdata=False ueberspringt /api/master/masterdata
     (Bearer-Weg: die Zaehlpunkte kommen aus measurement_point bzw. metadata).
     pace_seconds: Mindestpause zwischen zwei Chunks (die tatsaechliche Pause ist
-    max(pace_seconds, PACE_DUTY_FACTOR * Antwortzeit), nach dem letzten Chunk keine)."""
+    max(pace_seconds, PACE_DUTY_FACTOR * Antwortzeit), nach dem letzten Chunk keine).
+    should_stop: Callable ohne Argumente; liefert es nach einem gesicherten Chunk
+    True, endet der Import vorzeitig mit stats.interrupted = True (der Aufrufer
+    setzt spaeter ab chunk_end fort)."""
     stats = SyncStats(tenant_slug=source.slug)
     tenant_id = source.tenant_id
 
@@ -126,6 +141,11 @@ def sync_tenant(conn, source, client, since=None, until=None, full=False, on_chu
 
     chunk_start = start
     while chunk_start < end:
+        if should_stop is not None and should_stop():
+            # Stoppsignal: alles bisherige ist gesichert, der Rest folgt beim naechsten Lauf
+            stats.interrupted = True
+            log.info("%s: Import nach Stoppsignal unterbrochen (bis %s gesichert)", source.slug, chunk_start.date())
+            break
         # Chunk-Laenge je Durchlauf neu: aus den Rohdaten koennen Zaehlpunkte dazukommen
         chunk = chunk_size(len(known_points) if known_points else len(point_ids))
         chunk_end = min(chunk_start + chunk, end)
@@ -157,7 +177,7 @@ def sync_tenant(conn, source, client, since=None, until=None, full=False, on_chu
             on_chunk(stats, chunk_start, chunk_end)
         chunk_start = chunk_end
         if chunk_start < end:
-            time.sleep(max(pace_seconds, PACE_DUTY_FACTOR * request_seconds))
+            _pause(max(pace_seconds, PACE_DUTY_FACTOR * request_seconds), should_stop)
 
     stats.points = len(point_ids)
     return stats

@@ -277,3 +277,23 @@ for t in json.load(sys.stdin): print(t["UID"])')
   esac
   return $ok
 }
+
+# Fail-Safe-Reset ohne openHAB (root-Timer stromkreis-failsafe und Boot-Reset,
+# siehe setup/10-install-failsafe.sh): Sigenergy kennt kein Auto-Revert,
+# ein aktives Remote EMS bleibt stehen, wenn openHAB ausfaellt. Schreibt
+# Remote EMS enable (40029) = 0 (derselbe eine Write wie gwReset() im
+# Adapter) und prueft per Read-back. $1 = Adresse der Anlage (aus dem
+# Bridge-Thing, ersatzweise INVERTER_HOST). Exit 0 nur bei bestaetigtem
+# Reset - der Timer wiederholt sonst. Port wie im Bridge-Thing (502).
+inverter_failsafe_reset() {
+  python3 "$GW_INVERTER_DIR/sigenergy/tools/failsafe_reset.py" \
+    --host "$1" --port "${MODBUS_PORT:-502}" --unit "$MODBUS_UNIT_ID"
+}
+
+# Hardware-Freigabe des Fail-Safe-Resets: 0 = nur am Simulator geprueft
+# (tools/sim_sigenstor.py, 2026-10-12). Erst auf 1 setzen, wenn der
+# Geraetetest aus inverters/failsafe-modbus.md (Abschnitt 8b) an einer
+# SigenStor bestanden ist - solange 0, richtet 10-install-failsafe.sh den
+# Timer nicht ein, ein unverifizierter Write auf eine fremde Registerkarte
+# ist schlimmer als kein Fail-Safe.
+INVERTER_FAILSAFE_VERIFIED=0

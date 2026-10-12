@@ -36,6 +36,10 @@ INVERTER_PV_POWER_CHANNEL="powerflowchannelppv"
 # zu GW_SCRIPT_DIR. Das Setup setzt Adapter und Kern in dieselbe Regel.
 INVERTER_ADAPTER_SCRIPT="inverters/fronius-symo/adapter.js"
 
+# Die GEN24-Schedules laufen am Geraet von selbst ab: kein Fail-Safe-Timer
+# ausserhalb von openHAB noetig (10-install-failsafe.sh).
+INVERTER_HAS_AUTO_REVERT=1
+
 # Thing, das die Netzwerkadresse traegt (bei Fronius die Bridge, nicht der
 # Wechselrichter selbst) - Praefix zur Erkennung in der JSONDB
 INVERTER_HOST_THING_PREFIX="fronius:bridge"

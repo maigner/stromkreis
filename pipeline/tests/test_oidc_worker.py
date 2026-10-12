@@ -102,3 +102,83 @@ def test_upsert_members_und_zuordnung(db_conn, tenant_id):
     assert [r[0] for r in rows] == ["Anna Gruber-Mayer", "Franz Huber"]
     assert rows[0][1] == "anna@example.com" and rows[0][3] == "member"
     assert linked == [("Anna Gruber-Mayer",)]
+
+
+def test_upsert_members_geteilte_email_wird_nicht_zusammengelegt(db_conn, tenant_id, caplog):
+    """Zwei Teilnehmer mit derselben E-Mail (z.B. Ehepaar) bleiben zwei Zeilen;
+    der zweite kommt ohne E-Mail, eine Warnung ohne Adresse im Log."""
+    participants = normalize_participants([
+        {"id": "p-1", "participantNumber": "001", "firstname": "Anna", "lastname": "Gruber",
+         "contact": {"email": "familie@example.com"}, "meters": [{"meteringPoint": "AT1", "direction": "CONSUMPTION"}]},
+        {"id": "p-2", "participantNumber": "002", "firstname": "Franz", "lastname": "Gruber",
+         "contact": {"email": "Familie@example.com"}, "meters": [{"meteringPoint": "AT2", "direction": "GENERATION"}]},
+    ])
+    with caplog.at_level("WARNING"):
+        assert load.upsert_members(db_conn, tenant_id, participants) == 2
+    assert "p-2" in caplog.text and "example.com" not in caplog.text
+    # Zweiter Lauf: idempotent, keine Duplikate, keine Zuordnung wechselt
+    load.upsert_members(db_conn, tenant_id, participants)
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "select eegfaktura_participant_id, email from member where tenant_id = %s order by participant_number",
+            (tenant_id,),
+        )
+        assert cur.fetchall() == [("p-1", "familie@example.com"), ("p-2", None)]
+
+
+def test_upsert_members_login_zeile_und_namensabgleich(db_conn, tenant_id):
+    """Betreiberzeile aus dem Login (ohne Teilnehmer-ID) bekommt ueber die
+    E-Mail die Teilnehmerdaten; eine Zeile mit anderer Teilnehmer-ID wechselt
+    nie; Namensabgleich nur fuer Teilnehmer ohne ID."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "insert into member (tenant_id, name, email, role) values (%s, 'Betreiber', 'chef@example.com', 'operator')",
+            (tenant_id,),
+        )
+        cur.execute(
+            "insert into member (tenant_id, name, email, role, eegfaktura_participant_id) values (%s, 'Max Alt', 'max@example.com', 'member', 'p-9')",
+            (tenant_id,),
+        )
+    participants = normalize_participants([
+        {"id": "p-1", "participantNumber": "001", "firstname": "Chefin", "lastname": "Gruber",
+         "contact": {"email": "chef@example.com"}, "meters": [{"meteringPoint": "AT1", "direction": "CONSUMPTION"}]},
+        # gleiche E-Mail wie die Zeile von p-9: keine Uebernahme, neue Zeile ohne E-Mail
+        {"id": "p-2", "participantNumber": "002", "firstname": "Max", "lastname": "Alt",
+         "contact": {"email": "max@example.com"}, "meters": [{"meteringPoint": "AT2", "direction": "CONSUMPTION"}]},
+        # ohne ID: Namensabgleich
+        {"participantNumber": "003", "firstname": "Ohne", "lastname": "Nummer", "meters": [{"meteringPoint": "AT3", "direction": "CONSUMPTION"}]},
+    ])
+    load.upsert_members(db_conn, tenant_id, participants)
+    load.upsert_members(db_conn, tenant_id, participants)  # idempotent
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "select name, email, role, eegfaktura_participant_id from member where tenant_id = %s order by id",
+            (tenant_id,),
+        )
+        rows = cur.fetchall()
+    assert rows[0] == ("Chefin Gruber", "chef@example.com", "operator", "p-1")
+    assert rows[1] == ("Max Alt", "max@example.com", "member", "p-9")
+    assert rows[2] == ("Max Alt", None, "member", "p-2")
+    assert rows[3] == ("Ohne Nummer", None, "member", None)
+    assert len(rows) == 4
+
+
+def test_link_points_loest_veraltete_zuordnung(db_conn, tenant_id):
+    participants = normalize_participants([
+        {"id": "p-1", "participantNumber": "001", "firstname": "Anna", "lastname": "Gruber",
+         "meters": [{"meteringPoint": "AT1", "direction": "CONSUMPTION"}, {"meteringPoint": "AT2", "direction": "GENERATION"}]},
+    ])
+    load.upsert_members(db_conn, tenant_id, participants)
+    load.ensure_measurement_points(db_conn, tenant_id, [("AT1", "consumption", None), ("AT2", "generation", None)])
+    load.link_points_to_members(db_conn, tenant_id, participants)
+    # AT2 wechselt in EEG-Faktura weg vom Teilnehmer
+    participants[0]["points"] = [("AT1", "consumption")]
+    load.link_points_to_members(db_conn, tenant_id, participants)
+    with db_conn.cursor() as cur:
+        cur.execute("select metering_point, member_id is not null from measurement_point where tenant_id = %s order by 1", (tenant_id,))
+        assert cur.fetchall() == [("AT1", True), ("AT2", False)]
+    # Leere Teilnehmerliste loescht nichts
+    load.link_points_to_members(db_conn, tenant_id, [])
+    with db_conn.cursor() as cur:
+        cur.execute("select count(*) from measurement_point where tenant_id = %s and member_id is not null", (tenant_id,))
+        assert cur.fetchone()[0] == 1

@@ -29,7 +29,11 @@ host = os.environ["PI_SSH_HOST"]
 cmd = os.environ["PI_SSH_CMD"]
 passwords = [p for p in (os.environ.get("PI_SSH_PW", ""), "openhabian") if p]
 
-argv = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+# Host-Keys je Pi merken (accept-new): das Anlagen-Passwort geht nur an den
+# Host, der schon einmal geantwortet hat. Nach einer Neuinstallation den
+# alten Eintrag entfernen: ssh-keygen -R <host> -f ~/.ssh/known_hosts_stromkreis_pis
+known_hosts = os.path.expanduser("~/.ssh/known_hosts_stromkreis_pis")
+argv = ["-o", "StrictHostKeyChecking=accept-new", "-o", f"UserKnownHostsFile={known_hosts}",
         "-o", "ConnectTimeout=10", "-o", "PreferredAuthentications=password",
         f"openhabian@{host}"]
 if cmd:
@@ -43,6 +47,8 @@ for pw in passwords:
     if i != 0:
         print(child.before or "")
         print(f"FEHLER: keine Passwortabfrage von {host}.", file=sys.stderr)
+        if "HOST IDENTIFICATION" in (child.before or ""):
+            print(f"Host-Key von {host} hat sich geaendert (neu installiert?): ssh-keygen -R {host} -f {known_hosts}", file=sys.stderr)
         sys.exit(1)
     child.sendline(pw)
     # Kommt gleich wieder eine Login-Passwortabfrage, war das Passwort falsch;

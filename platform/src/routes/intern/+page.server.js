@@ -6,6 +6,11 @@ import { PROVISION_CODE_DAYS, describePhase, newProvisionCode, newSiteToken, ran
 import { getImageStatus, startImageBuild } from '$lib/server/gateway-image.js';
 import { loadEnergie } from '$lib/server/energie.js';
 import { loadPrognose } from '$lib/server/prognose.js';
+import { oidcEnabled } from '$lib/server/oidc.js';
+
+// Steuerzeichen (Zeilenumbrueche usw.) haben in Namen, Adressen und WLAN-
+// Angaben nichts verloren: sie landen in der openhabian.conf des Images.
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 
 const TABS = ['anlagen', 'standorte', 'energie', 'prognose'];
 
@@ -67,12 +72,13 @@ export async function load({ locals, url }) {
 		? await sql`select min(day)::text as first_day, max(day)::text as last_day from measurement_daily where tenant_id = ${tenantId}`
 		: [null];
 
-	const [{ n: switchable }] = await sql`
-		select count(distinct m2.tenant_id) as n
-		from member m1 join member m2 on m2.role = 'operator'
-			and (m2.oidc_sub = m1.oidc_sub or (m1.email is not null and m2.email = m1.email))
-		where m1.tenant_id = ${tenantId} and m1.id = ${user.member_id}
-	`;
+	// "EEG wechseln" nur ueber dieselbe Keycloak-Identitaet (sub); ohne sub
+	// (Betreiber aus Einladungslink) gibt es stattdessen "Mit EEGFaktura verknuepfen".
+	const [me] = await sql`select oidc_sub from member where tenant_id = ${tenantId} and id = ${user.member_id}`;
+	const mySub = /** @type {string | null} */ (me?.oidc_sub ?? null);
+	const [{ n: switchable }] = mySub
+		? await sql`select count(distinct tenant_id) as n from member where role = 'operator' and oidc_sub = ${mySub}`
+		: [{ n: 0 }];
 
 	return {
 		tab,
@@ -108,7 +114,9 @@ export async function load({ locals, url }) {
 					data_last_day: /** @type {string | null} */ (dataRange?.last_day ?? null)
 				}
 			: null,
-		canSwitch: Number(switchable) > 1
+		canSwitch: Number(switchable) > 1,
+		canLink: operator && !mySub && oidcEnabled(),
+		linked: url.searchParams.get('verknuepft') === '1'
 	};
 }
 
@@ -166,6 +174,9 @@ export const actions = {
 
 		if (!name || name.length > 80) {
 			return fail(400, { message: 'Bitte einen Namen mit höchstens 80 Zeichen angeben.' });
+		}
+		if ([name, address, wifiSsid ?? '', wifiPassword ?? ''].some((v) => CONTROL_CHARS.test(v))) {
+			return fail(400, { message: 'Name, Adresse und WLAN-Angaben dürfen keine Zeilenumbrüche oder Steuerzeichen enthalten.' });
 		}
 		if (!address) {
 			return fail(400, { message: 'Bitte eine Adresse angeben (das Mitglied hat keine hinterlegt).' });

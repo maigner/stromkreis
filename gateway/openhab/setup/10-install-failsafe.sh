@@ -34,8 +34,15 @@
 # ersetzen. Dann bleibt der geraeteseitige Ladestands-Boden und die
 # Offline-Anzeige der Plattform (siehe failsafe-modbus.md).
 #
-# Profile ohne inverter_failsafe_reset (GEN24) brauchen nichts davon;
-# vorhandene Units werden dann entfernt. INSTALL_FAILSAFE=0 in gateway.conf
+# Profile mit geraeteseitigem Auto-Revert (GEN24: INVERTER_HAS_AUTO_REVERT=1)
+# brauchen nichts davon; vorhandene Units werden dann entfernt. Ein Profil
+# OHNE Auto-Revert und ohne inverter_failsafe_reset, oder dessen Reset am
+# Geraet noch nicht geprueft ist (INVERTER_FAILSAFE_VERIFIED=0), bekommt
+# ebenfalls keinen Timer - das wird aber laut gemeldet (Phase fehler:failsafe,
+# Fail-Safe-Zustand "fehlt" bzw. "ungeprueft" im Status-Push), statt so zu
+# tun, als waere die Anlage abgesichert (Befund 3 der Pruefung 10/2026).
+# FAILSAFE_ALLOW_UNVERIFIED=1 in gateway.conf schaltet den Timer auf einer
+# Testanlage trotzdem scharf (fuer den Hardware-Test). INSTALL_FAILSAFE=0
 # schaltet alles ab. Log: /var/log/stromkreis-failsafe.log und
 # journalctl -u stromkreis-failsafe. Von Hand: stromkreis-failsafe --status | --now.
 # ============================================================================
@@ -64,20 +71,51 @@ remove_failsafe() {
   fi
 }
 
+# Heartbeat und Standby schreibt der Kern als openHAB-Benutzer
+# (GW_REQUEST_DIR); Zustand, Stempel und Zaehler der root-Timer liegen
+# getrennt davon in GW_STATE_DIR (root).
+ensure_state_dirs
+
+# Fehlenden Fail-Safe sichtbar machen: Zustandsdatei fuer den Status-Push
+# (Dashboard zeigt "fehlt"/"ungeprueft") und Phasenmeldung an die Plattform.
+#   $1 ergebnis (fehlt|ungeprueft)  $2 meldung
+failsafe_missing() {
+  GW_FS_ERGEBNIS="$1" GW_FS_MELDUNG="$2" GW_FS_OUT="$GW_FAILSAFE_STATUS" python3 - <<'PYJ'
+import datetime, json, os
+out = os.environ["GW_FS_OUT"]
+with open(out + ".tmp", "w") as f:
+    json.dump({"zeit": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+               "ergebnis": os.environ["GW_FS_ERGEBNIS"], "grund": "Einrichtung",
+               "meldung": os.environ["GW_FS_MELDUNG"][:300], "anzahl": 0}, f, ensure_ascii=False)
+os.replace(out + ".tmp", out)
+PYJ
+  chmod 0644 "$GW_FAILSAFE_STATUS" 2>/dev/null || true
+  warn "$2"
+  report_phase "fehler:failsafe" "$2"
+}
+
 if [ "$INSTALL_FAILSAFE" != "1" ]; then
   remove_failsafe "INSTALL_FAILSAFE=0"
   exit 0
 fi
 if ! type inverter_failsafe_reset >/dev/null 2>&1; then
-  remove_failsafe "Profil '$INVERTER_PROFILE' ohne inverter_failsafe_reset (Kommandos laufen am Geraet selbst ab)"
+  if [ "${INVERTER_HAS_AUTO_REVERT:-0}" = "1" ]; then
+    remove_failsafe "Profil '$INVERTER_PROFILE' mit geraeteseitigem Auto-Revert (Kommandos laufen am Geraet selbst ab)"
+    rm -f "$GW_FAILSAFE_STATUS"
+    exit 0
+  fi
+  remove_failsafe "Profil '$INVERTER_PROFILE' ohne inverter_failsafe_reset"
+  failsafe_missing fehlt "Kein Fail-Safe ausserhalb von openHAB fuer das Profil '$INVERTER_PROFILE': faellt openHAB aus, bleiben gesetzte Kommandos am Wechselrichter stehen (siehe inverters/failsafe-modbus.md)."
   exit 0
 fi
-
-# Heartbeat schreibt der Kern als openHAB-Benutzer, Zustand und Stempel der
-# root-Timer - dasselbe Verzeichnis wie die Dashboard-Anforderungen.
-mkdir -p "$GW_REQUEST_DIR"
-chown "$OPENHAB_USER:$OPENHAB_GROUP" "$GW_REQUEST_DIR" 2>/dev/null || true
-chmod 0755 "$GW_REQUEST_DIR"
+if [ "${INVERTER_FAILSAFE_VERIFIED:-0}" != "1" ] && [ "${FAILSAFE_ALLOW_UNVERIFIED:-0}" != "1" ]; then
+  remove_failsafe "Profil '$INVERTER_PROFILE': Fail-Safe-Reset am Geraet noch nicht geprueft (INVERTER_FAILSAFE_VERIFIED=0)"
+  failsafe_missing ungeprueft "Fail-Safe-Reset fuer '$INVERTER_PROFILE' ist nur am Simulator geprueft und bleibt abgeschaltet, bis der Hardware-Test (inverters/failsafe-modbus.md) bestanden ist; Testanlagen: FAILSAFE_ALLOW_UNVERIFIED=1 in gateway.conf."
+  exit 0
+fi
+# Ein frueher gemeldetes "fehlt"/"ungeprueft" verschwindet mit dem ersten
+# echten Timer-Lauf (der schreibt den Zustand neu); bis dahin weg damit.
+if grep -qE '"ergebnis": *"(fehlt|ungeprueft)"' "$GW_FAILSAFE_STATUS" 2>/dev/null; then rm -f "$GW_FAILSAFE_STATUS"; fi
 
 # --- /usr/local/sbin/stromkreis-failsafe ---------------------------------------------
 # Wie stromkreis-update: Rumpf in main, atomar ersetzt (das Paket-Update schreibt
@@ -121,8 +159,19 @@ type inverter_failsafe_reset >/dev/null 2>&1 || exit 0
 HB="$GW_HEARTBEAT_FILE"
 STANDBY="$GW_FAILSAFE_STANDBY"
 STATUS="$GW_FAILSAFE_STATUS"
-STAMP="$GW_REQUEST_DIR/failsafe-last-reset"
-COUNT="$GW_REQUEST_DIR/failsafe-count"
+STAMP="$GW_STATE_DIR/failsafe-last-reset"
+COUNT="$GW_STATE_DIR/failsafe-count"
+
+# Zaehler lesen: nur Ziffern (die Datei gehoert root, trotzdem keine
+# ungepruefte Arithmetik mit Dateiinhalt).
+read_count() {
+  local c
+  c="$(cat "$COUNT" 2>/dev/null || true)"
+  case "$c" in ''|*[!0-9]*) echo 0 ;; *) echo "$c" ;; esac
+}
+
+# Marker des openHAB-Benutzers zaehlen nur als regulaere Datei (kein Symlink).
+marker_file() { [ -f "$1" ] && [ ! -L "$1" ]; }
 
 # Adresse des Wechselrichters: zuerst aus dem Bridge-Thing der JSONDB (der
 # Netzwerk-Watchdog haelt sie nach DHCP-Wechseln aktuell), ersatzweise aus
@@ -142,7 +191,7 @@ resolve_host() {
 #   $1 ergebnis (reset|fehler)  $2 grund  $3 meldung
 write_status() {
   GW_FS_ERGEBNIS="$1" GW_FS_GRUND="$2" GW_FS_MELDUNG="$3" \
-  GW_FS_ANZAHL="$(cat "$COUNT" 2>/dev/null || echo 0)" GW_FS_OUT="$STATUS" python3 - <<'PYJ'
+  GW_FS_ANZAHL="$(read_count)" GW_FS_OUT="$STATUS" python3 - <<'PYJ'
 import datetime, json, os
 out = os.environ["GW_FS_OUT"]
 with open(out + ".tmp", "w") as f:
@@ -170,7 +219,7 @@ do_reset() {
   out="$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"
   if [ "$rc" -eq 0 ]; then
     date +%s > "$STAMP"
-    echo "$(( $(cat "$COUNT" 2>/dev/null || echo 0) + 1 ))" > "$COUNT"
+    echo "$(( $(read_count) + 1 ))" > "$COUNT"
     fslog "Reset geschrieben ($1) an $host: $out"
     write_status reset "$1" "$out"
   else
@@ -185,7 +234,7 @@ timer_run() {
   take_lock
   # Hauptschalter AUS: der Kern hat den letzten Reset geschickt, ab hier
   # gehoert der Wechselrichter dem Mitglied (anderes EMS, Hersteller-App).
-  if [ -f "$STANDBY" ]; then
+  if marker_file "$STANDBY"; then
     rm -f "$STAMP"
     exit 0
   fi
@@ -193,7 +242,7 @@ timer_run() {
   systemctl is-active --quiet openhab.service || active=0
   # Noch kein Zyklus mit bestaetigtem Reset (frische Installation): es kann
   # nichts stehen geblieben sein; den Boot deckt --boot ab.
-  [ -f "$HB" ] || exit 0
+  marker_file "$HB" || exit 0
   hb=$(stat -c %Y "$HB" 2>/dev/null || echo 0)
   age=$(( (now - hb) / 60 ))
   if [ "$active" -eq 1 ] && [ "$age" -lt "$STALE_MIN" ]; then
@@ -212,6 +261,7 @@ timer_run() {
   # openHAB zwischendurch kurz lebte und ein Fenster setzte. Ein
   # fehlgeschlagener Reset (kein Stempel) wird jede Minute wiederholt.
   last=$(cat "$STAMP" 2>/dev/null || echo 0)
+  case "$last" in ''|*[!0-9]*) last=0 ;; esac
   if [ "$last" -gt 0 ] && [ $(( (now - last) / 60 )) -lt "$REPEAT_MIN" ]; then
     exit 0
   fi
@@ -221,7 +271,7 @@ timer_run() {
 boot_run() {
   local i
   take_lock
-  if [ -f "$STANDBY" ]; then
+  if marker_file "$STANDBY"; then
     fslog "Standby (Hauptschalter AUS) - kein Boot-Reset, der Wechselrichter bleibt unangetastet."
     return 0
   fi
@@ -239,12 +289,12 @@ status_run() {
   echo "Profil:          ${INVERTER_PROFILE} (inverter_failsafe_reset vorhanden)"
   echo "Adresse:         $(resolve_host)"
   echo "openhab.service: $(systemctl is-active openhab.service 2>/dev/null || true)"
-  if [ -f "$STANDBY" ]; then
+  if marker_file "$STANDBY"; then
     echo "Standby:         JA seit $(date -r "$STANDBY" '+%F %T') - Hauptschalter AUS, Timer und Boot-Reset ruhen"
   else
     echo "Standby:         nein (Hauptschalter EIN oder noch kein Zyklus)"
   fi
-  if [ -f "$HB" ]; then
+  if marker_file "$HB"; then
     hb=$(stat -c %Y "$HB")
     echo "Heartbeat:       $(date -d "@$hb" '+%F %T') ($(( (now - hb) / 60 )) min alt, Schwelle ${STALE_MIN} min)"
   else

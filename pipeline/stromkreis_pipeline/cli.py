@@ -30,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 from . import db, forecast, weather
 from .eegfaktura import config, sync
-from .eegfaktura.client import EegfakturaClient, EegfakturaError
+from .eegfaktura.client import EegfakturaClient
 
 VIENNA = ZoneInfo("Europe/Vienna")
 log = logging.getLogger("stromkreis_pipeline")
@@ -53,8 +53,9 @@ def cmd_probe(args):
         try:
             begin, end = _client_for(source).metadata()
             print(f"{source.slug}: Zugang ok, Daten von {begin.date()} bis {end.date()} ({source.auth_mode})")
-        except (EegfakturaError, config.ConfigError) as err:
+        except Exception as err:  # noqa: BLE001 - Fehler je Mandant isolieren
             failures += 1
+            log.exception("%s: Zugangstest fehlgeschlagen", source.slug)
             print(f"{source.slug}: FEHLER: {err}", file=sys.stderr)
     return 1 if failures else 0
 
@@ -78,11 +79,10 @@ def cmd_sync(args):
                 )
                 for warning in stats.warnings:
                     print(f"{source.slug}: Hinweis: {warning}")
-            except (EegfakturaError, config.ConfigError) as err:
-                # Fehler je Mandant isolieren, der Gesamtlauf geht weiter
+            except Exception as err:  # noqa: BLE001 - Fehler je Mandant isolieren, der Gesamtlauf geht weiter
                 failures += 1
                 conn.rollback()
-                log.error("%s: %s", source.slug, err)
+                log.exception("%s: Import fehlgeschlagen", source.slug)
                 print(f"{source.slug}: FEHLER: {err}", file=sys.stderr)
     return 1 if failures else 0
 

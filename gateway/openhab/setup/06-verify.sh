@@ -114,8 +114,31 @@ if grep -q '@GW_THING_UID@' "$control_src" 2>/dev/null; then
   fi
 fi
 
+# --- Zustandsverzeichnisse (openhab-Marker getrennt von root-Zustand) --------
+if [ -d "$GW_STATE_DIR" ] && [ "$(stat -c %U "$GW_STATE_DIR" 2>/dev/null)" = "root" ]; then
+  log "Zustandsverzeichnis der root-Timer: $GW_STATE_DIR (root)"
+else
+  fail "$GW_STATE_DIR fehlt oder gehoert nicht root - beheben mit: sudo $GW_SETUP_DIR/10-install-failsafe.sh"
+fi
+stray="$(find "$GW_REQUEST_DIR" -mindepth 1 \( -type l -o -user root \) 2>/dev/null | head -n 5 || true)"
+if [ -n "$stray" ]; then
+  fail "Symlinks oder root-Dateien im openhab-Verzeichnis $GW_REQUEST_DIR: $(printf '%s' "$stray" | tr '\n' ' ')"
+else
+  log "Anforderungsverzeichnis sauber: $GW_REQUEST_DIR"
+fi
+if find "$OPENHAB_CONF/automation/js" -maxdepth 1 -name 'stromkreis_*.js' -perm -o+r 2>/dev/null | grep -q .; then
+  fail "Stromkreis-Regeln sind fuer alle lesbar (Anlagen-Token) - beheben mit: sudo $GW_SETUP_DIR/04-install-rules.sh"
+else
+  log "Stromkreis-Regeln nicht weltlesbar."
+fi
+
 # --- Fail-Safe (nur Profile mit inverter_failsafe_reset) -------------------
-if type inverter_failsafe_reset >/dev/null 2>&1 && [ "$INSTALL_FAILSAFE" = "1" ]; then
+if [ "$INSTALL_FAILSAFE" = "1" ] && ! type inverter_failsafe_reset >/dev/null 2>&1 && [ "${INVERTER_HAS_AUTO_REVERT:-0}" != "1" ]; then
+  warn "Profil '$INVERTER_PROFILE' hat KEINEN Fail-Safe ausserhalb von openHAB (kein Auto-Revert am Geraet, kein inverter_failsafe_reset) - siehe inverters/failsafe-modbus.md."
+elif [ "$INSTALL_FAILSAFE" = "1" ] && type inverter_failsafe_reset >/dev/null 2>&1 \
+     && [ "${INVERTER_FAILSAFE_VERIFIED:-0}" != "1" ] && [ "${FAILSAFE_ALLOW_UNVERIFIED:-0}" != "1" ]; then
+  warn "Fail-Safe-Reset fuer '$INVERTER_PROFILE' ist am Geraet noch nicht geprueft (INVERTER_FAILSAFE_VERIFIED=0) - Timer bleibt aus."
+elif type inverter_failsafe_reset >/dev/null 2>&1 && [ "$INSTALL_FAILSAFE" = "1" ]; then
   if systemctl is-active --quiet stromkreis-failsafe.timer 2>/dev/null; then
     log "Fail-Safe-Timer aktiv: stromkreis-failsafe.timer"
   else

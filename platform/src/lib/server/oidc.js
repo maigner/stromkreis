@@ -14,6 +14,10 @@ import { env as publicEnv } from '$env/dynamic/public';
 
 const JWKS_TTL_MS = 10 * 60 * 1000;
 const SCOPES = 'openid profile email offline_access';
+// Zeitlimit fuer jede Verbindung zum Keycloak: ein haengender Issuer darf
+// den Login der Plattform nicht blockieren.
+const FETCH_TIMEOUT_MS = 10000;
+const fetchOpts = () => ({ signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 
 /** @type {{ issuer: string, data: any, fetchedAt: number } | null} */
 let discovery = null;
@@ -36,7 +40,7 @@ async function discover() {
     const cfg = oidcConfig();
     if (!cfg) throw new Error('OIDC nicht konfiguriert (OIDC_ISSUER, OIDC_CLIENT_ID, PUBLIC_ORIGIN)');
     if (discovery && discovery.issuer === cfg.issuer && Date.now() - discovery.fetchedAt < 60 * 60 * 1000) return discovery.data;
-    const res = await fetch(`${cfg.issuer}/.well-known/openid-configuration`);
+    const res = await fetch(`${cfg.issuer}/.well-known/openid-configuration`, fetchOpts());
     if (!res.ok) throw new Error(`OIDC-Discovery fehlgeschlagen (HTTP ${res.status})`);
     const data = await res.json();
     if (data.issuer !== cfg.issuer) throw new Error(`OIDC-Issuer passt nicht: ${data.issuer}`);
@@ -48,7 +52,7 @@ async function discover() {
 async function loadJwks(force = false) {
     if (!force && jwks && Date.now() - jwks.fetchedAt < JWKS_TTL_MS) return jwks.keys;
     const disc = await discover();
-    const res = await fetch(disc.jwks_uri);
+    const res = await fetch(disc.jwks_uri, fetchOpts());
     if (!res.ok) throw new Error(`JWKS nicht ladbar (HTTP ${res.status})`);
     jwks = { keys: (await res.json()).keys || [], fetchedAt: Date.now() };
     return jwks.keys;
@@ -97,7 +101,7 @@ export async function completeLogin(code, verifier, nonce) {
         redirect_uri: cfg.redirectUri,
         code_verifier: verifier
     });
-    const res = await fetch(disc.token_endpoint, { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    const res = await fetch(disc.token_endpoint, { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, ...fetchOpts() });
     const tokens = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(`Token-Tausch fehlgeschlagen (HTTP ${res.status}): ${tokens.error_description || tokens.error || ''}`);
     const access = await verifyJwt(tokens.access_token, cfg);
@@ -114,6 +118,9 @@ export async function completeLogin(code, verifier, nonce) {
         claims: {
             sub: /** @type {string} */ (id.sub || access.sub),
             email: /** @type {string | undefined} */ (access.email || id.email),
+            // Nur eine vom Keycloak bestaetigte Adresse darf Identitaeten
+            // verknuepfen (Befund 1 der Pruefung 10/2026).
+            emailVerified: access.email_verified === true || id.email_verified === true,
             name: /** @type {string} */ (access.name || [access.given_name, access.family_name].filter(Boolean).join(' ') || access.preferred_username),
             username: /** @type {string} */ (access.preferred_username),
             tenants: normalizeTenants(access.tenant),
@@ -159,7 +166,8 @@ export async function verifyJwt(token, cfg) {
     if (!ok) throw new Error('Signatur ungueltig');
     const now = Math.floor(Date.now() / 1000);
     if (payload.iss !== cfg.issuer) throw new Error('Issuer passt nicht');
-    if (typeof payload.exp === 'number' && payload.exp + 5 < now) throw new Error('Token abgelaufen');
+    if (typeof payload.exp !== 'number') throw new Error('Token ohne Ablaufzeit');
+    if (payload.exp + 5 < now) throw new Error('Token abgelaufen');
     if (typeof payload.nbf === 'number' && payload.nbf - 5 > now) throw new Error('Token noch nicht gueltig');
     return payload;
 }

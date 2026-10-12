@@ -38,7 +38,15 @@
 					{#if data.canSwitch}
 						· <a href="/intern/eeg-wechsel" class="text-brand-600 hover:underline dark:text-brand-500">EEG wechseln</a>
 					{/if}
+					{#if data.canLink}
+						· <a href="/auth/eegfaktura/login?verknuepfen=1" data-sveltekit-reload class="text-brand-600 hover:underline dark:text-brand-500">Mit EEGFaktura verknüpfen</a>
+					{/if}
 				</p>
+				{#if data.linked}
+					<p class="mt-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+						EEGFaktura-Konto verknüpft. "EEG wechseln" zeigt ab jetzt alle Energiegemeinschaften dieses Kontos.
+					</p>
+				{/if}
 			</div>
 			<form method="POST" action="/abmelden">
 				<button

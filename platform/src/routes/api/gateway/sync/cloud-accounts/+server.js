@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { syncTokenOk } from '$lib/server/sync-auth.js';
 import { sql } from '$lib/server/db.js';
 import { decrypt } from '$lib/server/secrets.js';
 
@@ -12,8 +12,7 @@ import { decrypt } from '$lib/server/secrets.js';
  * Das Ergebnis meldet der Sync an /api/gateway/sync/cloud-result.
  */
 export async function GET({ request }) {
-	const token = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
-	if (!env.GATEWAY_SYNC_TOKEN || token !== env.GATEWAY_SYNC_TOKEN) {
+	if (!syncTokenOk(request)) {
 		return json({ error: 'Nicht erlaubt' }, { status: 401 });
 	}
 	const rows = await sql`

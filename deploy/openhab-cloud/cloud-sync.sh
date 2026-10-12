@@ -8,7 +8,9 @@ if [ -f config.json.template ]; then
   node -e "
     const fs = require('fs');
     const t = fs.readFileSync('config.json.template', 'utf8');
-    const j = t.replace(/\\\$\{(\w+)(?::-(.*?))?\}/g, (_, k, d) => process.env[k] ?? d ?? '');
+    // Werte JSON-konform einsetzen (Passwoerter mit Anfuehrungszeichen oder
+    // Backslash wuerden die config.json sonst unlesbar machen)
+    const j = t.replace(/\\\$\{(\w+)(?::-(.*?))?\}/g, (_, k, d) => JSON.stringify(process.env[k] ?? d ?? '').slice(1, -1));
     JSON.parse(j);
     fs.writeFileSync('config.json', j);
   "

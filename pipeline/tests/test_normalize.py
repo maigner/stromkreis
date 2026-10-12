@@ -97,3 +97,33 @@ def test_doppelte_zeitstempel_letzter_wert_gilt(caplog):
     total = [r for r in records if r.kind == "total_consumption" and r.measured_at == from_ms(ts)]
     assert total[0].value == 0.012
     assert "doppelte Zeitstempel" in caplog.text
+
+
+def test_ungueltige_qov_und_werte(caplog):
+    payload = {"AT1": {"direction": "CONSUMPTION", "data": [
+        {"ts": TS, "value": [0.5, "abc", 0.2], "qov": [7, 1, "1"]},
+        {"ts": TS + 900_000, "value": [float("nan"), 0.1, True], "qov": [1.0, 1.5, -1]},
+    ]}}
+    with caplog.at_level("WARNING"):
+        records = normalize_rawdata(payload)
+    by_key = {(r.kind, r.measured_at): r for r in records}
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    second = datetime(2026, 1, 1, 0, 15, tzinfo=timezone.utc)
+    # Nicht-numerische Werte ("abc", NaN, bool) fallen weg
+    assert set(by_key) == {("total_consumption", start), ("self_use", start), ("production_share", second)}
+    # qov ausserhalb 0..3 oder nicht ganzzahlig wird None, 1.0 gilt als 1
+    assert by_key[("total_consumption", start)].quality is None
+    assert by_key[("self_use", start)].quality is None
+    assert by_key[("production_share", second)].quality is None
+    assert "3 nicht-numerische Messwerte" in caplog.text
+    assert "3 ungueltige qov-Werte" in caplog.text  # 7, "1", 1.5 (-1 sitzt auf einem uebersprungenen Slot)
+
+
+def test_normalize_quality():
+    from stromkreis_pipeline.eegfaktura.normalize import normalize_quality
+    assert normalize_quality(None) == (None, False)
+    assert normalize_quality(2) == (2, False)
+    assert normalize_quality(1.0) == (1, False)
+    assert normalize_quality(4) == (None, True)
+    assert normalize_quality(True) == (None, True)
+    assert normalize_quality("1") == (None, True)

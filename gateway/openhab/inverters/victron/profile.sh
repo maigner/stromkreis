@@ -337,3 +337,52 @@ for t in json.load(sys.stdin): print(t["UID"])')
   done
   return $ok
 }
+
+# Werkswerte fuer den Fail-Safe-Reset, falls die gemerkten Items
+# (Stromkreis_VIC_Reset*) nicht per REST lesbar sind, weil openHAB gerade
+# nicht laeuft: die Rueckfallwerte des Adapters (VIC_DEFAULT_*). In
+# gateway.conf ueberschreibbar, wenn die Anlage abweichende Einstellungen
+# hat (z. B. ein vom Installateur gesetztes DVCC-Limit).
+VICTRON_RESET_SETPOINT_W="${VICTRON_RESET_SETPOINT_W:-50}"
+VICTRON_RESET_MAX_CHARGE_A="${VICTRON_RESET_MAX_CHARGE_A:--1}"
+
+# Gemerkter Werkswert aus einem Reset-Item per REST - nur solange openHAB
+# antwortet (3 s Timeout, ein haengendes openHAB blockiert den Timer nicht)
+# und der Wert eine ganze Zahl ist; sonst leer. $1 = Item
+__vic_remembered_value() {
+  local value
+  case "${OH_API_TOKEN:-}" in oh.*) ;; *) return 0 ;; esac
+  value="$(curl -s -m 3 -H "Authorization: Bearer $OH_API_TOKEN" \
+      "http://127.0.0.1:8080/rest/items/$1/state" 2>/dev/null || true)"
+  value="${value%% *}"; value="${value%.*}"
+  printf '%s' "$value" | grep -qE '^-?[0-9]+$' && printf '%s' "$value"
+  return 0
+}
+
+# Fail-Safe-Reset ohne openHAB (root-Timer stromkreis-failsafe und Boot-Reset,
+# siehe setup/10-install-failsafe.sh): die ESS-Settings-Register kennen
+# kein Auto-Revert, ein Setpoint oder eine Ladesperre bleibt stehen, wenn
+# openHAB ausfaellt. Schreibt grid setpoint (2700) und DVCC MaxChargeCurrent
+# (2705) auf die Werkswerte (dieselben zwei Writes wie gwReset() im
+# Adapter) und prueft per Read-back. Die Werkswerte kommen aus den
+# gemerkten Items, solange openHAB antwortet, sonst aus VICTRON_RESET_*.
+# $1 = Adresse des GX (aus dem Bridge-Thing, ersatzweise INVERTER_HOST).
+# Exit 0 nur bei bestaetigtem Reset - der Timer wiederholt sonst. Port wie
+# im Bridge-Thing (502).
+inverter_failsafe_reset() {
+  local setpoint maxchg
+  setpoint="$(__vic_remembered_value Stromkreis_VIC_ResetSetpointW)"
+  maxchg="$(__vic_remembered_value Stromkreis_VIC_ResetMaxChargeA)"
+  python3 "$GW_INVERTER_DIR/victron/tools/failsafe_reset.py" \
+    --host "$1" --port "${MODBUS_PORT:-502}" --unit "$MODBUS_UNIT_ID" \
+    --setpoint "${setpoint:-$VICTRON_RESET_SETPOINT_W}" \
+    --max-charge "${maxchg:-$VICTRON_RESET_MAX_CHARGE_A}"
+}
+
+# Hardware-Freigabe des Fail-Safe-Resets: 0 = nur am Simulator geprueft
+# (tools/sim_venus.py, 2026-10-12). Erst auf 1 setzen, wenn der Geraetetest
+# aus inverters/failsafe-modbus.md (Abschnitt 8b) an einem GX-Geraet
+# bestanden ist - solange 0, richtet 10-install-failsafe.sh den Timer nicht
+# ein, ein unverifizierter Write auf eine fremde Registerkarte ist
+# schlimmer als kein Fail-Safe.
+INVERTER_FAILSAFE_VERIFIED=0

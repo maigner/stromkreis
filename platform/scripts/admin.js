@@ -70,8 +70,9 @@ try {
 			break;
 		}
 		case 'operator:create': {
-			const [slug, name, email] = args;
-			if (!slug || !name || !email) throw new Error(usage);
+			const [slug, name, emailRaw] = args;
+			if (!slug || !name || !emailRaw) throw new Error(usage);
+			const email = emailRaw.trim().toLowerCase(); // wie der OIDC-Login
 			const tenant = await requireTenant(slug);
 			const [operator] = await sql`
 				insert into member (tenant_id, name, email, role)
@@ -84,8 +85,9 @@ try {
 			break;
 		}
 		case 'invite': {
-			const [slug, email] = args;
-			if (!slug || !email) throw new Error(usage);
+			const [slug, emailRaw] = args;
+			if (!slug || !emailRaw) throw new Error(usage);
+			const email = emailRaw.trim().toLowerCase();
 			const tenant = await requireTenant(slug);
 			const [member] = await sql`
 				select id, name from member where tenant_id = ${tenant.id} and email = ${email}

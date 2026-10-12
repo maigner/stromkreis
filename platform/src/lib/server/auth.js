@@ -50,6 +50,19 @@ export function hashToken(token) {
 }
 
 /**
+ * Prueft, ob ein Einmal-Login-Token noch einloesbar ist, ohne ihn zu
+ * verbrauchen (Anzeige der Anmeldeseite; eingeloest wird erst per POST,
+ * damit Link-Scanner in Mailprogrammen den Link nicht entwerten).
+ * @param {string} token
+ */
+export async function peekLoginToken(token) {
+    const rows = await sql`
+        select 1 from login_token
+        where token_hash = ${hashToken(token)} and used_at is null and expires_at > now()`;
+    return rows.length > 0;
+}
+
+/**
  * Löst einen Einmal-Login-Token ein (markiert ihn als verbraucht).
  * @param {string} token
  * @returns {Promise<{tenant_id: number, member_id: number} | null>}
@@ -72,6 +85,10 @@ export async function consumeLoginToken(token) {
  * @param {number} memberId
  */
 export async function createSession(tenantId, memberId) {
+	// Gelegenheit zum Aufraeumen: abgelaufene Sessions und Login-Links
+	// (sonst wachsen die Tabellen unbegrenzt).
+	await sql`delete from session where expires_at < now() - interval '1 day'`;
+	await sql`delete from login_token where expires_at < now() - interval '7 days' or used_at < now() - interval '7 days'`;
 	const token = randomBytes(32).toString('base64url');
 	await sql`
 		insert into session (tenant_id, member_id, token_hash, expires_at)

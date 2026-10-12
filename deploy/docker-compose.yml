@@ -44,10 +44,14 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-net.stromkreis.platform}
       EEGFAKTURA_BASE_URL: ${EEGFAKTURA_BASE_URL:-https://eegfaktura.at}
-      TOKEN_SECRET: ${TOKEN_SECRET:-}
+      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET fehlt in .env (openssl rand -hex 32)}
       IMAGE_DIR: /var/lib/stromkreis/images
+      # Basis-Image der SD-Karten: Release-Tag und optional SHA-256-Pin (gateway-image.js)
+      OPENHABIAN_RELEASE: ${OPENHABIAN_RELEASE:-latest}
+      OPENHABIAN_IMAGE: ${OPENHABIAN_IMAGE:-}
+      OPENHABIAN_IMAGE_SHA256: ${OPENHABIAN_IMAGE_SHA256:-}
       # Fernwartung und Stromkreis-Cloud (Provisionierung + Sync-Endpunkte)
-      GATEWAY_SYNC_TOKEN: ${GATEWAY_SYNC_TOKEN:-}
+      GATEWAY_SYNC_TOKEN: ${GATEWAY_SYNC_TOKEN:?GATEWAY_SYNC_TOKEN fehlt in .env}
       WG_ENDPOINT: ${WG_ENDPOINT:-stromkreis.net:51820}
       WG_SUBNET_PREFIX: ${WG_SUBNET_PREFIX:-10.88.0}
       WG_PUBLIC_KEY_FILE: /var/lib/stromkreis/wireguard/server.pub
@@ -80,7 +84,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
-      TOKEN_SECRET: ${TOKEN_SECRET:-}
+      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET fehlt in .env (openssl rand -hex 32)}
       WORKER_PACE_SECONDS: ${WORKER_PACE_SECONDS:-20}
       TZ: Europe/Vienna
     depends_on:
@@ -96,7 +100,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://stromkreis:${POSTGRES_PASSWORD}@db:5432/stromkreis?sslmode=disable
-      TOKEN_SECRET: ${TOKEN_SECRET:-}
+      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET fehlt in .env (openssl rand -hex 32)}
       REVIEW_CLOUD_USERNAME: ${REVIEW_CLOUD_USERNAME:-app-review@stromkreis.net}
       REVIEW_CLOUD_PASSWORD: ${REVIEW_CLOUD_PASSWORD:-}
       REVIEW_CLOUD_UUID: ${REVIEW_CLOUD_UUID:-}

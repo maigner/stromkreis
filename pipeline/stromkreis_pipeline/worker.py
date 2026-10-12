@@ -14,12 +14,25 @@ eegfaktura_oidc_token.last_error (dann hilft ein erneuter Login).
 
 Es laeuft genau ein Auftrag gleichzeitig (ein Worker-Prozess); ein Auftrag,
 dessen heartbeat aelter als STALE_MINUTES ist, gilt als verwaist und wird
-neu aufgenommen.
+neu aufgenommen. Ein neu aufgenommener Auftrag setzt die Energiephase beim
+letzten gesicherten Stueck fort (progress.chunk_end bzw. letzter Messwert,
+minus Ueberlappung), auch bei full_import.
+
+SIGTERM/SIGINT (Container-Stop, Deploy) setzen ein Stoppsignal: der laufende
+Auftrag haelt nach dem naechsten gesicherten Stueck an, gibt den Auftrag frei
+(heartbeat_at = null, sofort wieder aufnehmbar) und der Worker beendet sich.
+
+Bei leerer Auftragsschlange stellt der Worker alle WEATHER_REFRESH_HOURS fuer
+jeden Mandanten mit gespeichertem Refresh-Token und aktiver Quelle einen
+inkrementellen Import ein, wenn der letzte Auftrag aelter als
+SYNC_INTERVAL_HOURS ist (planmaessiger Import ohne Betreiber-Login).
 """
 
 import json
 import logging
 import os
+import signal
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -37,7 +50,18 @@ STALE_MINUTES = 30
 # laufend) und Prognosen neu rechnen, wenn der letzte Lauf zu alt ist
 WEATHER_REFRESH_HOURS = float(os.environ.get("WEATHER_REFRESH_HOURS", "6"))
 FORECAST_MAX_AGE_HOURS = float(os.environ.get("FORECAST_MAX_AGE_HOURS", "24"))
+# Planmaessiger inkrementeller Import je Mandant, wenn der letzte Auftrag aelter ist
+SYNC_INTERVAL_HOURS = 24
 ACTIVE = ("queued", "masterdata", "energy")
+
+# Stoppsignal (SIGTERM/SIGINT): gesetzt, sobald der Worker sich beenden soll
+STOP = threading.Event()
+
+
+def request_stop(signum=None, frame=None):
+    if not STOP.is_set():
+        log.info("Stoppsignal empfangen, Worker haelt nach dem laufenden Stueck an")
+    STOP.set()
 
 
 def _json(value):
@@ -55,7 +79,8 @@ def claim_job(conn):
             where j.id = (
                 select id from eegfaktura_sync_job
                 where phase = 'queued'
-                   or (phase in ('masterdata', 'energy') and heartbeat_at < now() - make_interval(mins => %s))
+                   or (phase in ('masterdata', 'energy')
+                       and (heartbeat_at is null or heartbeat_at < now() - make_interval(mins => %s)))
                 order by requested_at
                 limit 1
                 for update skip locked
@@ -87,6 +112,30 @@ def update_job(conn, job_id, phase=None, progress=None, error=None, finished=Fal
              error, finished, job_id),
         )
     conn.commit()
+
+
+def release_job(conn, job_id):
+    """Auftrag nach einem Stoppsignal freigeben: Phase und Fortschritt bleiben,
+    heartbeat_at = null macht ihn fuer den naechsten Worker sofort aufnehmbar."""
+    with conn.cursor() as cur:
+        cur.execute("update eegfaktura_sync_job set heartbeat_at = null where id = %s", (job_id,))
+    conn.commit()
+
+
+def resume_since(conn, tenant_id, progress):
+    """Startpunkt der Energiephase fuer einen wieder aufgenommenen Auftrag:
+    max(progress.chunk_end, letzter Messwert) minus Ueberlappung. None, wenn
+    der Auftrag noch kein Stueck gesichert hat (dann gilt das normale Fenster)."""
+    chunk_end = (progress or {}).get("chunk_end")
+    if not chunk_end:
+        return None
+    resume = datetime.fromisoformat(chunk_end)
+    if resume.tzinfo is None:
+        resume = resume.replace(tzinfo=timezone.utc)
+    last = sync.last_measured_at(conn, tenant_id)
+    if last is not None and last > resume:
+        resume = last
+    return resume - sync.OVERLAP
 
 
 def load_source(conn, tenant_id):
@@ -159,7 +208,10 @@ def run_job(conn, job):
         update_job(conn, job["id"], phase="energy", progress={
             "members": counts, "points": len(point_ids), "geocoded": geocoded, "geocode_missed": missed})
         job["phase"] = "energy"
-        time.sleep(min(PACE_SECONDS, 5))
+        if STOP.wait(min(PACE_SECONDS, 5)):
+            release_job(conn, job["id"])
+            log.info("%s: Auftrag %s nach Stoppsignal freigegeben (Phase energy)", src["slug"], job["id"])
+            return
 
     if job["phase"] == "energy":
         def on_chunk(stats, chunk_start, chunk_end):
@@ -172,8 +224,17 @@ def run_job(conn, job):
         # Pausen macht sync_tenant selbst: mindestens PACE_SECONDS je Chunk,
         # bei langsamen energystore-Antworten laenger (Lastschutz)
         source = sync.SourceInfo(tenant_id=tenant_id, slug=src["slug"])
-        stats = sync.sync_tenant(conn, source, client, full=job["full_import"], on_chunk=on_chunk,
-                                 use_masterdata=False, pace_seconds=PACE_SECONDS)
+        # Wieder aufgenommener Auftrag (verwaist oder nach Stoppsignal): beim
+        # letzten gesicherten Stueck fortsetzen statt beim Periodenbeginn
+        since = resume_since(conn, tenant_id, job["progress"])
+        if since is not None:
+            log.info("%s: Auftrag %s wird ab %s fortgesetzt", src["slug"], job["id"], since.date())
+        stats = sync.sync_tenant(conn, source, client, since=since, full=job["full_import"], on_chunk=on_chunk,
+                                 use_masterdata=False, pace_seconds=PACE_SECONDS, should_stop=STOP.is_set)
+        if stats.interrupted:
+            release_job(conn, job["id"])
+            log.info("%s: Auftrag %s nach Stoppsignal freigegeben, %d Stuecke gesichert", src["slug"], job["id"], stats.chunks)
+            return
         # Direkt nach dem Import: Wetter fuer den EEG-Standort aktualisieren
         # und einen neuen Prognoselauf rechnen. Fehler dabei lassen den
         # Import-Auftrag nicht scheitern, sie landen als Hinweis in progress.
@@ -214,9 +275,49 @@ def refresh_forecast(conn, tenant_id, slug):
     return note
 
 
+def enqueue_due_syncs(conn):
+    """Planmaessigen inkrementellen Import einstellen: je Mandant mit
+    gespeichertem Refresh-Token und aktiver Quelle, wenn kein Auftrag offen ist
+    und der letzte laenger als SYNC_INTERVAL_HOURS zurueckliegt (oder noch
+    keiner existiert). Rueckgabe: Slugs der Mandanten mit neuem Auftrag."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select s.tenant_id, t.slug
+            from eegfaktura_source s
+            join tenant t on t.id = s.tenant_id
+            join eegfaktura_oidc_token o on o.tenant_id = s.tenant_id
+            where s.active
+              and not exists (
+                  select 1 from eegfaktura_sync_job j
+                  where j.tenant_id = s.tenant_id and j.phase = any(%s))
+              and coalesce(
+                  (select max(j.finished_at) from eegfaktura_sync_job j where j.tenant_id = s.tenant_id),
+                  '-infinity'::timestamptz) < now() - make_interval(secs => %s)
+            order by t.slug
+            """,
+            (list(ACTIVE), SYNC_INTERVAL_HOURS * 3600.0),
+        )
+        due = cur.fetchall()
+        for tenant_id, slug in due:
+            cur.execute(
+                "insert into eegfaktura_sync_job (tenant_id, full_import, requested_by) values (%s, false, null)",
+                (tenant_id,),
+            )
+            log.info("%s: planmaessiger Import eingestellt (letzter Auftrag aelter als %s h)", slug, SYNC_INTERVAL_HOURS)
+    conn.commit()
+    return [slug for _, slug in due]
+
+
 def maintenance(conn):
-    """Alle Mandanten: Wetter aktuell halten und veraltete Prognosen neu
-    rechnen (Schleife ueber Mandanten, laeuft nur bei leerer Auftragsschlange)."""
+    """Alle Mandanten: faellige Importe einstellen, Wetter aktuell halten und
+    veraltete Prognosen neu rechnen (Schleife ueber Mandanten, laeuft nur bei
+    leerer Auftragsschlange, alle WEATHER_REFRESH_HOURS)."""
+    try:
+        enqueue_due_syncs(conn)
+    except Exception:  # noqa: BLE001
+        conn.rollback()
+        log.exception("Planmaessige Importe konnten nicht eingestellt werden")
     # Mandanten mit neuer Adresse (Login ohne folgenden Import, z. B. nach
     # der Migration tenant_address) zuerst geokodieren, das Wetter haengt am Standort
     try:
@@ -267,15 +368,24 @@ def run_once(conn):
 
 def main_loop():
     log.info("Worker gestartet (Poll %ss, Pause je Stueck %ss)", POLL_SECONDS, PACE_SECONDS)
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
     last_maintenance = None
-    while True:
+    while not STOP.is_set():
         try:
             with db.connect() as conn:
-                while run_once(conn):
+                while not STOP.is_set() and run_once(conn):
                     pass
-                if last_maintenance is None or time.monotonic() - last_maintenance >= WEATHER_REFRESH_HOURS * 3600:
+                if not STOP.is_set() and (
+                    last_maintenance is None or time.monotonic() - last_maintenance >= WEATHER_REFRESH_HOURS * 3600
+                ):
                     maintenance(conn)
                     last_maintenance = time.monotonic()
+                    # Von maintenance eingestellte Importe gleich abarbeiten
+                    while not STOP.is_set() and run_once(conn):
+                        pass
         except Exception:  # noqa: BLE001 - z.B. DB nicht erreichbar: warten und neu verbinden
             log.exception("Worker-Schleife: Fehler, neuer Versuch in %ss", POLL_SECONDS)
-        time.sleep(POLL_SECONDS)
+        # Wartet hoechstens POLL_SECONDS, ein Stoppsignal weckt sofort
+        STOP.wait(POLL_SECONDS)
+    log.info("Worker beendet")

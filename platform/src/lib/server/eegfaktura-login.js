@@ -30,7 +30,8 @@ export function eegfakturaBaseUrl() {
  */
 export async function fetchEeg(rc, accessToken) {
     const res = await fetch(`${eegfakturaBaseUrl()}/api/eeg`, {
-        headers: { Authorization: `Bearer ${accessToken}`, tenant: rc, 'X-Tenant': rc }
+        headers: { Authorization: `Bearer ${accessToken}`, tenant: rc, 'X-Tenant': rc },
+        signal: AbortSignal.timeout(10000)
     });
     if (!res.ok) throw new Error(`GET /api/eeg fuer ${rc}: HTTP ${res.status}`);
     const eeg = await res.json();
@@ -59,7 +60,7 @@ export function tenantAddress(eeg) {
 /**
  * Mandant, Quelle, Betreiber-Mitglied, Refresh-Token und Import-Auftrag
  * fuer eine RC-Nummer sicherstellen. Rueckgabe: { tenant_id, member_id, tenant_name, created }.
- * @param {{ rc: string, eeg: Awaited<ReturnType<typeof fetchEeg>> | null, claims: { sub: string, email?: string, name: string, username: string }, refreshToken?: string, scope?: string, issuer: string, clientId: string }} p
+ * @param {{ rc: string, eeg: Awaited<ReturnType<typeof fetchEeg>> | null, claims: { sub: string, email?: string, emailVerified?: boolean, name: string, username: string }, refreshToken?: string, scope?: string, issuer: string, clientId: string }} p
  */
 export async function ensureTenantForRc(p) {
     const rc = p.rc.toUpperCase();
@@ -97,8 +98,13 @@ export async function ensureTenantForRc(p) {
                 token_url = excluded.token_url,
                 active = true`;
 
+        // Zuordnung zu einer vorhandenen Zeile: ueber die Keycloak-Identitaet
+        // (sub); ueber die E-Mail nur, wenn der Keycloak sie bestaetigt hat,
+        // und nur innerhalb dieses Mandanten (den das tenant-Claim nennt).
+        const emailVerified = p.claims.emailVerified === true;
         let [member] = await tx`
-            select id, role from member where tenant_id = ${tenant.id} and (oidc_sub = ${p.claims.sub} or email = ${email})
+            select id, role from member where tenant_id = ${tenant.id}
+                and (oidc_sub = ${p.claims.sub} or (${emailVerified} and email = ${email}))
             order by (oidc_sub = ${p.claims.sub}) desc limit 1`;
         if (!member) {
             [member] = await tx`
@@ -136,14 +142,32 @@ export async function ensureTenantForRc(p) {
 }
 
 /**
- * Mandanten, in denen eine E-Mail bzw. Identitaet als Betreiber existiert (fuer "EEG wechseln").
- * @param {string} sub
- * @param {string | null} email
+ * Mandanten, in denen dieselbe Keycloak-Identitaet (sub) Betreiber ist (fuer
+ * "EEG wechseln"). Bewusst nicht ueber die E-Mail: die ist kein Nachweis
+ * (Befund 1 der Pruefung 10/2026). Per Einladungslink angelegte Betreiber
+ * verknuepfen ihre Identitaet einmalig ueber "Mit EEGFaktura verknuepfen"
+ * (linkOidcIdentity), danach erscheint ihr Mandant hier.
+ * @param {string | null | undefined} sub
  */
-export async function operatorTenants(sub, email) {
+export async function operatorTenants(sub) {
+    if (!sub) return [];
     return sql`
         select t.id as tenant_id, t.name as tenant_name, t.slug as tenant_slug, m.id as member_id
         from member m join tenant t on t.id = m.tenant_id
-        where m.role = 'operator' and (m.oidc_sub = ${sub} or (${email}::text is not null and m.email = ${email}))
+        where m.role = 'operator' and m.oidc_sub = ${sub}
         order by t.name`;
+}
+
+/**
+ * Keycloak-Identitaet an das Mitglied der laufenden Session haengen: die
+ * Session (aus dem Einladungslink) weist den Mandanten nach, der OIDC-Login
+ * die Identitaet. Rueckgabe false, wenn die Zeile fehlt.
+ * @param {number} tenantId @param {number} memberId @param {string} sub
+ */
+export async function linkOidcIdentity(tenantId, memberId, sub) {
+    const rows = await sql`
+        update member set oidc_sub = ${sub}
+        where tenant_id = ${tenantId} and id = ${memberId} and role = 'operator'
+        returning id`;
+    return rows.length > 0;
 }

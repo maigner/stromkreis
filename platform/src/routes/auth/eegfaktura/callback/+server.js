@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { createSession } from '$lib/server/auth.js';
-import { ensureTenantForRc, fetchEeg } from '$lib/server/eegfaktura-login.js';
+import { ensureTenantForRc, fetchEeg, linkOidcIdentity } from '$lib/server/eegfaktura-login.js';
 import { completeLogin, oidcConfig } from '$lib/server/oidc.js';
 import { signCookie, verifyCookie } from '$lib/server/secrets.js';
 
@@ -13,7 +13,7 @@ function fail(msg) {
 
 // Rueckkehr vom Keycloak: Code gegen Tokens tauschen, Mandanten sicherstellen,
 // bei genau einer EEG direkt anmelden, sonst Auswahlseite.
-export async function GET({ cookies, url }) {
+export async function GET({ cookies, url, locals }) {
     const pending = verifyCookie(cookies.get('oidc_login'));
     cookies.delete('oidc_login', { path: '/auth/eegfaktura' });
     const code = url.searchParams.get('code');
@@ -31,6 +31,17 @@ export async function GET({ cookies, url }) {
         fail('Anmeldung bei EEGFaktura fehlgeschlagen');
     }
     const { claims } = login;
+
+    // Verknuepfung: Session (Einladungslink) weist den Mandanten nach, der
+    // OIDC-Login die Identitaet. Kein neuer Mandant, keine neue Session.
+    if (pending.link === true) {
+        if (!locals.user || locals.user.role !== 'operator') fail('Zum Verknuepfen bitte zuerst mit dem Einladungslink anmelden');
+        const ok = await linkOidcIdentity(locals.user.tenant_id, locals.user.member_id, claims.sub);
+        if (!ok) fail('Verknuepfung nicht moeglich');
+        console.log(`OIDC-Identitaet verknuepft: mandant ${locals.user.tenant_id} mitglied ${locals.user.member_id} (sub ${claims.sub})`);
+        throw redirect(303, '/intern?verknuepft=1');
+    }
+
     if (!claims.groups.includes('/EEG_ADMIN') && !claims.groups.includes('/EEG_OWNER')) {
         fail('Dieses EEGFaktura-Konto ist kein EEG-Administrator (Gruppe EEG_ADMIN fehlt)');
     }

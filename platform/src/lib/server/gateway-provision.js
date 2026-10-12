@@ -84,7 +84,9 @@ export function newSiteToken() {
 
 /** @param {string} pw */
 function shellQuote(pw) {
-	return `"${pw.replace(/(["\\$`])/g, '\\$1')}"`;
+	// Zeilenumbrueche wuerden die gesourcte openhabian.conf aufbrechen; das
+	// Formular lehnt sie ab, hier zur Sicherheit entfernt.
+	return `"${pw.replace(/[\r\n]/g, '').replace(/(["\\$`])/g, '\\$1')}"`;
 }
 
 export function randomPassword(length = 14) {
@@ -136,15 +138,26 @@ export function cloudBaseUrl() {
 	return (priv.CLOUD_BASE_URL || '').replace(/\/$/, '') || null;
 }
 
-/** Naechste freie Tunnel-IP im Wartungsnetz. */
-async function nextWgAddress() {
+/**
+ * Naechste freie Tunnel-IP im Wartungsnetz zuteilen und speichern. Unter
+ * einer Advisory-Sperre, damit zwei gleichzeitige Provisionierungen nicht
+ * dieselbe Adresse waehlen (sonst Unique-Verletzung, Gateway bekommt 500).
+ * @param {number} tenantId @param {number} siteId
+ */
+async function assignWgAddress(tenantId, siteId) {
 	const prefix = wgSubnetPrefix();
-	const rows = await sql`select wg_address from battery_site where wg_address like ${prefix + '.%'}`;
-	const used = new Set(rows.map((r) => Number(String(r.wg_address).split('.').pop())));
-	for (let host = WG_FIRST_HOST; host <= WG_LAST_HOST; host++) {
-		if (!used.has(host)) return `${prefix}.${host}`;
-	}
-	throw new Error('Keine freie Tunnel-IP mehr im Wartungsnetz.');
+	return sql.begin(async (tx) => {
+		await tx`select pg_advisory_xact_lock(880001)`;
+		const rows = await tx`select wg_address from battery_site where wg_address like ${prefix + '.%'}`;
+		const used = new Set(rows.map((r) => Number(String(r.wg_address).split('.').pop())));
+		for (let host = WG_FIRST_HOST; host <= WG_LAST_HOST; host++) {
+			if (used.has(host)) continue;
+			const address = `${prefix}.${host}`;
+			await tx`update battery_site set wg_address = ${address} where tenant_id = ${tenantId} and id = ${siteId}`;
+			return address;
+		}
+		throw new Error('Keine freie Tunnel-IP mehr im Wartungsnetz.');
+	});
 }
 
 /**
@@ -263,9 +276,7 @@ export async function consumeProvisionCode(code) {
 	const serverKey = wgServerPublicKey();
 	let wgAddress = site.wg_address;
 	if (serverKey && !wgAddress) {
-		wgAddress = await nextWgAddress();
-		await sql`update battery_site set wg_address = ${wgAddress}
-			where tenant_id = ${site.tenant_id} and id = ${site.id}`;
+		wgAddress = await assignWgAddress(Number(site.tenant_id), Number(site.id));
 	}
 
 	// Stromkreis-Cloud: Identitaet und Konto einmalig anlegen (Secret und

@@ -321,3 +321,24 @@ for t in json.load(sys.stdin): print(t["UID"])')
   esac
   return $ok
 }
+
+# Fail-Safe-Reset ohne openHAB (root-Timer stromkreis-failsafe und Boot-Reset,
+# siehe setup/10-install-failsafe.sh): Deye kennt kein Auto-Revert, ein
+# aktiver TOU-Fahrplan bleibt stehen, wenn openHAB ausfaellt. Schreibt
+# Time of Use enable (146) = 0 (derselbe eine Write wie gwReset() im
+# Adapter, wie dort nur bei Aenderung - EEPROM) und prueft per Read-back.
+# $1 = Adresse des RS485-Gateways (aus dem Bridge-Thing, ersatzweise
+# INVERTER_HOST). Exit 0 nur bei bestaetigtem Reset - der Timer wiederholt
+# sonst.
+inverter_failsafe_reset() {
+  python3 "$GW_INVERTER_DIR/deye/tools/failsafe_reset.py" \
+    --host "$1" --port "$MODBUS_PORT" --unit "$MODBUS_UNIT_ID"
+}
+
+# Hardware-Freigabe des Fail-Safe-Resets: 0 = nur am Simulator geprueft
+# (tools/sim_deye.py, 2026-10-12). Erst auf 1 setzen, wenn der Geraetetest
+# aus inverters/failsafe-modbus.md (Abschnitt 8b) an einem SG04LP3/SG05LP3
+# bestanden ist - solange 0, richtet 10-install-failsafe.sh den Timer nicht
+# ein, ein unverifizierter Write auf eine fremde Registerkarte ist
+# schlimmer als kein Fail-Safe.
+INVERTER_FAILSAFE_VERIFIED=0

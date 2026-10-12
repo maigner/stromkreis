@@ -14,7 +14,7 @@ ESS-Modus:
 | Ladesperre | `DVCC MaxChargeCurrent (2705) = 0` - begrenzt den Ladestrom systemweit (Multi und MPPT) |
 | Laderegelung (gwLimitCharge) | `DVCC MaxChargeCurrent (2705) = Watt / VIC_BATTERY_VOLTAGE_V` - die Umrechnung nutzt die nominelle Batteriespannung (Konstante im Adapter, Vorgabe 50 V fuer 48-V-Systeme); Ungenauigkeit regelt der Kern ueber den Live-Ladestand aus |
 | Forcierte Entladung | `grid setpoint (2700) = -Watt` - negativ heisst Einspeisung ins Netz |
-| Fail-Safe | KEIN geraeteseitiges Auto-Revert der Settings-Register - aber der ESS-Minimum-SoC wirkt als harter Boden (siehe Fail-Safe-Analyse) |
+| Fail-Safe | KEIN geraeteseitiges Auto-Revert der Settings-Register - aber der ESS-Minimum-SoC wirkt als harter Boden; root-Timer `stromkreis-failsafe` mit `tools/failsafe_reset.py` ausserhalb von openHAB, bisher nur am Simulator geprueft (`INVERTER_FAILSAFE_VERIFIED=0`) - siehe Fail-Safe-Analyse |
 
 Besonderheiten gegenueber den anderen Profilen:
 
@@ -164,8 +164,26 @@ siehe oben.)
   wird nie unter die konfigurierte Reserve entladen. Das ist ein harter,
   anlagenseitiger Boden, den z. B. das Deye-Profil nicht hat. Das
   Restrisiko MUSS dem Mitglied trotzdem kommuniziert werden.
-- Zusaetzlich moeglich (bisher nicht umgesetzt): ein systemd-Timer am Pi,
-  der die Werkswerte schreibt, wenn openHAB nicht laeuft.
+- **Fail-Safe-Reset ausserhalb von openHAB (2026-10-12):** der root-Timer
+  `stromkreis-failsafe` und der Boot-Reset (`setup/10-install-failsafe.sh`)
+  rufen `inverter_failsafe_reset` aus `profile.sh` auf, das
+  `tools/failsafe_reset.py` mit eigener Modbus-TCP-Verbindung (Unit 100,
+  Socket-Timeout 5 s, nur Standardbibliothek) startet. Es schreibt
+  dieselben zwei Writes wie `gwReset()` in derselben Reihenfolge, `grid
+  setpoint (2700)` und `DVCC MaxChargeCurrent (2705)` auf die Werkswerte,
+  und bestaetigt beide per Read-back (FC03). Die Werkswerte holt
+  `profile.sh` aus den gemerkten Items `Stromkreis_VIC_Reset*`, solange
+  openHAB per REST antwortet (3 s Timeout); sonst gelten
+  `VICTRON_RESET_SETPOINT_W` / `VICTRON_RESET_MAX_CHARGE_A` aus
+  `gateway.conf`, Vorgabe die Adapter-Rueckfallwerte 50 W / -1 A. Hat die
+  Anlage ein vom Installateur gesetztes DVCC-Limit, diese beiden Schluessel
+  in `gateway.conf` setzen - sonst schreibt der Reset ohne openHAB
+  "unbegrenzt". Geschrieben wird nur bei ESS-Modus 1/2 und plausiblem
+  Ladestand (derselbe Guard wie im Adapter). `--reads` zeigt nur die
+  aktuellen Werte. Bisher **nur am Simulator** geprueft
+  (`tools/sim_venus.py`): `INVERTER_FAILSAFE_VERIFIED=0` in `profile.sh`,
+  der Installer richtet den Timer erst nach bestandenem Geraetetest ein
+  (`../failsafe-modbus.md`, Abschnitt 8b).
 
 ## Bekannte Grenzen
 

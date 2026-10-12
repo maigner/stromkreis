@@ -7,7 +7,11 @@ wiederholte Laeufe ueberschreiben Werte nur mit der neuesten Lieferung
 in sync.py).
 """
 
+import logging
+
 from .normalize import METER_CODES, METER_CODE_UNIT
+
+log = logging.getLogger(__name__)
 
 
 def ensure_meter_codes(conn, tenant_id):
@@ -137,75 +141,129 @@ def daily_reporting_share(conn, tenant_id, day_start, day_end):
     return reporting / total
 
 
+def _find_member(cur, tenant_id, p):
+    """Zeile fuer einen Teilnehmer finden: zuerst ueber die EEG-Faktura-Teilnehmer-ID,
+    sonst ueber die E-Mail einer Zeile ohne Teilnehmer-ID (Betreiber-/Vorstandszeile
+    aus dem Login); nur Teilnehmer ohne ID fallen auf den Namen zurueck."""
+    if p["external_id"] is not None:
+        cur.execute(
+            "select id from member where tenant_id = %s and eegfaktura_participant_id = %s order by id limit 1",
+            (tenant_id, p["external_id"]),
+        )
+        row = cur.fetchone()
+        if row:
+            return row[0]
+    if p["email"]:
+        cur.execute(
+            """
+            select id from member
+            where tenant_id = %s and eegfaktura_participant_id is null and lower(email) = lower(%s)
+            order by id limit 1
+            """,
+            (tenant_id, p["email"]),
+        )
+        row = cur.fetchone()
+        if row:
+            return row[0]
+    if p["external_id"] is None:
+        cur.execute(
+            "select id from member where tenant_id = %s and eegfaktura_participant_id is null and name = %s order by id limit 1",
+            (tenant_id, p["name"]),
+        )
+        row = cur.fetchone()
+        if row:
+            return row[0]
+    return None
+
+
 def upsert_members(conn, tenant_id, participants):
     """Teilnehmer aus EEG-Faktura in member uebernehmen (Rolle member).
 
-    Schluessel ist die EEG-Faktura-Teilnehmer-ID; ohne ID wird ueber den Namen
-    zugeordnet. Betreiber-/Vorstandszeilen (aus dem Login) bleiben unberuehrt,
-    ausser die E-Mail passt: dann bekommt die vorhandene Zeile die
-    Teilnehmerdaten. Rueckgabe: Anzahl verarbeiteter Teilnehmer.
+    Schluessel ist die EEG-Faktura-Teilnehmer-ID; ohne Treffer darueber bekommt
+    die Zeile ohne Teilnehmer-ID mit passender E-Mail (Betreiber-/Vorstandszeile
+    aus dem Login) die Teilnehmerdaten, Teilnehmer ohne ID werden ueber den
+    Namen zugeordnet. Eine Zeile wechselt nie zu einer anderen Teilnehmer-ID.
+    Gehoert die E-Mail schon einer anderen Zeile (unique (tenant_id, email)),
+    wird der Teilnehmer ohne E-Mail gefuehrt (eine Warnung je Teilnehmer, ohne
+    die Adresse im Log). Rueckgabe: Anzahl verarbeiteter Teilnehmer.
     """
     count = 0
     with conn.cursor() as cur:
         for p in participants:
-            cur.execute(
-                """
-                select id from member
-                where tenant_id = %s and (
-                    (%s::text is not null and eegfaktura_participant_id = %s)
-                    or (%s::text is not null and lower(email) = lower(%s))
-                    or (eegfaktura_participant_id is null and name = %s)
+            member_id = _find_member(cur, tenant_id, p)
+            email = p["email"]
+            if email:
+                cur.execute(
+                    """
+                    select id from member
+                    where tenant_id = %s and lower(email) = lower(%s) and (%s::bigint is null or id <> %s)
+                    limit 1
+                    """,
+                    (tenant_id, email, member_id, member_id),
                 )
-                order by (eegfaktura_participant_id = %s) desc nulls last, id
-                limit 1
-                """,
-                (tenant_id, p["external_id"], p["external_id"], p["email"], p["email"], p["name"], p["external_id"]),
-            )
-            row = cur.fetchone()
-            if row:
+                if cur.fetchone():
+                    log.warning(
+                        "Tenant %s: E-Mail von Teilnehmer %s gehoert schon einem anderen Mitglied, Teilnehmer ohne E-Mail",
+                        tenant_id, p["external_id"] or p["participant_number"] or p["name"],
+                    )
+                    email = None
+            if member_id is not None:
                 cur.execute(
                     """
                     update member set name = %s, email = coalesce(email, %s), participant_number = %s,
-                        address = %s, eegfaktura_participant_id = coalesce(%s, eegfaktura_participant_id)
+                        address = %s, eegfaktura_participant_id = coalesce(eegfaktura_participant_id, %s)
                     where tenant_id = %s and id = %s
                     """,
-                    (p["name"], p["email"], p["participant_number"], p["address"], p["external_id"], tenant_id, row[0]),
+                    (p["name"], email, p["participant_number"], p["address"], p["external_id"], tenant_id, member_id),
                 )
             else:
                 cur.execute(
                     """
                     insert into member (tenant_id, name, email, role, participant_number, address, eegfaktura_participant_id)
                     values (%s, %s, %s, 'member', %s, %s, %s)
-                    on conflict (tenant_id, email) do update set name = excluded.name,
-                        participant_number = excluded.participant_number, address = excluded.address,
-                        eegfaktura_participant_id = excluded.eegfaktura_participant_id
                     """,
-                    (tenant_id, p["name"], p["email"], p["participant_number"], p["address"], p["external_id"]),
+                    (tenant_id, p["name"], email, p["participant_number"], p["address"], p["external_id"]),
                 )
             count += 1
     return count
 
 
 def link_points_to_members(conn, tenant_id, participants):
-    """measurement_point.member_id anhand der Teilnehmerliste setzen."""
+    """measurement_point.member_id anhand der Teilnehmerliste setzen.
+
+    Zuordnung ueber die Teilnehmer-ID, fuer Teilnehmer ohne ID ueber den Namen
+    (nur Zeilen ohne Teilnehmer-ID). Zaehlpunkte des Mandanten, die in keiner
+    Teilnehmerliste mehr vorkommen, verlieren ihre Zuordnung (nur bei nicht
+    leerer Teilnehmerliste, damit eine leere Antwort nichts loescht)."""
     with conn.cursor() as cur:
         for p in participants:
             if not p["points"]:
                 continue
-            cur.execute(
-                """
-                select id from member where tenant_id = %s and (
-                    (%s::text is not null and eegfaktura_participant_id = %s) or name = %s)
-                order by (eegfaktura_participant_id = %s) desc nulls last, id limit 1
-                """,
-                (tenant_id, p["external_id"], p["external_id"], p["name"], p["external_id"]),
-            )
+            if p["external_id"] is not None:
+                cur.execute(
+                    "select id from member where tenant_id = %s and eegfaktura_participant_id = %s order by id limit 1",
+                    (tenant_id, p["external_id"]),
+                )
+            else:
+                cur.execute(
+                    "select id from member where tenant_id = %s and eegfaktura_participant_id is null and name = %s order by id limit 1",
+                    (tenant_id, p["name"]),
+                )
             row = cur.fetchone()
             if not row:
                 continue
             cur.execute(
                 "update measurement_point set member_id = %s where tenant_id = %s and metering_point = any(%s)",
                 (row[0], tenant_id, [mp for mp, _ in p["points"]]),
+            )
+        if participants:
+            listed = [mp for p in participants for mp, _ in p["points"]]
+            cur.execute(
+                """
+                update measurement_point set member_id = null
+                where tenant_id = %s and member_id is not null and not (metering_point = any(%s))
+                """,
+                (tenant_id, listed),
             )
 
 

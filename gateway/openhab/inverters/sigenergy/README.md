@@ -11,7 +11,7 @@ Registerkarte auf Anlagenebene (Slave-Adresse 247), kein SunSpec:
 | Ladesperre | Modus 5 (Entladung, PV zuerst) + `ESS max discharging limit (40034) = 0` |
 | Laderegelung | KEIN `gwLimitCharge` - die Command-Charging-Modi koennten aus dem Netz laden und das Ladelimit-Register ist nicht verifiziert (Spike-Punkt); der Kern nutzt die PWM ueber die Ladesperre |
 | Forcierte Entladung | Modus 6 (Entladung, Batterie zuerst) + Entladelimit in Watt |
-| Fail-Safe | KEIN geraeteseitiges Auto-Revert bekannt - siehe Fail-Safe-Analyse |
+| Fail-Safe | KEIN geraeteseitiges Auto-Revert bekannt; root-Timer `stromkreis-failsafe` mit `tools/failsafe_reset.py` ausserhalb von openHAB, bisher nur am Simulator geprueft (`INVERTER_FAILSAFE_VERIFIED=0`) - siehe Fail-Safe-Analyse |
 
 Besonderheiten gegenueber den SunSpec-Profilen:
 
@@ -184,8 +184,20 @@ Protokolls beschreibt nur Request-Timing, kein Steuerungs-Fallback.
   sie mit dem zuletzt kommandierten Limit weiter, bis die Anlage an ihrer
   eigenen Entladeuntergrenze stoppt. Das MUSS dem Mitglied kommuniziert
   werden, solange Spike-Punkt 9 kein Auto-Revert nachweist.
-- Zusaetzlich moeglich (bisher nicht umgesetzt): ein systemd-Timer am Pi,
-  der `Remote EMS enable = 0` schreibt, wenn openHAB nicht laeuft.
+- **Fail-Safe-Reset ausserhalb von openHAB (2026-10-12):** der root-Timer
+  `stromkreis-failsafe` und der Boot-Reset (`setup/10-install-failsafe.sh`)
+  rufen `inverter_failsafe_reset` aus `profile.sh` auf, das
+  `tools/failsafe_reset.py` mit eigener Modbus-TCP-Verbindung (Slave 247,
+  Socket-Timeout 5 s, nur Standardbibliothek) startet. Es schreibt genau
+  den einen Write von `gwReset()`, `Remote EMS enable (40029) = 0`, und
+  bestaetigt ihn per Read-back (FC04); Modus- und Limit-Register bleiben
+  unangetastet, sie wirken ohne Remote EMS nicht. Geschrieben wird nur,
+  wenn die Anlage wie eine SigenStor antwortet (EMS work mode 0..10,
+  Nennentladeleistung plausibel - derselbe Guard wie im Adapter).
+  `--reads` zeigt nur die aktuellen Werte. Bisher **nur am Simulator**
+  geprueft (`tools/sim_sigenstor.py`): `INVERTER_FAILSAFE_VERIFIED=0` in
+  `profile.sh`, der Installer richtet den Timer erst nach bestandenem
+  Geraetetest ein (`../failsafe-modbus.md`, Abschnitt 8b).
 
 ## Bekannte Grenzen
 
